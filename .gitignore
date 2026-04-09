@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.svelte-kit/
+out/
+
+# Bun
+bun.lockb
+*.lock
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# SpacetimeDB
+spacetime.local.json
+module/spacetimedb/.spacetime/
+
+# Editor
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+.cursor/
+.windsurfrules
+AGENTS.md
+copilot-instructions.md
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# Temp / test artifacts
+*.tmp
+/tmp/
+
+# BeatCode reference repos
+beatcode_client/
+beatcode_server/
