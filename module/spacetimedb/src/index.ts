@@ -123,11 +123,11 @@ export const onDisconnect = spacetimedb.clientDisconnected(_ctx => {
 // ---------------------------------------------------------------------------
 
 export const set_profile = spacetimedb.reducer(
-  { username: t.string(), first_name: t.string(), last_name: t.string() },
-  (ctx, { username, first_name, last_name }) => {
+  { username: t.string(), first_name: t.string(), last_name: t.string(), github_id: t.string(), avatar_url: t.string() },
+  (ctx, { username, first_name, last_name, github_id, avatar_url }) => {
     const user = ctx.db.user.identity.find(ctx.sender);
     if (!user) throw new Error('User not found');
-    ctx.db.user.identity.update({ ...user, username, first_name, last_name });
+    ctx.db.user.identity.update({ ...user, username, first_name, last_name, github_id, avatar_url });
   }
 );
 
@@ -171,7 +171,7 @@ export const leave_room = spacetimedb.reducer(
       if (room.guest_identity) {
         ctx.db.room.code.update({ ...room, host_identity: room.guest_identity, guest_identity: undefined, host_ready: false, guest_ready: false });
       } else {
-        ctx.db.room.code.delete(room);
+        ctx.db.room.code.delete(code);
       }
     } else if (ctx.sender === room.guest_identity) {
       ctx.db.room.code.update({ ...room, guest_identity: undefined, guest_ready: false });
@@ -200,6 +200,7 @@ export const send_chat = spacetimedb.reducer(
   { game_id: t.string(), text: t.string() },
   (ctx, { game_id, text }) => {
     ctx.db.chat_message.insert({
+      id: 0n,
       game_id,
       sender_identity: ctx.sender,
       text,

@@ -13,7 +13,7 @@ function Root() {
     () =>
       DbConnection.builder()
         .withUri(SPACETIMEDB_URI)
-        .withModuleName(MODULE_NAME)
+        .withDatabaseName(MODULE_NAME)
         .withToken(localStorage.getItem(TOKEN_KEY) ?? undefined)
         .onConnect((conn, _identity, token) => {
           // Persist the SpacetimeDB token (distinct from the OIDC id_token)

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
-import { tables, reducers, type Room, type User } from '../module_bindings';
+import { tables, reducers } from '../module_bindings';
+import type { Room, User } from '../module_bindings/types';
 import RoomCard       from '../components/room/RoomCard';
 import CreateRoomForm from '../components/room/CreateRoomForm';
 

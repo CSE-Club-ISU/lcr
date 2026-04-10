@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
-import { tables, reducers, type User } from '../module_bindings';
+import { tables, reducers } from '../module_bindings';
+import type { User } from '../module_bindings/types';
 
 export default function ProfilePage() {
   const navigate   = useNavigate();
@@ -14,18 +15,22 @@ export default function ProfilePage() {
     ? users.find(u => u.identity.toHexString() === ctx.identity!.toHexString())
     : undefined;
 
-  const [username,  setUsername]  = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName,  setLastName]  = useState('');
+  const githubProfile = (() => {
+    try { return JSON.parse(localStorage.getItem('lcr_github_profile') ?? '{}'); } catch { return {}; }
+  })();
+
+  const [username,  setUsername]  = useState(githubProfile.username  ?? '');
+  const [firstName, setFirstName] = useState(githubProfile.name?.split(' ')[0] ?? '');
+  const [lastName,  setLastName]  = useState(githubProfile.name?.split(' ').slice(1).join(' ') ?? '');
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState('');
 
-  // Pre-fill from existing user row
+  // Pre-fill from existing user row (overrides GitHub profile if already set)
   useEffect(() => {
     if (myUser) {
-      setUsername(prev  => prev  || myUser.username);
-      setFirstName(prev => prev  || myUser.first_name);
-      setLastName(prev  => prev  || myUser.last_name);
+      if (myUser.username)   setUsername(myUser.username);
+      if (myUser.firstName)  setFirstName(myUser.firstName);
+      if (myUser.lastName)   setLastName(myUser.lastName);
     }
   }, [myUser]);
 
@@ -34,7 +39,13 @@ export default function ProfilePage() {
     setError('');
     if (!username.trim()) { setError('Username is required'); return; }
     setSaving(true);
-    setProfile({ username: username.trim(), first_name: firstName.trim(), last_name: lastName.trim() });
+    setProfile({
+      username:   username.trim(),
+      firstName:  firstName.trim(),
+      lastName:   lastName.trim(),
+      githubId:   githubProfile.githubId  ?? '',
+      avatarUrl:  githubProfile.avatarUrl ?? '',
+    });
   };
 
   // Navigate to lobby once the user row is updated

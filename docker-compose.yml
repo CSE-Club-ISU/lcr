@@ -1,15 +1,12 @@
 services:
   spacetimedb:
-    image: clockworklabs/spacetimedb:latest
+    image: clockworklabs/spacetime:latest
+    command: start
     ports:
       - "3000:3000"
     volumes:
       - spacetimedb_data:/var/lib/spacetimedb
-    environment:
-      - SPACETIMEDB_ALLOWED_OIDC_ISSUER=http://auth:4000
     restart: unless-stopped
-    depends_on:
-      - auth
 
   auth:
     build:
@@ -20,6 +17,12 @@ services:
     env_file: .env
     environment:
       - PORT=4000
+      - SPACETIMEDB_URL=http://spacetimedb:3000
+      - STORE_FILE=/data/token-store.json
+    volumes:
+      - auth_data:/data
+    depends_on:
+      - spacetimedb
     restart: unless-stopped
 
   executor:
@@ -48,3 +51,4 @@ services:
 
 volumes:
   spacetimedb_data:
+  auth_data:

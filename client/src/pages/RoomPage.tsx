@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
-import { tables, reducers, type Room, type User } from '../module_bindings';
+import { tables, reducers } from '../module_bindings';
+import type { Room, User } from '../module_bindings/types';
 import PlayerSlot from '../components/room/PlayerSlot';
 
 export default function RoomPage() {
@@ -21,14 +22,14 @@ export default function RoomPage() {
   const resolve = (id: { toHexString(): string } | null | undefined): User | undefined =>
     id ? users.find(u => u.identity.toHexString() === id.toHexString()) : undefined;
 
-  const host  = resolve(room?.host_identity);
-  const guest = resolve(room?.guest_identity);
+  const host  = resolve(room?.hostIdentity);
+  const guest = resolve(room?.guestIdentity);
 
-  const isHost  = myIdentity && room?.host_identity.toHexString() === myIdentity.toHexString();
-  const isGuest = myIdentity && room?.guest_identity?.toHexString() === myIdentity.toHexString();
+  const isHost  = myIdentity && room?.hostIdentity.toHexString() === myIdentity.toHexString();
+  const isGuest = myIdentity && room?.guestIdentity?.toHexString() === myIdentity.toHexString();
 
-  const myReady   = isHost ? room?.host_ready : isGuest ? room?.guest_ready : false;
-  const bothReady = room?.host_ready && room?.guest_ready && !!room?.guest_identity;
+  const myReady   = isHost ? room?.hostReady : isGuest ? room?.guestReady : false;
+  const bothReady = room?.hostReady && room?.guestReady && !!room?.guestIdentity;
 
   const settings = (() => {
     try { return JSON.parse(room?.settings ?? '{}') as Record<string, string>; } catch { return {}; }
@@ -72,9 +73,9 @@ export default function RoomPage() {
         </div>
 
         <div style={styles.players}>
-          <PlayerSlot user={host}  label="Host"  isReady={room.host_ready} />
+          <PlayerSlot user={host}  label="Host"  isReady={room.hostReady} />
           <div style={styles.vs}>VS</div>
-          <PlayerSlot user={guest} label="Guest" isReady={room.guest_ready} />
+          <PlayerSlot user={guest} label="Guest" isReady={room.guestReady} />
         </div>
 
         {bothReady && (

@@ -1,5 +1,5 @@
 import type { Identity } from 'spacetimedb';
-import type { Room, User } from '../../module_bindings';
+import type { Room, User } from '../../module_bindings/types';
 
 interface Props {
   room:       Room;
@@ -9,9 +9,9 @@ interface Props {
 }
 
 export default function RoomCard({ room, users, myIdentity, onJoin }: Props) {
-  const host  = users.find(u => u.identity.toHexString() === room.host_identity.toHexString());
-  const isMine = myIdentity && room.host_identity.toHexString() === myIdentity.toHexString();
-  const isFull = !!room.guest_identity;
+  const host  = users.find(u => u.identity.toHexString() === room.hostIdentity.toHexString());
+  const isMine = myIdentity && room.hostIdentity.toHexString() === myIdentity.toHexString();
+  const isFull = !!room.guestIdentity;
 
   const settings = (() => {
     try { return JSON.parse(room.settings); } catch { return {}; }

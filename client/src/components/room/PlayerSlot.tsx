@@ -1,4 +1,4 @@
-import type { User } from '../../module_bindings';
+import type { User } from '../../module_bindings/types';
 
 interface Props {
   user:    User | undefined;
@@ -12,16 +12,16 @@ export default function PlayerSlot({ user, label, isReady }: Props) {
       <span style={styles.roleLabel}>{label}</span>
       {user ? (
         <>
-          {user.avatar_url && (
+          {user.avatarUrl && (
             <img
-              src={user.avatar_url}
+              src={user.avatarUrl}
               alt={user.username}
               style={styles.avatar}
             />
           )}
           <span style={styles.username}>{user.username || '—'}</span>
-          {(user.first_name || user.last_name) && (
-            <span style={styles.name}>{[user.first_name, user.last_name].filter(Boolean).join(' ')}</span>
+          {(user.firstName || user.lastName) && (
+            <span style={styles.name}>{[user.firstName, user.lastName].filter(Boolean).join(' ')}</span>
           )}
           <span style={isReady ? styles.readyBadge : styles.waitingBadge}>
             {isReady ? '✓ Ready' : 'Not ready'}
