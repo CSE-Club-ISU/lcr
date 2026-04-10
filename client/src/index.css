@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gh-bg: #0d1117;
+  --color-gh-card: #161b22;
+  --color-gh-secondary: #21262d;
+  --color-gh-border: #30363d;
+  --color-gh-muted: #8b949e;
+  --color-gh-text: #c9d1d9;
+  --color-gh-bright: #f0f6fc;
+  --color-gh-green: #238636;
+  --color-gh-blue: #1f6feb;
+  --color-gh-lightblue: #58a6ff;
+  --color-gh-red: #f85149;
+  --color-gh-success: #3fb950;
+  --color-gh-darkgreen: #1a4731;
+}
+
+@layer base {
+  body {
+    @apply bg-gh-bg text-gh-bright;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-8 py-3 font-semibold text-[15px] text-white bg-gh-green border-none rounded-md cursor-pointer;
+  }
+
+  .btn-accent {
+    @apply px-5 py-2 font-semibold text-sm text-white bg-gh-blue border-none rounded-md cursor-pointer self-end;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 text-sm text-gh-bright bg-gh-secondary border border-gh-border rounded-md cursor-pointer;
+  }
+
+  .input-field {
+    @apply px-[10px] py-2 text-sm bg-gh-bg text-gh-bright border border-gh-border rounded-md outline-none;
+  }
+
+  .card {
+    @apply bg-gh-card border border-gh-border rounded-xl;
+  }
+
+  .chip {
+    @apply px-[10px] py-1 bg-gh-secondary rounded-full text-[13px] text-gh-muted;
+  }
+}

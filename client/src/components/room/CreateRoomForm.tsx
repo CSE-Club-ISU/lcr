@@ -37,12 +37,12 @@ export default function CreateRoomForm({ onCreated }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={styles.form}>
-      <div style={styles.row}>
-        <label style={styles.label}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <div className="flex items-end gap-3 flex-wrap">
+        <label className="flex flex-col gap-1 text-xs text-gh-muted">
           Room code (optional)
           <input
-            style={styles.input}
+            className="input-field w-[120px]"
             value={code}
             onChange={e => setCode(e.target.value.toUpperCase())}
             placeholder="Auto-generated"
@@ -50,10 +50,10 @@ export default function CreateRoomForm({ onCreated }: Props) {
           />
         </label>
 
-        <label style={styles.label}>
+        <label className="flex flex-col gap-1 text-xs text-gh-muted">
           Difficulty
           <select
-            style={styles.select}
+            className="input-field"
             value={difficulty}
             onChange={e => setDifficulty(e.target.value as typeof difficulty)}
           >
@@ -61,52 +61,30 @@ export default function CreateRoomForm({ onCreated }: Props) {
           </select>
         </label>
 
-        <label style={styles.label}>
+        <label className="flex flex-col gap-1 text-xs text-gh-muted">
           Problems
           <input
-            style={{ ...styles.input, width: '60px' }}
+            className="input-field w-[60px]"
             type="number" min={1} max={10}
             value={problemCount}
             onChange={e => setProblemCount(Number(e.target.value))}
           />
         </label>
 
-        <label style={styles.label}>
+        <label className="flex flex-col gap-1 text-xs text-gh-muted">
           Starting HP
           <input
-            style={{ ...styles.input, width: '70px' }}
+            className="input-field w-[70px]"
             type="number" min={10} max={500} step={10}
             value={startingHp}
             onChange={e => setStartingHp(Number(e.target.value))}
           />
         </label>
 
-        <button style={styles.button} type="submit">Create</button>
+        <button className="btn-accent" type="submit">Create</button>
       </div>
 
-      {error && <p style={styles.error}>{error}</p>}
+      {error && <p className="m-0 text-gh-red text-[13px]">{error}</p>}
     </form>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  form:  { display: 'flex', flexDirection: 'column', gap: '8px' },
-  row:   { display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' },
-  label: { display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#8b949e' },
-  input: {
-    padding: '8px 10px', fontSize: '14px', width: '120px',
-    backgroundColor: '#0d1117', color: '#f0f6fc',
-    border: '1px solid #30363d', borderRadius: '6px', outline: 'none',
-  },
-  select: {
-    padding: '8px 10px', fontSize: '14px',
-    backgroundColor: '#0d1117', color: '#f0f6fc',
-    border: '1px solid #30363d', borderRadius: '6px', outline: 'none',
-  },
-  button: {
-    padding: '8px 20px', fontWeight: 600, fontSize: '14px',
-    color: '#fff', backgroundColor: '#1f6feb',
-    border: 'none', borderRadius: '6px', cursor: 'pointer', alignSelf: 'flex-end',
-  },
-  error: { margin: 0, color: '#f85149', fontSize: '13px' },
-};

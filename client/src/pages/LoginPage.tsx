@@ -6,57 +6,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>LCR</h1>
-        <p style={styles.subtitle}>Competitive Coding — CS Club ISU</p>
-        <button style={styles.button} onClick={handleSignIn}>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="card flex flex-col items-center gap-4 p-12">
+        <h1 className="m-0 text-5xl font-bold text-gh-bright tracking-tight">LCR</h1>
+        <p className="m-0 text-sm text-gh-muted">Competitive Coding — CS Club ISU</p>
+        <button className="btn-primary mt-2" onClick={handleSignIn}>
           Sign in with GitHub
         </button>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#0d1117',
-  } as React.CSSProperties,
-  card: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: '16px',
-    padding: '48px',
-    backgroundColor: '#161b22',
-    border: '1px solid #30363d',
-    borderRadius: '12px',
-  },
-  title: {
-    margin: 0,
-    fontSize: '48px',
-    fontWeight: 700,
-    color: '#f0f6fc',
-    letterSpacing: '-1px',
-  },
-  subtitle: {
-    margin: 0,
-    fontSize: '14px',
-    color: '#8b949e',
-  },
-  button: {
-    marginTop: '8px',
-    padding: '12px 24px',
-    fontSize: '15px',
-    fontWeight: 600,
-    color: '#ffffff',
-    backgroundColor: '#238636',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-};

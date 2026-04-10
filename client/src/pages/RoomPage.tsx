@@ -46,47 +46,47 @@ export default function RoomPage() {
 
   if (!room) {
     return (
-      <div style={styles.container}>
-        <p style={{ color: '#8b949e', textAlign: 'center', marginTop: '80px' }}>Room not found.</p>
-        <div style={{ textAlign: 'center' }}>
-          <button style={styles.btnSecondary} onClick={() => navigate('/lobby')}>Back to lobby</button>
+      <div className="min-h-screen">
+        <p className="text-gh-muted text-center mt-20">Room not found.</p>
+        <div className="text-center">
+          <button className="btn-secondary" onClick={() => navigate('/lobby')}>Back to lobby</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <span style={styles.brand}>LCR</span>
-        <div style={styles.headerRight}>
-          <span style={styles.code}>Room: {code}</span>
-          <button style={styles.btnSecondary} onClick={handleLeave}>Leave</button>
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between px-6 h-14 border-b border-gh-border bg-gh-card">
+        <span className="font-bold text-xl">LCR</span>
+        <div className="flex items-center gap-4">
+          <span className="text-[13px] text-gh-muted font-mono">Room: {code}</span>
+          <button className="btn-secondary" onClick={handleLeave}>Leave</button>
         </div>
       </header>
 
-      <main style={styles.main}>
-        <div style={styles.settings}>
+      <main className="max-w-[640px] mx-auto py-10 px-6 flex flex-col items-center gap-8">
+        <div className="flex gap-2 flex-wrap justify-center">
           {settings.difficulty    && <Chip label={`Difficulty: ${settings.difficulty}`} />}
           {settings.problem_count && <Chip label={`Problems: ${settings.problem_count}`} />}
           {settings.starting_hp  && <Chip label={`HP: ${settings.starting_hp}`} />}
         </div>
 
-        <div style={styles.players}>
+        <div className="flex items-center gap-8 w-full justify-center">
           <PlayerSlot user={host}  label="Host"  isReady={room.hostReady} />
-          <div style={styles.vs}>VS</div>
+          <div className="text-2xl font-bold text-gh-muted">VS</div>
           <PlayerSlot user={guest} label="Guest" isReady={room.guestReady} />
         </div>
 
         {bothReady && (
-          <div style={styles.readyBanner}>
+          <div className="py-3 px-6 rounded-lg bg-gh-blue text-white font-semibold text-center">
             Both players ready — game starting soon!
           </div>
         )}
 
         {(isHost || isGuest) && !bothReady && (
           <button
-            style={myReady ? styles.btnUnready : styles.btnReady}
+            className={myReady ? 'btn-secondary px-8 py-3 text-[15px] font-semibold' : 'btn-primary'}
             onClick={handleToggleReady}
           >
             {myReady ? 'Unready' : 'Ready up'}
@@ -98,46 +98,5 @@ export default function RoomPage() {
 }
 
 function Chip({ label }: { label: string }) {
-  return (
-    <span style={{ padding: '4px 10px', background: '#21262d', borderRadius: '20px', fontSize: '13px', color: '#8b949e' }}>
-      {label}
-    </span>
-  );
+  return <span className="chip">{label}</span>;
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { minHeight: '100vh', backgroundColor: '#0d1117', color: '#f0f6fc' },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '0 24px', height: '56px',
-    borderBottom: '1px solid #30363d', backgroundColor: '#161b22',
-  },
-  brand:       { fontWeight: 700, fontSize: '20px' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-  code:        { fontSize: '13px', color: '#8b949e', fontFamily: 'monospace' },
-  main: {
-    maxWidth: '640px', margin: '0 auto', padding: '40px 24px',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '32px',
-  },
-  settings:    { display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' },
-  players: {
-    display: 'flex', alignItems: 'center', gap: '32px', width: '100%', justifyContent: 'center',
-  },
-  vs: { fontSize: '24px', fontWeight: 700, color: '#8b949e' },
-  readyBanner: {
-    padding: '12px 24px', borderRadius: '8px',
-    backgroundColor: '#1f6feb', color: '#fff', fontWeight: 600, textAlign: 'center',
-  },
-  btnReady: {
-    padding: '12px 32px', fontWeight: 600, fontSize: '15px',
-    color: '#fff', backgroundColor: '#238636', border: 'none', borderRadius: '6px', cursor: 'pointer',
-  },
-  btnUnready: {
-    padding: '12px 32px', fontWeight: 600, fontSize: '15px',
-    color: '#f0f6fc', backgroundColor: '#21262d', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer',
-  },
-  btnSecondary: {
-    padding: '8px 16px', fontSize: '14px',
-    color: '#f0f6fc', backgroundColor: '#21262d', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer',
-  },
-};

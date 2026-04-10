@@ -32,24 +32,24 @@ export default function LobbyPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <span style={styles.brand}>LCR</span>
-        <span style={styles.user}>{myUser?.username ?? '…'}</span>
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between px-6 h-14 border-b border-gh-border bg-gh-card">
+        <span className="font-bold text-xl tracking-[-0.5px]">LCR</span>
+        <span className="text-sm text-gh-muted">{myUser?.username ?? '…'}</span>
       </header>
 
-      <main style={styles.main}>
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Create a room</h2>
+      <main className="max-w-[800px] mx-auto py-8 px-6 flex flex-col gap-10">
+        <section className="flex flex-col gap-4">
+          <h2 className="m-0 text-base font-semibold text-gh-bright">Create a room</h2>
           <CreateRoomForm onCreated={handleCreated} />
         </section>
 
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Open rooms</h2>
+        <section className="flex flex-col gap-4">
+          <h2 className="m-0 text-base font-semibold text-gh-bright">Open rooms</h2>
           {waitingRooms.length === 0 ? (
-            <p style={styles.empty}>No open rooms yet — create one above!</p>
+            <p className="m-0 text-gh-muted text-sm">No open rooms yet — create one above!</p>
           ) : (
-            <div style={styles.roomList}>
+            <div className="flex flex-col gap-2">
               {waitingRooms.map(room => (
                 <RoomCard
                   key={room.code}
@@ -66,19 +66,3 @@ export default function LobbyPage() {
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { minHeight: '100vh', backgroundColor: '#0d1117', color: '#f0f6fc' },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '0 24px', height: '56px',
-    borderBottom: '1px solid #30363d', backgroundColor: '#161b22',
-  },
-  brand: { fontWeight: 700, fontSize: '20px', letterSpacing: '-0.5px' },
-  user:  { fontSize: '14px', color: '#8b949e' },
-  main:  { maxWidth: '800px', margin: '0 auto', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '40px' },
-  section: { display: 'flex', flexDirection: 'column', gap: '16px' },
-  sectionTitle: { margin: 0, fontSize: '16px', fontWeight: 600, color: '#f0f6fc' },
-  empty: { margin: 0, color: '#8b949e', fontSize: '14px' },
-  roomList: { display: 'flex', flexDirection: 'column', gap: '8px' },
-};
