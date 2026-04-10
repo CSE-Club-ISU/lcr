@@ -1,3 +1,4 @@
+import './index.css';
 import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SpacetimeDBProvider } from 'spacetimedb/react';

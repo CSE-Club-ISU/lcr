@@ -34,7 +34,7 @@ export default function HomePage() {
   }, [ctx.isActive, ctx.identity, users, navigate]);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: '#8b949e' }}>
+    <div className="flex items-center justify-center min-h-screen text-gh-muted">
       Loading…
     </div>
   );

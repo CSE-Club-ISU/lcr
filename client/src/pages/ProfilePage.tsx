@@ -60,15 +60,15 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.heading}>Set up your profile</h2>
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="card p-10 w-[360px]">
+        <h2 className="m-0 mb-6 text-gh-bright font-semibold text-xl">Set up your profile</h2>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-gh-text text-sm">
             Username
             <input
-              style={styles.input}
+              className="input-field"
               value={username}
               onChange={e => setUsername(e.target.value)}
               placeholder="github-login"
@@ -76,29 +76,29 @@ export default function ProfilePage() {
             />
           </label>
 
-          <label style={styles.label}>
+          <label className="flex flex-col gap-1.5 text-gh-text text-sm">
             First name
             <input
-              style={styles.input}
+              className="input-field"
               value={firstName}
               onChange={e => setFirstName(e.target.value)}
               placeholder="Optional"
             />
           </label>
 
-          <label style={styles.label}>
+          <label className="flex flex-col gap-1.5 text-gh-text text-sm">
             Last name
             <input
-              style={styles.input}
+              className="input-field"
               value={lastName}
               onChange={e => setLastName(e.target.value)}
               placeholder="Optional"
             />
           </label>
 
-          {error && <p style={styles.error}>{error}</p>}
+          {error && <p className="m-0 text-gh-red text-[13px]">{error}</p>}
 
-          <button style={styles.button} type="submit" disabled={saving}>
+          <button className="btn-primary px-4 py-2.5 text-sm" type="submit" disabled={saving}>
             {saving ? 'Saving…' : 'Save & continue'}
           </button>
         </form>
@@ -106,28 +106,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: '100vh', backgroundColor: '#0d1117',
-  },
-  card: {
-    padding: '40px', width: '360px',
-    backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '12px',
-  },
-  heading: { margin: '0 0 24px', color: '#f0f6fc', fontWeight: 600, fontSize: '20px' },
-  form:    { display: 'flex', flexDirection: 'column', gap: '16px' },
-  label:   { display: 'flex', flexDirection: 'column', gap: '6px', color: '#c9d1d9', fontSize: '14px' },
-  input: {
-    padding: '8px 12px', fontSize: '14px',
-    backgroundColor: '#0d1117', color: '#f0f6fc',
-    border: '1px solid #30363d', borderRadius: '6px', outline: 'none',
-  },
-  error:  { margin: 0, color: '#f85149', fontSize: '13px' },
-  button: {
-    padding: '10px', fontWeight: 600, fontSize: '14px',
-    color: '#ffffff', backgroundColor: '#238636',
-    border: 'none', borderRadius: '6px', cursor: 'pointer',
-  },
-};
