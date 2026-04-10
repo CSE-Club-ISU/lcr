@@ -5,6 +5,21 @@ services:
       - "3000:3000"
     volumes:
       - spacetimedb_data:/var/lib/spacetimedb
+    environment:
+      - SPACETIMEDB_ALLOWED_OIDC_ISSUER=http://auth:4000
+    restart: unless-stopped
+    depends_on:
+      - auth
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    env_file: .env
+    environment:
+      - PORT=4000
     restart: unless-stopped
 
   executor:
@@ -28,6 +43,7 @@ services:
       - "80:80"
     depends_on:
       - spacetimedb
+      - auth
     restart: unless-stopped
 
 volumes:

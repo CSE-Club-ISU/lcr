@@ -9,7 +9,10 @@ const user = table(
   {
     identity:     t.identity().primaryKey(),
     username:     t.string(),
-    display_name: t.string(),
+    first_name:   t.string(),
+    last_name:    t.string(),
+    github_id:    t.string(),
+    avatar_url:   t.string(),
     is_admin:     t.bool(),
   }
 );
@@ -100,10 +103,13 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
   const existing = ctx.db.user.identity.find(ctx.sender);
   if (!existing) {
     ctx.db.user.insert({
-      identity:     ctx.sender,
-      username:     '',
-      display_name: '',
-      is_admin:     false,
+      identity:   ctx.sender,
+      username:   '',
+      first_name: '',
+      last_name:  '',
+      github_id:  '',
+      avatar_url: '',
+      is_admin:   false,
     });
   }
 });
@@ -117,16 +123,16 @@ export const onDisconnect = spacetimedb.clientDisconnected(_ctx => {
 // ---------------------------------------------------------------------------
 
 export const set_profile = spacetimedb.reducer(
-  { username: t.string(), display_name: t.string() },
-  (ctx, { username, display_name }) => {
+  { username: t.string(), first_name: t.string(), last_name: t.string() },
+  (ctx, { username, first_name, last_name }) => {
     const user = ctx.db.user.identity.find(ctx.sender);
     if (!user) throw new Error('User not found');
-    ctx.db.user.identity.update({ ...user, username, display_name });
+    ctx.db.user.identity.update({ ...user, username, first_name, last_name });
   }
 );
 
 // ---------------------------------------------------------------------------
-// Room reducers (stubs — logic added in Phase 1)
+// Room reducers
 // ---------------------------------------------------------------------------
 
 export const create_room = spacetimedb.reducer(
