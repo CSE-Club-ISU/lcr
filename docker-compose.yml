@@ -1,4 +1,16 @@
 services:
+  init:
+    image: clockworklabs/spacetime:latest
+    command: /bin/bash /init.sh
+    volumes:
+      - .:/workspace
+      - ./init.sh:/init.sh
+    depends_on:
+      spacetimedb:
+        condition: service_started
+    networks:
+      - default
+
   spacetimedb:
     image: clockworklabs/spacetime:latest
     command: start
@@ -22,7 +34,8 @@ services:
     volumes:
       - auth_data:/data
     depends_on:
-      - spacetimedb
+      init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   executor:
@@ -35,7 +48,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - spacetimedb
+      init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   client:
@@ -45,8 +59,10 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - spacetimedb
-      - auth
+      init:
+        condition: service_completed_successfully
+      auth:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
