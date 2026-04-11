@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
@@ -11,6 +12,7 @@ export default function ResultsScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const ctx = useSpacetimeDB();
+  const [timedOut, setTimedOut] = useState(false);
 
   const gameId = searchParams.get('game') ?? '';
 
@@ -22,16 +24,34 @@ export default function ResultsScreen() {
     .filter(m => m.roomCode === gameId)
     .sort((a, b) => Number(b.playedAt.microsSinceUnixEpoch - a.playedAt.microsSinceUnixEpoch))[0];
 
+  // Timeout fallback if match data never arrives
+  useEffect(() => {
+    if (match) return;
+    const t = setTimeout(() => setTimedOut(true), 10000);
+    return () => clearTimeout(t);
+  }, [match]);
+
   const resolveUser = (id: { toHexString(): string } | undefined) =>
     id ? users.find(u => identityEq(u.identity, id)) : undefined;
 
   if (!match) {
     return (
       <div className="flex flex-col items-center gap-6 mt-20">
-        <div className="text-text-muted">Loading results…</div>
-        <button className="btn-secondary" onClick={() => navigate('/profile')}>
-          Back to Dashboard
-        </button>
+        {timedOut ? (
+          <>
+            <div className="text-text-muted">Match data unavailable.</div>
+            <button className="btn-secondary" onClick={() => navigate('/profile')}>
+              Back to Dashboard
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="text-text-muted">Loading results…</div>
+            <button className="btn-secondary" onClick={() => navigate('/profile')}>
+              Back to Dashboard
+            </button>
+          </>
+        )}
       </div>
     );
   }
