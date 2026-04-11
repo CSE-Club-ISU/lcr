@@ -39,7 +39,9 @@ import BuyAbilityReducer from "./buy_ability_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import ForfeitReducer from "./forfeit_reducer";
 import InsertProblemReducer from "./insert_problem_reducer";
+import JoinQueueReducer from "./join_queue_reducer";
 import JoinRoomReducer from "./join_room_reducer";
+import LeaveQueueReducer from "./leave_queue_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
@@ -56,6 +58,7 @@ import ChatMessageRow from "./chat_message_table";
 import GameStateRow from "./game_state_table";
 import MatchHistoryRow from "./match_history_table";
 import ProblemRow from "./problem_table";
+import QueueRow from "./queue_table";
 import RoomRow from "./room_table";
 import SubmissionRow from "./submission_table";
 import UserRow from "./user_table";
@@ -114,6 +117,20 @@ const tablesSchema = __schema({
       { name: 'problem_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, ProblemRow),
+  queue: __table({
+    name: 'queue',
+    indexes: [
+      { accessor: 'queue_difficulty', name: 'queue_difficulty_idx_btree', algorithm: 'btree', columns: [
+        'difficulty',
+      ] },
+      { accessor: 'identity', name: 'queue_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'queue_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, QueueRow),
   room: __table({
     name: 'room',
     indexes: [
@@ -159,7 +176,9 @@ const reducersSchema = __reducers(
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("forfeit", ForfeitReducer),
   __reducerSchema("insert_problem", InsertProblemReducer),
+  __reducerSchema("join_queue", JoinQueueReducer),
   __reducerSchema("join_room", JoinRoomReducer),
+  __reducerSchema("leave_queue", LeaveQueueReducer),
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
