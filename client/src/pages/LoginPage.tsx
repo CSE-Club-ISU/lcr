@@ -44,8 +44,6 @@ export default function LoginPage() {
         avatarUrl: '',
         email:     '',
       }));
-      // Mark that this is a fresh guest account so ProfilePage auto-saves the username
-      localStorage.setItem('lcr_guest_needs_setup', 'true');
       navigate('/');
     } catch (err) {
       setGuestError(String(err instanceof Error ? err.message : err));
