@@ -131,11 +131,26 @@ const match_history = table(
   }
 );
 
+const queue = table(
+  {
+    name: 'queue',
+    public: true,
+    indexes: [
+      { accessor: 'queue_difficulty', algorithm: 'btree', columns: ['difficulty'] },
+    ],
+  },
+  {
+    identity:   t.identity().primaryKey(),
+    difficulty:  t.string(),   // "easy" | "medium" | "hard"
+    queued_at:   t.timestamp(),
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, queue });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -161,8 +176,9 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
   }
 });
 
-export const onDisconnect = spacetimedb.clientDisconnected(_ctx => {
-  // Future: track online status
+export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
+  const entry = ctx.db.queue.identity.find(ctx.sender);
+  if (entry) ctx.db.queue.identity.delete(ctx.sender);
 });
 
 // ---------------------------------------------------------------------------
@@ -276,7 +292,61 @@ export const set_ready = spacetimedb.reducer(
 // Game reducers
 // ---------------------------------------------------------------------------
 
-// Called by the host when both players are ready. Picks a problem, creates game state.
+type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
+type RoomRow = NonNullable<ReturnType<DbCtx['db']['room']['code']['find']>>;
+
+// Shared helper: pick problems and create game_state for a room. Both players
+// must already be set on the room row before calling this.
+function startGameForRoom(ctx: DbCtx, room: RoomRow): void {
+  const settings = JSON.parse(room.settings) as Record<string, unknown>;
+  const difficulty = (settings.difficulty as string) ?? 'medium';
+
+  const approved = [...ctx.db.problem.iter()].filter(
+    p => p.is_approved && p.difficulty === difficulty
+  );
+  if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
+
+  // Use timestamp for entropy so the same room code gets different problems each game.
+  const seed = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+    + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
+
+  const problemCount = Math.min(
+    Math.max(1, Number(settings.problem_count ?? 1)),
+    approved.length
+  );
+
+  const selected: typeof approved = [];
+  for (let i = 0; i < problemCount; i++) {
+    selected.push(approved[(seed + i * 7) % approved.length]);
+  }
+
+  const starting_hp = Number(settings.starting_hp ?? 100);
+
+  ctx.db.game_state.insert({
+    id:                    room.code,
+    room_code:             room.code,
+    player1_identity:      room.host_identity,
+    player2_identity:      room.guest_identity!,
+    player1_hp:            starting_hp,
+    player2_hp:            starting_hp,
+    player1_sp:            0,
+    player2_sp:            0,
+    player1_mp:            0,
+    player2_mp:            0,
+    player1_problem_index: 0,
+    player2_problem_index: 0,
+    player1_abilities:     '[]',
+    player2_abilities:     '[]',
+    problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
+    status:                'in_progress',
+    start_time:            ctx.timestamp,
+    winner_identity:       undefined,
+  });
+
+  ctx.db.room.code.update({ ...room, status: 'in_game' });
+}
+
+// Called by the host when both players are ready.
 export const start_game = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
@@ -285,44 +355,7 @@ export const start_game = spacetimedb.reducer(
     if (!room.host_ready || !room.guest_ready) throw new SenderError('Not both ready');
     if (!room.guest_identity) throw new SenderError('No guest in room');
     if (room.status === 'in_game') return; // already started
-
-    const settings = JSON.parse(room.settings) as Record<string, unknown>;
-    const difficulty = (settings.difficulty as string) ?? 'medium';
-
-    // Pick approved problems matching difficulty
-    const approved = [...ctx.db.problem.iter()].filter(
-      p => p.is_approved && p.difficulty === difficulty
-    );
-    if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
-
-    // Deterministic selection — hash room code to pick index
-    const idx = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % approved.length;
-    const problem = approved[idx];
-
-    const starting_hp = Number(settings.starting_hp ?? 100);
-
-    ctx.db.game_state.insert({
-      id:                    room.code,
-      room_code:             room.code,
-      player1_identity:      room.host_identity,
-      player2_identity:      room.guest_identity,
-      player1_hp:            starting_hp,
-      player2_hp:            starting_hp,
-      player1_sp:            0,
-      player2_sp:            0,
-      player1_mp:            0,
-      player2_mp:            0,
-      player1_problem_index: 0,
-      player2_problem_index: 0,
-      player1_abilities:     '[]',
-      player2_abilities:     '[]',
-      problem_ids:           JSON.stringify([problem.id.toString()]),
-      status:                'in_progress',
-      start_time:            ctx.timestamp,
-      winner_identity:       undefined,
-    });
-
-    ctx.db.room.code.update({ ...room, status: 'in_game' });
+    startGameForRoom(ctx, room);
   }
 );
 
@@ -473,6 +506,74 @@ export const set_executor_identity = spacetimedb.reducer(
     } else {
       ctx.db.executor_config.insert({ id: 0, executor_identity: ctx.sender });
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Queue reducers
+// ---------------------------------------------------------------------------
+
+export const join_queue = spacetimedb.reducer(
+  { difficulty: t.string() },
+  (ctx, { difficulty }) => {
+    if (!['easy', 'medium', 'hard'].includes(difficulty))
+      throw new SenderError('Invalid difficulty');
+
+    // Prevent queuing while already in an active game
+    for (const g of ctx.db.game_state.iter()) {
+      if (g.status === 'in_progress' &&
+          (g.player1_identity.toHexString() === ctx.sender.toHexString() ||
+           g.player2_identity.toHexString() === ctx.sender.toHexString()))
+        throw new SenderError('Already in a game');
+    }
+
+    // Upsert queue entry
+    const existing = ctx.db.queue.identity.find(ctx.sender);
+    if (existing) {
+      ctx.db.queue.identity.update({ ...existing, difficulty, queued_at: ctx.timestamp });
+    } else {
+      ctx.db.queue.insert({ identity: ctx.sender, difficulty, queued_at: ctx.timestamp });
+    }
+
+    // Find another player queued for the same difficulty
+    const candidates = [...ctx.db.queue.queue_difficulty.filter(difficulty)]
+      .filter(q => q.identity.toHexString() !== ctx.sender.toHexString());
+
+    if (candidates.length === 0) return; // nobody to match yet
+
+    // FIFO: pick the earliest queued player
+    candidates.sort((a, b) =>
+      Number(a.queued_at.microsSinceUnixEpoch - b.queued_at.microsSinceUnixEpoch));
+    const opponent = candidates[0];
+
+    // Remove both from queue
+    ctx.db.queue.identity.delete(ctx.sender);
+    ctx.db.queue.identity.delete(opponent.identity);
+
+    // Generate a deterministic room code unique to this reducer call
+    const code = 'Q' + ctx.timestamp.microsSinceUnixEpoch.toString(16).slice(-5).toUpperCase();
+
+    const settings = JSON.stringify({ difficulty, problem_count: 1, starting_hp: 100 });
+    ctx.db.room.insert({
+      code,
+      host_identity:  opponent.identity,   // earlier queuer is host
+      guest_identity: ctx.sender,
+      host_ready:     true,
+      guest_ready:    true,
+      status:         'waiting',
+      settings,
+    });
+
+    const room = ctx.db.room.code.find(code)!;
+    startGameForRoom(ctx, room);
+  }
+);
+
+export const leave_queue = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const entry = ctx.db.queue.identity.find(ctx.sender);
+    if (entry) ctx.db.queue.identity.delete(ctx.sender);
   }
 );
 
