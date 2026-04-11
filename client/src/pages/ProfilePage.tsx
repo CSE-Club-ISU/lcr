@@ -282,11 +282,18 @@ export default function ProfilePage() {
 
   // Auto-populate profile from GitHub data on first login so the user
   // doesn't have to fill in a form they already completed before.
+  // Also handles guest accounts that need their generated username saved.
   useEffect(() => {
     if (!ctx.isActive || !myUser || myUser.username) return;
 
     const raw = localStorage.getItem('lcr_github_profile');
     if (!raw) return;
+
+    // Only auto-save if this is a fresh guest account or a GitHub OAuth login
+    const needsSetup = localStorage.getItem('lcr_guest_needs_setup') === 'true';
+    const isGuest = localStorage.getItem('lcr_guest_mode') === 'true';
+    if (!needsSetup && isGuest) return;
+
     try {
       const gh = JSON.parse(raw) as Record<string, string>;
       if (!gh.username) return;
@@ -300,10 +307,11 @@ export default function ProfilePage() {
     } catch { /* ignore */ }
   }, [ctx.isActive, myUser]);
 
-  // Clear GitHub profile from localStorage once it's been saved to SpacetimeDB
+  // Clear GitHub profile and guest setup flag from localStorage once saved to SpacetimeDB
   useEffect(() => {
     if (myUser?.username) {
       localStorage.removeItem('lcr_github_profile');
+      localStorage.removeItem('lcr_guest_needs_setup');
     }
   }, [myUser?.username]);
 
