@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
@@ -11,6 +11,7 @@ export default function RoomPage() {
   const ctx         = useSpacetimeDB();
   const [roomRows]  = useTable(tables.room);
   const [userRows]  = useTable(tables.user);
+  const joinRoom    = useReducer(reducers.joinRoom);
   const leaveRoom   = useReducer(reducers.leaveRoom);
   const setReady    = useReducer(reducers.setReady);
   const startGame   = useReducer(reducers.startGame);
@@ -21,14 +22,40 @@ export default function RoomPage() {
   const myIdentity = ctx.identity;
   const room = rooms.find(r => r.code === code);
 
+  const isHost  = !!myIdentity && !!room && room.hostIdentity.toHexString() === myIdentity.toHexString();
+  const isGuest = !!myIdentity && !!room && !!room.guestIdentity && room.guestIdentity.toHexString() === myIdentity.toHexString();
+  const inRoom  = isHost || isGuest;
+
+  const joinAttempted = useRef(false);
+
+  // Join the room once we confirm we're NOT the host (guest or unknown)
+  useEffect(() => {
+    if (!ctx.isActive || !myIdentity || !code || joinAttempted.current) return;
+    // If room data loaded and we're the host, no need to join
+    if (isHost) {
+      joinAttempted.current = true;
+      return;
+    }
+    // If room loaded and we're already guest, no need to join
+    if (isGuest) {
+      joinAttempted.current = true;
+      return;
+    }
+    // If room loaded but we're neither host nor guest, join now
+    if (room && !inRoom) {
+      joinAttempted.current = true;
+      joinRoom({ code });
+      return;
+    }
+    // Room hasn't loaded yet — wait for it. Once it loads, this effect
+    // re-runs and one of the branches above will fire.
+  }, [ctx.isActive, myIdentity?.toHexString(), code, room, isHost, isGuest, inRoom, joinRoom]);
+
   const resolve = (id: { toHexString(): string } | null | undefined): User | undefined =>
     id ? users.find(u => u.identity.toHexString() === id.toHexString()) : undefined;
 
   const host  = resolve(room?.hostIdentity);
   const guest = resolve(room?.guestIdentity);
-
-  const isHost  = myIdentity && room?.hostIdentity.toHexString() === myIdentity.toHexString();
-  const isGuest = myIdentity && room?.guestIdentity?.toHexString() === myIdentity.toHexString();
 
   const myReady   = isHost ? room?.hostReady : isGuest ? room?.guestReady : false;
   const bothReady = room?.hostReady && room?.guestReady && !!room?.guestIdentity;
@@ -63,7 +90,7 @@ export default function RoomPage() {
   if (!room) {
     return (
       <div>
-        <p className="text-text-muted text-center mt-20">Room not found.</p>
+        <p className="text-text-muted text-center mt-20">Joining room...</p>
         <div className="text-center mt-4">
           <button className="btn-secondary" onClick={() => navigate('/play')}>Back to Play</button>
         </div>

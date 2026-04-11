@@ -162,6 +162,20 @@ app.post('/redeem', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Guest mode: issue an anonymous SpacetimeDB token
+// ---------------------------------------------------------------------------
+
+app.post('/guest', async (c) => {
+  const identityRes = await fetch(`${SPACETIMEDB_URL}/v1/identity`, { method: 'POST' });
+  if (!identityRes.ok) {
+    console.error('[auth] SpacetimeDB /v1/identity failed:', identityRes.status, await identityRes.text());
+    return c.json({ error: 'Failed to create guest identity' }, 500);
+  }
+  const identityData = await identityRes.json() as { identity: string; token: string };
+  return c.json({ token: identityData.token });
+});
+
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 

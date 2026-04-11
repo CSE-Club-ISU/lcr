@@ -41,6 +41,7 @@ import ForfeitReducer from "./forfeit_reducer";
 import JoinRoomReducer from "./join_room_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import SendChatReducer from "./send_chat_reducer";
+import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
 import SetProfileReducer from "./set_profile_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
@@ -144,6 +145,7 @@ const reducersSchema = __reducers(
   __reducerSchema("join_room", JoinRoomReducer),
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("send_chat", SendChatReducer),
+  __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
   __reducerSchema("set_profile", SetProfileReducer),
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("start_game", StartGameReducer),
