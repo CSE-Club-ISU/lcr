@@ -181,6 +181,79 @@ export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
   if (entry) ctx.db.queue.identity.delete(ctx.sender);
 });
 
+// Seed some test problems on first database init
+export const seed = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const existing = [...ctx.db.problem.iter()];
+    if (existing.length > 0) return; // already seeded
+
+    const testProblems = [
+      {
+        title: "Two Sum",
+        description: "Given an array of integers nums and an integer target, return the indices of the two numbers that add up to target.",
+        difficulty: "easy",
+        method_name: "twoSum",
+        sample_test_cases: JSON.stringify([[2,7,11,15], [3,2,4]]),
+        sample_test_results: JSON.stringify([[0,1], [1,2]]),
+        hidden_test_cases: JSON.stringify([[1,3,5,7], [0,-1,1]]),
+        hidden_test_results: JSON.stringify([[0,3], [0,2]]),
+        boilerplate_python: "def twoSum(nums, target):\n    pass",
+        boilerplate_java: "public int[] twoSum(int[] nums, int target) { }",
+        boilerplate_cpp: "vector<int> twoSum(vector<int>& nums, int target) { }",
+        is_approved: true,
+      },
+      {
+        title: "Longest Substring Without Repeating Characters",
+        description: "Given a string s, find the length of the longest substring without repeating characters.",
+        difficulty: "medium",
+        method_name: "lengthOfLongestSubstring",
+        sample_test_cases: JSON.stringify(["abcabcbb", "bbbbb", "pwwkew"]),
+        sample_test_results: JSON.stringify([3, 1, 3]),
+        hidden_test_cases: JSON.stringify(["au", "dvdf", ""]),
+        hidden_test_results: JSON.stringify([2, 3, 0]),
+        boilerplate_python: "def lengthOfLongestSubstring(s):\n    pass",
+        boilerplate_java: "public int lengthOfLongestSubstring(String s) { }",
+        boilerplate_cpp: "int lengthOfLongestSubstring(string s) { }",
+        is_approved: true,
+      },
+      {
+        title: "Median of Two Sorted Arrays",
+        description: "Given two sorted arrays nums1 and nums2 of size m and n respectively, return the median of the two sorted arrays.",
+        difficulty: "hard",
+        method_name: "findMedianSortedArrays",
+        sample_test_cases: JSON.stringify([[[1,3],[2]], [[1,2],[3,4]]]),
+        sample_test_results: JSON.stringify([2.0, 2.5]),
+        hidden_test_cases: JSON.stringify([[[],[1]], [[0,0],[0,0]]]),
+        hidden_test_results: JSON.stringify([1.0, 0.0]),
+        boilerplate_python: "def findMedianSortedArrays(nums1, nums2):\n    pass",
+        boilerplate_java: "public double findMedianSortedArrays(int[] nums1, int[] nums2) { }",
+        boilerplate_cpp: "double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) { }",
+        is_approved: true,
+      },
+    ];
+
+    for (const prob of testProblems) {
+      ctx.db.problem.insert({
+        id: 0n,
+        title: prob.title,
+        description: prob.description,
+        difficulty: prob.difficulty,
+        method_name: prob.method_name,
+        sample_test_cases: prob.sample_test_cases,
+        sample_test_results: prob.sample_test_results,
+        hidden_test_cases: prob.hidden_test_cases,
+        hidden_test_results: prob.hidden_test_results,
+        boilerplate_python: prob.boilerplate_python,
+        boilerplate_java: prob.boilerplate_java,
+        boilerplate_cpp: prob.boilerplate_cpp,
+        created_by: ctx.sender,
+        is_approved: prob.is_approved,
+      });
+    }
+  }
+);
+
 // ---------------------------------------------------------------------------
 // User reducers
 // ---------------------------------------------------------------------------
@@ -598,6 +671,41 @@ export const use_ability = spacetimedb.reducer(
 // ---------------------------------------------------------------------------
 // Problem reducers
 // ---------------------------------------------------------------------------
+
+export const insert_problem = spacetimedb.reducer(
+  {
+    title:               t.string(),
+    description:         t.string(),
+    difficulty:          t.string(),
+    method_name:         t.string(),
+    sample_test_cases:   t.string(),
+    sample_test_results: t.string(),
+    hidden_test_cases:   t.string(),
+    hidden_test_results: t.string(),
+    boilerplate_python:  t.string(),
+    boilerplate_java:    t.string(),
+    boilerplate_cpp:     t.string(),
+    is_approved:         t.bool(),
+  },
+  (ctx, args) => {
+    ctx.db.problem.insert({
+      id:                   0n,
+      title:                args.title,
+      description:          args.description,
+      difficulty:           args.difficulty,
+      method_name:          args.method_name,
+      sample_test_cases:    args.sample_test_cases,
+      sample_test_results:  args.sample_test_results,
+      hidden_test_cases:    args.hidden_test_cases,
+      hidden_test_results:  args.hidden_test_results,
+      boilerplate_python:   args.boilerplate_python,
+      boilerplate_java:     args.boilerplate_java,
+      boilerplate_cpp:      args.boilerplate_cpp,
+      created_by:           ctx.sender,
+      is_approved:          args.is_approved,
+    });
+  }
+);
 
 export const approve_problem = spacetimedb.reducer(
   { id: t.u64() },
