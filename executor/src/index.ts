@@ -19,27 +19,47 @@ function checkRateLimit(gameId: string): { allowed: boolean; retryAfterMs: numbe
   return { allowed: true, retryAfterMs: 0 };
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function json(body: unknown, init?: ResponseInit): Response {
+  const res = Response.json(body, init);
+  CORS_HEADERS['Access-Control-Allow-Origin'] && res.headers.set('Access-Control-Allow-Origin', '*');
+  return new Response(res.body, {
+    status: res.status,
+    headers: { ...Object.fromEntries(res.headers), ...CORS_HEADERS },
+  });
+}
+
 const server = Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
+
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
 
     if (req.method === 'POST' && url.pathname === '/execute') {
       let body: Record<string, unknown>;
       try {
         body = await req.json() as Record<string, unknown>;
       } catch {
-        return Response.json({ error: 'invalid JSON' }, { status: 400 });
+        return json({ error: 'invalid JSON' }, { status: 400 });
       }
 
       const gameId = typeof body.game_id === 'string' ? body.game_id : '';
       if (!gameId) {
-        return Response.json({ error: 'game_id is required' }, { status: 400 });
+        return json({ error: 'game_id is required' }, { status: 400 });
       }
 
       const { allowed, retryAfterMs } = checkRateLimit(gameId);
       if (!allowed) {
-        return Response.json(
+        return json(
           { error: 'rate limit: one submission per game per 5 seconds' },
           {
             status: 429,
@@ -54,7 +74,7 @@ const server = Bun.serve({
         // Fetch problem data from SpacetimeDB
         const problem = (await import('./stdb.js')).getProblem(BigInt(req.problem_id));
         if (!problem) {
-          return Response.json(
+          return json(
             { error: `Problem ${req.problem_id} not found` },
             { status: 400 }
           );
@@ -85,17 +105,17 @@ const server = Bun.serve({
         // Note: The client will call submit_result reducer if mode==='submit' and result.success
         // (The executor is not authorized to call reducers — only the client with proper identity can)
 
-        return Response.json(result);
+        return json(result);
       } catch (err) {
         // On error, release the rate limit immediately so the player can retry
         rateLimitMap.delete(gameId);
         console.error('Execution error:', err);
-        return Response.json({ error: String(err) }, { status: 500 });
+        return json({ error: String(err) }, { status: 500 });
       }
     }
 
     if (url.pathname === '/health') {
-      return Response.json({ status: 'ok' });
+      return json({ status: 'ok' });
     }
 
     return new Response('Not found', { status: 404 });
