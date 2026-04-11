@@ -38,6 +38,7 @@ import ApproveProblemReducer from "./approve_problem_reducer";
 import BuyAbilityReducer from "./buy_ability_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import ForfeitReducer from "./forfeit_reducer";
+import InsertProblemReducer from "./insert_problem_reducer";
 import JoinRoomReducer from "./join_room_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import SendChatReducer from "./send_chat_reducer";
@@ -56,6 +57,7 @@ import GameStateRow from "./game_state_table";
 import MatchHistoryRow from "./match_history_table";
 import ProblemRow from "./problem_table";
 import RoomRow from "./room_table";
+import SubmissionRow from "./submission_table";
 import UserRow from "./user_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -123,6 +125,20 @@ const tablesSchema = __schema({
       { name: 'room_code_key', constraint: 'unique', columns: ['code'] },
     ],
   }, RoomRow),
+  submission: __table({
+    name: 'submission',
+    indexes: [
+      { accessor: 'submission_game_id', name: 'submission_game_id_idx_btree', algorithm: 'btree', columns: [
+        'gameId',
+      ] },
+      { accessor: 'id', name: 'submission_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'submission_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SubmissionRow),
   user: __table({
     name: 'user',
     indexes: [
@@ -142,6 +158,7 @@ const reducersSchema = __reducers(
   __reducerSchema("buy_ability", BuyAbilityReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("forfeit", ForfeitReducer),
+  __reducerSchema("insert_problem", InsertProblemReducer),
   __reducerSchema("join_room", JoinRoomReducer),
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("send_chat", SendChatReducer),

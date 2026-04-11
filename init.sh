@@ -31,7 +31,16 @@ spacetime publish "${DB_NAME}" \
   --server "${SERVER}" \
   --module-path /tmp/spacetimedb-build \
   --no-config \
-  --break-clients \
+  --delete-data=always \
   -y
 
 echo "Module published successfully!"
+
+# Extract auth token from saved TOML config
+TOKEN=$(grep -E '^spacetimedb_token\s*=' "${CONFIG_DIR}/cli.toml" 2>/dev/null | head -1 | sed 's/.*= *"//;s/".*//')
+echo "Token extracted: ${TOKEN:0:8}..."
+
+echo "Seeding problems..."
+bun /workspace/seed-problems.mjs "${SERVER}" "${DB_NAME}" "${TOKEN}"
+
+echo "Init complete!"

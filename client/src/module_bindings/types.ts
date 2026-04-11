@@ -53,9 +53,9 @@ export const MatchHistory = __t.object("MatchHistory", {
   player1Identity: __t.identity(),
   player2Identity: __t.identity(),
   winnerIdentity: __t.identity(),
-  problemId: __t.u64(),
-  problemTitle: __t.string(),
-  difficulty: __t.string(),
+  problemIds: __t.string(),
+  problemTitles: __t.string(),
+  difficulties: __t.string(),
   player1SolveTime: __t.u32(),
   player2SolveTime: __t.u32(),
   player1Language: __t.string(),
@@ -97,6 +97,19 @@ export const Room = __t.object("Room", {
   settings: __t.string(),
 });
 export type Room = __Infer<typeof Room>;
+
+export const Submission = __t.object("Submission", {
+  id: __t.u64(),
+  gameId: __t.string(),
+  playerIdentity: __t.identity(),
+  problemId: __t.u64(),
+  passed: __t.u32(),
+  total: __t.u32(),
+  solveTime: __t.u32(),
+  language: __t.string(),
+  submittedAt: __t.timestamp(),
+});
+export type Submission = __Infer<typeof Submission>;
 
 export const User = __t.object("User", {
   identity: __t.identity(),

@@ -118,9 +118,9 @@ const match_history = table(
     player1_identity:    t.identity(),
     player2_identity:    t.identity(),
     winner_identity:     t.identity(),
-    problem_id:          t.u64(),
-    problem_title:       t.string(),   // denormalized for quick display
-    difficulty:          t.string(),
+    problem_ids:         t.string(),   // JSON array of problem id strings
+    problem_titles:      t.string(),   // JSON array of titles (denormalized)
+    difficulties:        t.string(),   // JSON array of difficulty strings
     player1_solve_time:  t.u32(),      // seconds; 0 = did not solve
     player2_solve_time:  t.u32(),
     player1_language:    t.string(),
@@ -131,11 +131,33 @@ const match_history = table(
   }
 );
 
+// Records every code submission attempt (pass or fail) during a game.
+const submission = table(
+  {
+    name: 'submission',
+    public: true,
+    indexes: [
+      { accessor: 'submission_game_id', algorithm: 'btree', columns: ['game_id'] },
+    ],
+  },
+  {
+    id:              t.u64().primaryKey().autoInc(),
+    game_id:         t.string(),
+    player_identity: t.identity(),
+    problem_id:      t.u64(),
+    passed:          t.u32(),
+    total:           t.u32(),
+    solve_time:      t.u32(),      // seconds
+    language:        t.string(),
+    submitted_at:    t.timestamp(),
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -276,7 +298,7 @@ export const set_ready = spacetimedb.reducer(
 // Game reducers
 // ---------------------------------------------------------------------------
 
-// Called by the host when both players are ready. Picks a problem, creates game state.
+// Called by the host when both players are ready. Picks N problems, creates game state.
 export const start_game = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
@@ -295,9 +317,21 @@ export const start_game = spacetimedb.reducer(
     );
     if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
 
-    // Deterministic selection — hash room code to pick index
-    const idx = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % approved.length;
-    const problem = approved[idx];
+    // Use ctx.timestamp for entropy so the same room code gets different problems each game.
+    // Reducers must be deterministic, but ctx.timestamp varies per call — sufficient for a club tool.
+    const seed = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+      + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
+
+    const problemCount = Math.min(
+      Math.max(1, Number(settings.problem_count ?? 1)),
+      approved.length
+    );
+
+    // Select problemCount distinct problems using the seed
+    const selected: typeof approved = [];
+    for (let i = 0; i < problemCount; i++) {
+      selected.push(approved[(seed + i * 7) % approved.length]);
+    }
 
     const starting_hp = Number(settings.starting_hp ?? 100);
 
@@ -316,7 +350,7 @@ export const start_game = spacetimedb.reducer(
       player2_problem_index: 0,
       player1_abilities:     '[]',
       player2_abilities:     '[]',
-      problem_ids:           JSON.stringify([problem.id.toString()]),
+      problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
       status:                'in_progress',
       start_time:            ctx.timestamp,
       winner_identity:       undefined,
@@ -339,6 +373,96 @@ export const send_chat = spacetimedb.reducer(
   }
 );
 
+// ---------------------------------------------------------------------------
+// endGame helper — called by submit_result and forfeit
+// ---------------------------------------------------------------------------
+
+type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
+type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
+type IdentityLike = { toHexString(): string };
+
+function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
+  const loserIdentity = winnerIdentity.toHexString() === game.player1_identity.toHexString()
+    ? game.player2_identity
+    : game.player1_identity;
+
+  // Mark game finished
+  ctx.db.game_state.id.update({ ...game, status: 'finished', winner_identity: winnerIdentity as typeof game.player1_identity });
+
+  // Aggregate submission rows for this game
+  const subs = [...ctx.db.submission.submission_game_id.filter(game.id)];
+  const p1Subs = subs.filter(s => s.player_identity.toHexString() === game.player1_identity.toHexString());
+  const p2Subs = subs.filter(s => s.player_identity.toHexString() === game.player2_identity.toHexString());
+
+  const p1Accepted = p1Subs.some(s => s.passed === s.total && s.total > 0);
+  const p2Accepted = p2Subs.some(s => s.passed === s.total && s.total > 0);
+
+  // Best (fastest) accepted solve time per player, 0 if never solved
+  const bestTime = (playerSubs: typeof subs) => {
+    const accepted = playerSubs.filter(s => s.passed === s.total && s.total > 0);
+    if (accepted.length === 0) return 0;
+    return accepted.reduce((min, s) => s.solve_time < min ? s.solve_time : min, accepted[0].solve_time);
+  };
+
+  const p1SolveTime = bestTime(p1Subs);
+  const p2SolveTime = bestTime(p2Subs);
+
+  // Language used by each player (last accepted submission, or any)
+  const playerLang = (playerSubs: typeof subs) => {
+    const accepted = playerSubs.filter(s => s.passed === s.total && s.total > 0);
+    return (accepted.length > 0 ? accepted[accepted.length - 1] : playerSubs[playerSubs.length - 1])?.language ?? '';
+  };
+
+  // Collect problem metadata from the problem_ids array
+  const problemIdStrings = JSON.parse(game.problem_ids) as string[];
+  const problemTitles: string[] = [];
+  const difficulties: string[] = [];
+  for (const pidStr of problemIdStrings) {
+    const prob = ctx.db.problem.id.find(BigInt(pidStr));
+    problemTitles.push(prob?.title ?? '');
+    difficulties.push(prob?.difficulty ?? '');
+  }
+
+  ctx.db.match_history.insert({
+    id:                  0n,
+    room_code:           game.room_code,
+    player1_identity:    game.player1_identity,
+    player2_identity:    game.player2_identity,
+    winner_identity:     winnerIdentity as typeof game.player1_identity,
+    problem_ids:         JSON.stringify(problemIdStrings),
+    problem_titles:      JSON.stringify(problemTitles),
+    difficulties:        JSON.stringify(difficulties),
+    player1_solve_time:  p1SolveTime,
+    player2_solve_time:  p2SolveTime,
+    player1_language:    playerLang(p1Subs),
+    player2_language:    playerLang(p2Subs),
+    player1_accepted:    p1Accepted,
+    player2_accepted:    p2Accepted,
+    played_at:           ctx.timestamp,
+  });
+
+  // Hidden ELO calculation (K=20)
+  const winner = ctx.db.user.identity.find(winnerIdentity as typeof game.player1_identity);
+  const loser  = ctx.db.user.identity.find(loserIdentity);
+  if (winner && loser) {
+    const expected = 1 / (1 + Math.pow(10, (loser.elo_rating - winner.elo_rating) / 400));
+    const delta = Math.round(20 * (1 - expected));
+    ctx.db.user.identity.update({
+      ...winner,
+      elo_rating:     winner.elo_rating + delta,
+      total_wins:     winner.total_wins + 1,
+      total_matches:  winner.total_matches + 1,
+      current_streak: winner.current_streak + 1,
+    });
+    ctx.db.user.identity.update({
+      ...loser,
+      elo_rating:     Math.max(0, loser.elo_rating - delta),
+      total_matches:  loser.total_matches + 1,
+      current_streak: 0,
+    });
+  }
+}
+
 export const forfeit = spacetimedb.reducer(
   { game_id: t.string() },
   (ctx, { game_id }) => {
@@ -347,27 +471,8 @@ export const forfeit = spacetimedb.reducer(
 
     const isP1 = game.player1_identity.toHexString() === ctx.sender.toHexString();
     const winner_identity = isP1 ? game.player2_identity : game.player1_identity;
-    const loser_identity  = isP1 ? game.player1_identity : game.player2_identity;
 
-    ctx.db.game_state.id.update({ ...game, status: 'finished', winner_identity });
-
-    const winner = ctx.db.user.identity.find(winner_identity);
-    const loser  = ctx.db.user.identity.find(loser_identity);
-    if (winner) {
-      ctx.db.user.identity.update({
-        ...winner,
-        total_wins:     winner.total_wins + 1,
-        total_matches:  winner.total_matches + 1,
-        current_streak: winner.current_streak + 1,
-      });
-    }
-    if (loser) {
-      ctx.db.user.identity.update({
-        ...loser,
-        total_matches:  loser.total_matches + 1,
-        current_streak: 0,
-      });
-    }
+    endGame(ctx, game, winner_identity);
   }
 );
 
@@ -394,64 +499,56 @@ export const submit_result = spacetimedb.reducer(
     const accepted = passed === total && total > 0;
     const isP1 = game.player1_identity.toHexString() === player_identity.toHexString();
 
-    if (!accepted) return;
+    // Determine current problem for this player
+    const problemIds = JSON.parse(game.problem_ids) as string[];
+    const problemCount = problemIds.length;
+    const problemIndex = isP1 ? game.player1_problem_index : game.player2_problem_index;
+    const problemId = BigInt(problemIds[problemIndex] ?? '0');
+
+    // Always record the submission attempt
+    ctx.db.submission.insert({
+      id:              0n,
+      game_id,
+      player_identity,
+      problem_id:      problemId,
+      passed,
+      total,
+      solve_time,
+      language,
+      submitted_at:    ctx.timestamp,
+    });
+
+    if (!accepted) return; // player can retry
+
+    // Proportional HP damage: each problem is worth startingHp / problemCount HP
+    const room = ctx.db.room.code.find(game.room_code);
+    const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
+    const startingHp = Number(settings.starting_hp ?? 100);
+    const damage = Math.ceil(startingHp / problemCount);
 
     let updated = { ...game };
     if (isP1) {
-      updated.player2_hp = Math.max(0, game.player2_hp - 100);
+      updated.player2_hp = Math.max(0, game.player2_hp - damage);
+      updated.player1_problem_index = game.player1_problem_index + 1;
     } else {
-      updated.player1_hp = Math.max(0, game.player1_hp - 100);
+      updated.player1_hp = Math.max(0, game.player1_hp - damage);
+      updated.player2_problem_index = game.player2_problem_index + 1;
     }
 
+    const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
+    const newProblemIndex = isP1 ? updated.player1_problem_index : updated.player2_problem_index;
     const winner_identity = isP1 ? game.player1_identity : game.player2_identity;
-    const loser_identity  = isP1 ? game.player2_identity : game.player1_identity;
 
-    const problemIds = JSON.parse(game.problem_ids) as string[];
-    const problemId  = BigInt(problemIds[0] ?? '0');
-    const prob = ctx.db.problem.id.find(problemId);
-
-    ctx.db.match_history.insert({
-      id:                 0n,
-      room_code:          game.room_code,
-      player1_identity:   game.player1_identity,
-      player2_identity:   game.player2_identity,
-      winner_identity,
-      problem_id:         problemId,
-      problem_title:      prob?.title ?? '',
-      difficulty:         prob?.difficulty ?? '',
-      player1_solve_time: isP1 ? solve_time : 0,
-      player2_solve_time: isP1 ? 0 : solve_time,
-      player1_language:   isP1 ? language : '',
-      player2_language:   isP1 ? '' : language,
-      player1_accepted:   isP1,
-      player2_accepted:   !isP1,
-      played_at:          ctx.timestamp,
-    });
-
-    // Hidden ELO calculation (K=20)
-    const winner = ctx.db.user.identity.find(winner_identity);
-    const loser  = ctx.db.user.identity.find(loser_identity);
-    if (winner && loser) {
-      const expected = 1 / (1 + Math.pow(10, (loser.elo_rating - winner.elo_rating) / 400));
-      const delta = Math.round(20 * (1 - expected));
-      ctx.db.user.identity.update({
-        ...winner,
-        elo_rating:     winner.elo_rating + delta,
-        total_wins:     winner.total_wins + 1,
-        total_matches:  winner.total_matches + 1,
-        current_streak: winner.current_streak + 1,
-      });
-      ctx.db.user.identity.update({
-        ...loser,
-        elo_rating:     Math.max(0, loser.elo_rating - delta),
-        total_matches:  loser.total_matches + 1,
-        current_streak: 0,
-      });
+    if (opponentHp <= 0 || newProblemIndex >= problemCount) {
+      // Game over — use the updated HP/index before calling endGame
+      ctx.db.game_state.id.update(updated);
+      // Re-fetch to pass the latest row to endGame
+      const updatedGame = ctx.db.game_state.id.find(game_id)!;
+      endGame(ctx, updatedGame, winner_identity);
+    } else {
+      // Game continues — update state and let players keep going
+      ctx.db.game_state.id.update(updated);
     }
-
-    updated.status          = 'finished';
-    updated.winner_identity = winner_identity;
-    ctx.db.game_state.id.update(updated);
   }
 );
 
@@ -506,5 +603,46 @@ export const approve_problem = spacetimedb.reducer(
     const prob = ctx.db.problem.id.find(id);
     if (!prob) throw new SenderError('Problem not found');
     ctx.db.problem.id.update({ ...prob, is_approved: true });
+  }
+);
+
+export const insert_problem = spacetimedb.reducer(
+  {
+    title:               t.string(),
+    description:         t.string(),
+    difficulty:          t.string(),
+    method_name:         t.string(),
+    sample_test_cases:   t.string(),
+    sample_test_results: t.string(),
+    hidden_test_cases:   t.string(),
+    hidden_test_results: t.string(),
+    boilerplate_python:  t.string(),
+    boilerplate_java:    t.string(),
+    boilerplate_cpp:     t.string(),
+    compare_func_python: t.string(),
+    compare_func_java:   t.string(),
+    compare_func_cpp:    t.string(),
+    is_approved:         t.bool(),
+  },
+  (ctx, args) => {
+    ctx.db.problem.insert({
+      id:                   0n,
+      title:                args.title,
+      description:          args.description,
+      difficulty:           args.difficulty,
+      method_name:          args.method_name,
+      sample_test_cases:    args.sample_test_cases,
+      sample_test_results:  args.sample_test_results,
+      hidden_test_cases:    args.hidden_test_cases,
+      hidden_test_results:  args.hidden_test_results,
+      boilerplate_python:   args.boilerplate_python,
+      boilerplate_java:     args.boilerplate_java,
+      boilerplate_cpp:      args.boilerplate_cpp,
+      compare_func_python:  args.compare_func_python,
+      compare_func_java:    args.compare_func_java,
+      compare_func_cpp:     args.compare_func_cpp,
+      created_by:           ctx.sender,
+      is_approved:          args.is_approved,
+    });
   }
 );

@@ -24,7 +24,7 @@ export default function MatchScreen() {
       return;
     }
     const settings = JSON.stringify({
-      difficulty: "medium",
+      difficulty: "easy",
       problem_count: 1,
       starting_hp: 100,
     });

@@ -95,7 +95,7 @@ export default function ResultsScreen() {
                 : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
             </div>
           )}
-          <div className="text-sm opacity-60 mt-1">{match.problemTitle}</div>
+          <div className="text-sm opacity-60 mt-1">{JSON.parse(match.problemTitles).join(', ')}</div>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export default function ResultsScreen() {
               {[
                 ['Solve Time', formatTime(p.solveTime)],
                 ['Language', p.language || '—'],
-                ['Difficulty', match.difficulty],
+                ['Difficulty', JSON.parse(match.difficulties)[0] ?? ''],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-[13px] text-text-muted">{k}</span>

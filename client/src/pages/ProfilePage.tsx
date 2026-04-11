@@ -246,11 +246,11 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
                     />
                     <div>
                       <span className="font-semibold text-sm text-text">vs {oppName}</span>
-                      <span className="text-xs text-text-muted ml-2">{m.problemTitle}</span>
+                      <span className="text-xs text-text-muted ml-2">{JSON.parse(m.problemTitles)[0] ?? ''}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-xs text-text-faint capitalize">{m.difficulty}</span>
+                    <span className="text-xs text-text-faint capitalize">{JSON.parse(m.difficulties)[0] ?? ''}</span>
                     <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
                     <span
                       className="text-[13px] font-bold w-12 text-right"

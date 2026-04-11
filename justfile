@@ -1,163 +1,64 @@
-# Install just: https://github.com/casey/just
+# Game loop implementation tasks
 
-# Default - show available commands
-[private]
-default:
-    @just --list --unsorted
+# Initialize the database: publish module and seed problems
+init:
+  docker compose run --rm init
 
-# =============================================================================
-# SpacetimeDB Commands
-# =============================================================================
+# Regenerate SpacetimeDB client bindings
+generate-bindings:
+  spacetime generate --lang typescript --out-dir client/src/module_bindings --module-path module/spacetimedb
+  spacetime generate --lang typescript --out-dir executor/src/module_bindings --module-path module/spacetimedb
 
-# Start local SpacetimeDB server
-spacetime-start:
-    spacetime start
+# Build the client
+build-client:
+  cd client && bun run build
 
-# Publish module to local server (requires spacetime server running)
-publish:
-    cd module && spacetime publish lcr --server local -y
+# Check for TypeScript errors
+check:
+  cd client && tsc -b
 
-# Publish module to maincloud (production)
-publish-prod:
-    cd module && spacetime publish lcr -y
+# Start development servers (SpacetimeDB, executor, client)
+dev:
+  docker compose up -d spacetimedb auth executor client
+  @echo "Services started. Open http://localhost in your browser."
 
-# Generate TypeScript client bindings
-generate:
-    cd module && spacetime generate --lang typescript --out-dir ../client/src/module_bindings
-
-# Full publish + generate cycle for local development
-pg: publish generate
-    @echo "✓ Published and generated bindings"
-
-# =============================================================================
-# Docker Compose Commands
-# =============================================================================
-
-# Start all services
-up:
-    docker compose up -d
-
-# Start all services and build images
-up-build:
-    docker compose up -d --build
-
-# Stop all services
+# Stop development servers
 down:
-    docker compose down
+  docker compose down
 
-# Stop services and remove volumes (⚠️  Destroys data)
-down-volumes:
-    docker compose down -v
-
-# View logs for all services
+# View SpacetimeDB logs
 logs:
-    docker compose logs -f
+  docker compose logs -f spacetimedb
 
-# View logs for specific service (usage: just logs-spacetime)
-logs-spacetime:
-    docker compose logs -f spacetimedb
+# Full workflow: init, generate bindings, build
+setup: init generate-bindings build-client
+  @echo "✓ Setup complete"
 
-logs-auth:
-    docker compose logs -f auth
+# Quick test: create room with multiple problems
+test-multi-problem:
+  @echo "Manual test: Create a room with problem_count=2, starting_hp=200"
+  @echo "Check spacetime logs to verify problem_ids has 2 entries"
 
-logs-executor:
-    docker compose logs -f executor
+# Run all tests (when tests exist)
+test:
+  @echo "No tests yet — tests will be added in later phases"
 
-logs-client:
-    docker compose logs -f client
-
-# Check service status
-status:
-    docker compose ps
-
-# =============================================================================
-# Development Workflow Commands
-# =============================================================================
-
-# Full reset: stop everything, wipe data, rebuild and start fresh
-reset:
-    docker compose down -v
-    docker compose up -d --build
-
-# Quick restart: stop and start without rebuilding
-restart:
-    docker compose restart
-
-# Restart specific service (usage: just restart-service auth)
-restart-service service:
-    docker compose restart {{service}}
-
-# Build specific service without starting (usage: just build-service client)
-build-service service:
-    docker compose build {{service}}
-
-# =============================================================================
-# Utility Commands
-# =============================================================================
-
-# View SpacetimeDB logs from the running container
-spacetime-logs:
-    docker compose exec spacetimedb spacetime logs lcr
-
-# Open SpacetimeDB REPL
-spacetime-repl:
-    docker compose exec spacetimedb spacetime repl lcr
-
-# Check if spacetime CLI is installed and show version
-spacetime-version:
-    spacetime --version
-
-# Install spacetime CLI if not present (macOS/Linux)
-spacetime-install:
-    curl -sSf https://install.spacetimedb.com | sh
-
-# Clean up dangling Docker images and volumes
-docker-clean:
-    docker system prune -f
-    docker volume prune -f
-
-# =============================================================================
-# Client Development
-# =============================================================================
-
-# Run client dev server locally (bypassing Docker)
-client-dev:
-    cd client && bun run dev
-
-# Build client locally
-client-build:
-    cd client && bun run build
-
-# =============================================================================
-# Auth Service Development
-# =============================================================================
-
-# Run auth service locally (requires .env)
-auth-dev:
-    cd auth && bun run dev
-
-# =============================================================================
-# Executor Service Development
-# =============================================================================
-
-# Run executor service locally
-executor-dev:
-    cd executor && python -m uvicorn main:app --reload --port 8000
-
-# =============================================================================
-# Combined Workflows
-# =============================================================================
-
-# Full local dev setup: start docker, publish module, generate bindings
-dev: up
-    @sleep 2
-    just publish
-    just generate
-    @echo "✓ Development environment ready!"
-    @echo "  - SpacetimeDB: http://localhost:3000"
-    @echo "  - Auth: http://localhost:4000"
-    @echo "  - Client: http://localhost:80"
-
-# Quick update after code changes: rebuild and restart
-update: up-build generate
-    @echo "✓ Updated and rebuilt"
+# Show help
+help:
+  @echo "Game Loop Implementation — Just Tasks"
+  @echo ""
+  @echo "Setup & Deployment:"
+  @echo "  just init              Initialize DB: publish module + seed problems"
+  @echo "  just setup             Full setup: init + generate bindings + build"
+  @echo "  just generate-bindings Regenerate SpacetimeDB TypeScript bindings"
+  @echo "  just build-client      Build the React client"
+  @echo ""
+  @echo "Development:"
+  @echo "  just dev               Start all Docker services"
+  @echo "  just down              Stop all services"
+  @echo "  just logs              Watch SpacetimeDB logs"
+  @echo "  just check             Type-check client"
+  @echo ""
+  @echo "Testing:"
+  @echo "  just test              Run tests (when available)"
+  @echo "  just test-multi-problem Manual test guide"
