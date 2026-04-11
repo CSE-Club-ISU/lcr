@@ -33,6 +33,7 @@ export default function ProblemScreen() {
   const [searchParams] = useSearchParams();
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
+  const submitResult = useReducer(reducers.submitResult);
 
   const gameId = searchParams.get('game') ?? '';
 
@@ -181,6 +182,14 @@ export default function ProblemScreen() {
       } else {
         setTestResults(data.results);
         setRunSummary(`${data.passed} / ${data.total} tests passed`);
+        // Call submit_result reducer so the server applies HP damage
+        submitResult({
+          gameId,
+          passed: data.passed,
+          total: data.total,
+          solveTime: solveTimeSec,
+          language: 'python',
+        });
         // Navigation is handled by the useEffect watching game.status
       }
     } catch (e) {

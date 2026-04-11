@@ -479,25 +479,26 @@ export const forfeit = spacetimedb.reducer(
 // Called by the executor service after running submitted code
 export const submit_result = spacetimedb.reducer(
   {
-    game_id:         t.string(),
-    player_identity: t.identity(),
-    passed:          t.u32(),
-    total:           t.u32(),
-    solve_time:      t.u32(),    // seconds
-    language:        t.string(),
+    game_id:    t.string(),
+    passed:     t.u32(),
+    total:      t.u32(),
+    solve_time: t.u32(),    // seconds
+    language:   t.string(),
   },
-  (ctx, { game_id, player_identity, passed, total, solve_time, language }) => {
-    // S3: Only the registered executor identity may submit results
-    const cfg = ctx.db.executor_config.id.find(0);
-    if (!cfg || cfg.executor_identity.toHexString() !== ctx.sender.toHexString()) {
-      throw new SenderError('Unauthorized: only the executor may call submit_result');
-    }
-
+  (ctx, { game_id, passed, total, solve_time, language }) => {
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') return;
 
+    // Use ctx.sender — don't trust client-supplied player_identity
+    const senderHex = ctx.sender.toHexString();
+    if (senderHex !== game.player1_identity.toHexString() &&
+        senderHex !== game.player2_identity.toHexString()) {
+      throw new SenderError('Not a participant in this game');
+    }
+
     const accepted = passed === total && total > 0;
-    const isP1 = game.player1_identity.toHexString() === player_identity.toHexString();
+    const isP1 = game.player1_identity.toHexString() === senderHex;
+    const player_identity = isP1 ? game.player1_identity : game.player2_identity;
 
     // Determine current problem for this player
     const problemIds = JSON.parse(game.problem_ids) as string[];
