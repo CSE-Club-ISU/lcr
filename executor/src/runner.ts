@@ -61,9 +61,12 @@ async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; st
     '--rm',
     '--network=none',
     `--memory=${mem}`,
+    '--memory-swap=0',          // S4: disable swap so memory limit is hard
     `--cpus=${CPU_LIMIT}`,
+    '--pids-limit=50',          // S4: prevent fork bombs
+    '--security-opt=no-new-privileges', // S4: block privilege escalation
     '--read-only',
-    '--tmpfs=/tmp',
+    '--tmpfs=/tmp:size=32m',    // S4: cap /tmp size
     '-v', `${filePath}:/solution/${fileName}:ro`,
     '-w', '/solution',
     image,

@@ -1,19 +1,37 @@
 #!/bin/bash
 set -e
 
+SERVER=http://spacetimedb:3000
+DB_NAME=lcr
+CONFIG_DIR=/root/.config/spacetime
+
 echo "Waiting for SpacetimeDB to be ready..."
-until curl -s http://spacetimedb:3000 > /dev/null 2>&1; do
+until bun --eval "await fetch('${SERVER}').then(()=>process.exit(0)).catch(()=>process.exit(1))" 2>/dev/null; do
   sleep 1
 done
 
-echo "Publishing module to SpacetimeDB..."
-cd /module/spacetimedb
+# Copy module source to a temp dir so bun installs Linux binaries,
+# not the macOS node_modules from the host volume mount.
+echo "Building module..."
+cp -r /workspace/module/spacetimedb /tmp/spacetimedb-build
+cd /tmp/spacetimedb-build
+bun install --frozen-lockfile 2>/dev/null || bun install
 
-# Publish with --clear-database to ensure fresh state (useful for development)
-# Remove --clear-database -y if you want to preserve existing data
-spacetime publish lcr \
-  --server http://spacetimedb:3000 \
-  --module-path . \
-  --clear-database -y
+# Log in to this SpacetimeDB instance with a persistent identity.
+# --server-issued-login gets a token directly from the local server and saves it.
+# The spacetime_config volume keeps this stable across restarts so we always
+# publish with the same identity that owns the database.
+if [ ! -f "${CONFIG_DIR}/cli.toml" ]; then
+  echo "No saved identity — logging in to SpacetimeDB..."
+  spacetime login --server-issued-login "${SERVER}"
+fi
+
+echo "Publishing module to SpacetimeDB..."
+spacetime publish "${DB_NAME}" \
+  --server "${SERVER}" \
+  --module-path /tmp/spacetimedb-build \
+  --no-config \
+  --break-clients \
+  -y
 
 echo "Module published successfully!"

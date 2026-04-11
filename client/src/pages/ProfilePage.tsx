@@ -37,7 +37,10 @@ function SetupForm({ onSaved }: { onSaved: () => void }) {
   }, [myUser]);
 
   useEffect(() => {
-    if (saving && myUser?.username) onSaved();
+    if (saving && myUser?.username) {
+      localStorage.removeItem('lcr_github_profile');
+      onSaved();
+    }
   }, [saving, myUser, onSaved]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -119,6 +122,12 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
       ? Math.round((user.totalWins / user.totalMatches) * 100)
       : 0;
 
+  const handleSignOut = () => {
+    localStorage.removeItem('lcr_auth_token');
+    localStorage.removeItem('lcr_github_profile');
+    navigate('/login');
+  };
+
   const [editingUsername, setEditingUsername] = useState(false);
   const [draftUsername, setDraftUsername] = useState(user.username);
 
@@ -189,6 +198,9 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
 
           <button onClick={() => navigate('/play')} className="btn-primary py-[11px] text-sm">
             &#9654; Play
+          </button>
+          <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
+            Sign out
           </button>
         </div>
 
@@ -261,15 +273,48 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const ctx = useSpacetimeDB();
   const [rows] = useTable(tables.user);
+  const setProfile = useReducer(reducers.setProfile);
 
   const users = rows as unknown as User[];
   const myUser = ctx.identity
     ? users.find(u => u.identity.toHexString() === ctx.identity!.toHexString())
     : undefined;
 
+  // Auto-populate profile from GitHub data on first login so the user
+  // doesn't have to fill in a form they already completed before.
+  useEffect(() => {
+    if (!ctx.isActive || !myUser || myUser.username) return;
+
+    const raw = localStorage.getItem('lcr_github_profile');
+    if (!raw) return;
+    try {
+      const gh = JSON.parse(raw) as Record<string, string>;
+      if (!gh.username) return;
+      setProfile({
+        username:  gh.username,
+        firstName: gh.name?.split(' ')[0] ?? '',
+        lastName:  gh.name?.split(' ').slice(1).join(' ') ?? '',
+        githubId:  gh.githubId ?? '',
+        avatarUrl: gh.avatarUrl ?? '',
+      });
+    } catch { /* ignore */ }
+  }, [ctx.isActive, myUser]);
+
+  // Clear GitHub profile from localStorage once it's been saved to SpacetimeDB
+  useEffect(() => {
+    if (myUser?.username) {
+      localStorage.removeItem('lcr_github_profile');
+    }
+  }, [myUser?.username]);
+
   if (!localStorage.getItem('lcr_auth_token')) return null;
 
-  if (!myUser?.username) {
+  // Still connecting — don't flash the setup form
+  if (!ctx.isActive || !myUser) {
+    return <div className="flex items-center justify-center min-h-screen text-text-muted">Loading…</div>;
+  }
+
+  if (!myUser.username) {
     return <SetupForm onSaved={() => navigate('/profile')} />;
   }
 
