@@ -1,4 +1,4 @@
-import { schema, table, t } from 'spacetimedb/server';
+import { schema, table, t, SenderError } from 'spacetimedb/server';
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -173,7 +173,7 @@ export const set_profile = spacetimedb.reducer(
   { username: t.string(), first_name: t.string(), last_name: t.string(), github_id: t.string(), avatar_url: t.string() },
   (ctx, { username, first_name, last_name, github_id, avatar_url }) => {
     const user = ctx.db.user.identity.find(ctx.sender);
-    if (!user) throw new Error('User not found');
+    if (!user) throw new SenderError('User not found');
     ctx.db.user.identity.update({ ...user, username, first_name, last_name, github_id, avatar_url });
   }
 );
@@ -182,9 +182,12 @@ export const set_profile = spacetimedb.reducer(
 // Room reducers
 // ---------------------------------------------------------------------------
 
+const sid = (id: { toHexString(): string }) => id.toHexString().slice(0, 8);
+
 export const create_room = spacetimedb.reducer(
   { code: t.string(), settings: t.string() },
   (ctx, { code, settings }) => {
+    console.log(`[CREATE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     ctx.db.room.insert({
       code,
       host_identity:  ctx.sender,
@@ -194,33 +197,59 @@ export const create_room = spacetimedb.reducer(
       status:         'waiting',
       settings,
     });
+    console.log(`[CREATE_ROOM] ✓ room ${code} created by ${sid(ctx.sender)}`);
   }
 );
 
 export const join_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
+    console.log(`[JOIN_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
-    if (!room) throw new Error('Room not found');
-    if (room.status !== 'waiting') throw new Error('Room is not open');
-    if (room.guest_identity) throw new Error('Room is full');
+    if (!room) {
+      console.log(`[JOIN_ROOM] ✗ room ${code} not found — existing rooms: ${[...ctx.db.room.iter()].map(r => r.code).join(',') || '(none)'}`);
+      throw new SenderError('Room not found');
+    }
+    console.log(`[JOIN_ROOM] room found: host=${sid(room.host_identity)} guest=${room.guest_identity ? sid(room.guest_identity) : 'none'} status=${room.status}`);
+    // Already the host — no-op (host navigated to their own room page)
+    if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
+      console.log(`[JOIN_ROOM] sender is already host, skipping`);
+      return;
+    }
+    // Already the guest — no-op (duplicate join)
+    if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
+      console.log(`[JOIN_ROOM] sender is already guest, skipping`);
+      return;
+    }
+    if (room.status !== 'waiting') throw new SenderError('Room is not open');
+    if (room.guest_identity) {
+      console.log(`[JOIN_ROOM] ✗ room full, guest is ${sid(room.guest_identity)}`);
+      throw new SenderError('Room is full');
+    }
     ctx.db.room.code.update({ ...room, guest_identity: ctx.sender });
+    console.log(`[JOIN_ROOM] ✓ ${sid(ctx.sender)} joined room ${code}`);
   }
 );
 
 export const leave_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
+    console.log(`[LEAVE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
-    if (!room) throw new Error('Room not found');
-    if (ctx.sender === room.host_identity) {
+    if (!room) throw new SenderError('Room not found');
+    if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       if (room.guest_identity) {
+        console.log(`[LEAVE_ROOM] host left, promoting guest ${sid(room.guest_identity)} to host`);
         ctx.db.room.code.update({ ...room, host_identity: room.guest_identity, guest_identity: undefined, host_ready: false, guest_ready: false });
       } else {
+        console.log(`[LEAVE_ROOM] last player left, deleting room ${code}`);
         ctx.db.room.code.delete(code);
       }
-    } else if (ctx.sender === room.guest_identity) {
+    } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
+      console.log(`[LEAVE_ROOM] guest ${sid(ctx.sender)} left room ${code}`);
       ctx.db.room.code.update({ ...room, guest_identity: undefined, guest_ready: false });
+    } else {
+      console.log(`[LEAVE_ROOM] sender ${sid(ctx.sender)} is neither host nor guest, ignoring`);
     }
   }
 );
@@ -228,12 +257,17 @@ export const leave_room = spacetimedb.reducer(
 export const set_ready = spacetimedb.reducer(
   { code: t.string(), ready: t.bool() },
   (ctx, { code, ready }) => {
+    console.log(`[SET_READY] sender=${sid(ctx.sender)} code=${code} ready=${ready}`);
     const room = ctx.db.room.code.find(code);
-    if (!room) throw new Error('Room not found');
-    if (ctx.sender === room.host_identity) {
+    if (!room) throw new SenderError('Room not found');
+    if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, host_ready: ready });
-    } else if (ctx.sender === room.guest_identity) {
+      console.log(`[SET_READY] ✓ host ready=${ready}`);
+    } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, guest_ready: ready });
+      console.log(`[SET_READY] ✓ guest ready=${ready}`);
+    } else {
+      console.log(`[SET_READY] ✗ sender ${sid(ctx.sender)} is neither host nor guest`);
     }
   }
 );
@@ -247,9 +281,9 @@ export const start_game = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
     const room = ctx.db.room.code.find(code);
-    if (!room) throw new Error('Room not found');
-    if (!room.host_ready || !room.guest_ready) throw new Error('Not both ready');
-    if (!room.guest_identity) throw new Error('No guest in room');
+    if (!room) throw new SenderError('Room not found');
+    if (!room.host_ready || !room.guest_ready) throw new SenderError('Not both ready');
+    if (!room.guest_identity) throw new SenderError('No guest in room');
     if (room.status === 'in_game') return; // already started
 
     const settings = JSON.parse(room.settings) as Record<string, unknown>;
@@ -259,7 +293,7 @@ export const start_game = spacetimedb.reducer(
     const approved = [...ctx.db.problem.iter()].filter(
       p => p.is_approved && p.difficulty === difficulty
     );
-    if (approved.length === 0) throw new Error('No approved problems for this difficulty');
+    if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
 
     // Deterministic selection — hash room code to pick index
     const idx = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % approved.length;
@@ -351,7 +385,7 @@ export const submit_result = spacetimedb.reducer(
     // S3: Only the registered executor identity may submit results
     const cfg = ctx.db.executor_config.id.find(0);
     if (!cfg || cfg.executor_identity.toHexString() !== ctx.sender.toHexString()) {
-      throw new Error('Unauthorized: only the executor may call submit_result');
+      throw new SenderError('Unauthorized: only the executor may call submit_result');
     }
 
     const game = ctx.db.game_state.id.find(game_id);
@@ -434,7 +468,7 @@ export const set_executor_identity = spacetimedb.reducer(
     // Allow first-time registration freely; require admin to overwrite
     if (existing) {
       const user = ctx.db.user.identity.find(ctx.sender);
-      if (!user?.is_admin) throw new Error('Unauthorized');
+      if (!user?.is_admin) throw new SenderError('Unauthorized');
       ctx.db.executor_config.id.update({ ...existing, executor_identity: ctx.sender });
     } else {
       ctx.db.executor_config.insert({ id: 0, executor_identity: ctx.sender });
@@ -468,9 +502,9 @@ export const approve_problem = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
     const caller = ctx.db.user.identity.find(ctx.sender);
-    if (!caller?.is_admin) throw new Error('Unauthorized');
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
     const prob = ctx.db.problem.id.find(id);
-    if (!prob) throw new Error('Problem not found');
+    if (!prob) throw new SenderError('Problem not found');
     ctx.db.problem.id.update({ ...prob, is_approved: true });
   }
 );
