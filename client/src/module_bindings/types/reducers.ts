@@ -15,6 +15,7 @@ import LeaveRoomReducer from "../leave_room_reducer";
 import SendChatReducer from "../send_chat_reducer";
 import SetProfileReducer from "../set_profile_reducer";
 import SetReadyReducer from "../set_ready_reducer";
+import StartGameReducer from "../start_game_reducer";
 import SubmitResultReducer from "../submit_result_reducer";
 import UseAbilityReducer from "../use_ability_reducer";
 
@@ -27,6 +28,7 @@ export type LeaveRoomParams = __Infer<typeof LeaveRoomReducer>;
 export type SendChatParams = __Infer<typeof SendChatReducer>;
 export type SetProfileParams = __Infer<typeof SetProfileReducer>;
 export type SetReadyParams = __Infer<typeof SetReadyReducer>;
+export type StartGameParams = __Infer<typeof StartGameReducer>;
 export type SubmitResultParams = __Infer<typeof SubmitResultReducer>;
 export type UseAbilityParams = __Infer<typeof UseAbilityReducer>;
 

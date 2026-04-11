@@ -1,50 +1,76 @@
 @import "tailwindcss";
 
 @theme {
-  --color-gh-bg: #0d1117;
-  --color-gh-card: #161b22;
-  --color-gh-secondary: #21262d;
-  --color-gh-border: #30363d;
-  --color-gh-muted: #8b949e;
-  --color-gh-text: #c9d1d9;
-  --color-gh-bright: #f0f6fc;
-  --color-gh-green: #238636;
-  --color-gh-blue: #1f6feb;
-  --color-gh-lightblue: #58a6ff;
-  --color-gh-red: #f85149;
-  --color-gh-success: #3fb950;
-  --color-gh-darkgreen: #1a4731;
+  /* Backgrounds */
+  --color-bg: #0F0D0D;
+  --color-surface: #1A1614;
+  --color-surface-alt: #221E1C;
+  --color-charcoal: #2D2B2B;
+
+  /* Borders */
+  --color-border: #2E2926;
+  --color-border-strong: #3D3733;
+
+  /* Text */
+  --color-text: #F0EBE5;
+  --color-text-muted: #8A7F78;
+  --color-text-faint: #4F4744;
+
+  /* Primary accent: ISU crimson */
+  --color-accent: #C0272D;
+  --color-accent-soft: #2A1214;
+  --color-accent-hover: #A01E23;
+
+  /* Secondary accent: ISU gold */
+  --color-gold: #D4A017;
+  --color-gold-bright: #F5C518;
+  --color-gold-soft: #1F1A08;
+
+  /* Utility colors */
+  --color-blue: #3B82F6;
+  --color-blue-soft: #0F1E3D;
+  --color-green: #22C55E;
+  --color-green-soft: #0A1F10;
+  --color-yellow: #EAB308;
+  --color-yellow-soft: #1A1600;
+  --color-red: #EF4444;
+  --color-red-soft: #2A0A0A;
+  --color-purple: #A78BFA;
+  --color-purple-soft: #1A1030;
+
+  /* Font */
+  --font-sans: 'DM Sans', 'Outfit', sans-serif;
 }
 
 @layer base {
   body {
-    @apply bg-gh-bg text-gh-bright;
+    @apply bg-bg text-text font-sans;
     margin: 0;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-8 py-3 font-semibold text-[15px] text-white bg-gh-green border-none rounded-md cursor-pointer;
+    @apply px-8 py-3 font-semibold text-[15px] text-white bg-accent border-none rounded-lg cursor-pointer transition-colors duration-150 hover:bg-accent-hover;
   }
 
   .btn-accent {
-    @apply px-5 py-2 font-semibold text-sm text-white bg-gh-blue border-none rounded-md cursor-pointer self-end;
+    @apply px-5 py-2 font-semibold text-sm text-white bg-blue border-none rounded-lg cursor-pointer self-end;
   }
 
   .btn-secondary {
-    @apply px-4 py-2 text-sm text-gh-bright bg-gh-secondary border border-gh-border rounded-md cursor-pointer;
+    @apply px-4 py-2 text-sm text-text bg-surface-alt border border-border rounded-lg cursor-pointer transition-colors duration-150;
   }
 
   .input-field {
-    @apply px-[10px] py-2 text-sm bg-gh-bg text-gh-bright border border-gh-border rounded-md outline-none;
+    @apply px-[10px] py-2 text-sm bg-bg text-text border border-border rounded-lg outline-none focus:border-accent;
   }
 
   .card {
-    @apply bg-gh-card border border-gh-border rounded-xl;
+    @apply bg-surface border border-border rounded-xl;
   }
 
   .chip {
-    @apply px-[10px] py-1 bg-gh-secondary rounded-full text-[13px] text-gh-muted;
+    @apply px-[10px] py-1 bg-surface-alt rounded-full text-[13px] text-text-muted;
   }
 }
