@@ -1,4 +1,4 @@
-# LCR (BeatCode Fork) — Planning Document
+# (L)eet(C)ode(R)anked (BeatCode Fork) — Planning Document
 
 ## What Is BeatCode?
 
@@ -408,6 +408,65 @@ SpacetimeDB persists its data to a volume. Everything runs on one machine.
 - [ ] Room lobby UI (create/join by code, ready check, settings panel)
 
 ### Phase 2 — Core Game Loop
+
+#### CodeMirror 6 Editor Setup
+
+**Install** (using bun as package manager):
+```bash
+cd client && bun add @uiw/react-codemirror @codemirror/lang-python @codemirror/theme-one-dark
+```
+
+**Custom dark theme** (`client/src/components/problem/editorTheme.ts`):
+Match the project's ISU dark design system:
+| Token | Color | Source variable |
+|---|---|---|
+| Editor background | `#1A1614` | surface |
+| Gutter background | `#0F0D0D` | bg |
+| Text | `#F0EBE5` | text |
+| Comments | `#8A7F78` | text-muted |
+| Keywords | `#C0272D` | accent crimson |
+| Strings | `#22C55E` | green |
+| Numbers | `#D4A017` | gold |
+| Selection | `#2A1214` | accent-soft |
+| Cursor | `#F0EBE5` | text |
+| Line numbers | `#4F4744` | text-faint |
+| Active line | `#221E1C` | surface-alt |
+
+Use `@codemirror/theme-one-dark` as structural reference, override all colors.
+
+**Rewrite `CodeEditor.tsx`:**
+- Accept props: `initialCode: string`, `onCodeChange: (code: string) => void`
+- Replace `CodeBlock` with `CodeMirror` component
+- Configure: Python language, custom dark theme, line numbers, bracket matching, auto-closing brackets, indentation
+- Keep the top bar with "Python" pill and "Auto-save on" indicator
+- Editor fills `flex-1` space, scrolling within itself
+- Use `value` + `onChange` controlled mode so parent can access code for future submit
+
+**Update `ProblemScreen.tsx`:**
+- Add `const [code, setCode] = useState('')` state
+- Initialize code from `problem?.boilerplatePython ?? ''` when problem loads (use `useEffect`)
+- Pass `initialCode` and `onCodeChange` props to `CodeEditor`
+- Run Tests / Submit buttons remain stubs but have access to `code` state
+
+**Clean up:**
+- Delete `CodeBlock.tsx` (no longer used)
+- Remove `INITIAL_CODE` constant from `CodeEditor.tsx`
+
+**Files touched:**
+
+| File | Action |
+|---|---|
+| `client/package.json` | Add 3 dependencies |
+| `client/src/components/problem/editorTheme.ts` | **New** — custom dark theme |
+| `client/src/components/problem/CodeEditor.tsx` | Rewrite with CodeMirror |
+| `client/src/pages/ProblemScreen.tsx` | Pass boilerplate + lift code state |
+| `client/src/components/ui/CodeBlock.tsx` | Delete |
+
+**Out of scope (for now):**
+- Language selector (Python only)
+- Run Tests / Submit wiring to executor
+- Java/C++ language support
+- Auto-save / persistence
 - [ ] Port executor service from original (docker.py + generators, minimal changes)
 - [ ] `submit_result` reducer — HP deduction, problem advance, win condition
 - [ ] `forfeit` reducer

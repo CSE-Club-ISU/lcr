@@ -5,16 +5,9 @@ export interface ExecuteRequest {
   player_identity: string;
   code: string;
   lang: Language;
-  // Problem data — fetched from SpacetimeDB by the executor, not trusted from client
-  // For now passed directly; later the executor will fetch from STDB by problem_id
   problem_id: number;
-  method_name: string;
-  hidden_test_cases: string[];
-  hidden_test_results: string[];
-  sample_test_cases: string[];
-  sample_test_results: string[];
-  difficulty: 'easy' | 'medium' | 'hard';
-  compare_func: string; // language-specific comparison function snippet
+  mode: 'run' | 'submit'; // 'run' = sample tests, 'submit' = hidden tests + call submit_result reducer
+  solve_time: number; // seconds elapsed (client computes based on game start time)
 }
 
 export interface TestResult {

@@ -1,29 +1,28 @@
 import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
+import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { Room, User } from '../module_bindings/types';
+import { useTypedTable } from '../utils/useTypedTable';
+import { identityEq } from '../utils/identity';
 import PlayerSlot from '../components/room/PlayerSlot';
 
 export default function RoomPage() {
   const { code }    = useParams<{ code: string }>();
   const navigate    = useNavigate();
   const ctx         = useSpacetimeDB();
-  const [roomRows]  = useTable(tables.room);
-  const [userRows]  = useTable(tables.user);
+  const [rooms]     = useTypedTable<Room>(tables.room);
+  const [users]     = useTypedTable<User>(tables.user);
   const joinRoom    = useReducer(reducers.joinRoom);
   const leaveRoom   = useReducer(reducers.leaveRoom);
   const setReady    = useReducer(reducers.setReady);
   const startGame   = useReducer(reducers.startGame);
 
-  const rooms = roomRows as unknown as Room[];
-  const users = userRows as unknown as User[];
-
   const myIdentity = ctx.identity;
   const room = rooms.find(r => r.code === code);
 
-  const isHost  = !!myIdentity && !!room && room.hostIdentity.toHexString() === myIdentity.toHexString();
-  const isGuest = !!myIdentity && !!room && !!room.guestIdentity && room.guestIdentity.toHexString() === myIdentity.toHexString();
+  const isHost  = !!myIdentity && !!room && identityEq(room.hostIdentity, myIdentity);
+  const isGuest = !!myIdentity && !!room && !!room.guestIdentity && identityEq(room.guestIdentity, myIdentity);
   const inRoom  = isHost || isGuest;
 
   const joinAttempted = useRef(false);
@@ -52,7 +51,7 @@ export default function RoomPage() {
   }, [ctx.isActive, myIdentity?.toHexString(), code, room, isHost, isGuest, inRoom, joinRoom]);
 
   const resolve = (id: { toHexString(): string } | null | undefined): User | undefined =>
-    id ? users.find(u => u.identity.toHexString() === id.toHexString()) : undefined;
+    id ? users.find(u => identityEq(u.identity, id)) : undefined;
 
   const host  = resolve(room?.hostIdentity);
   const guest = resolve(room?.guestIdentity);

@@ -1,8 +1,5 @@
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { mkdtemp, rm, writeFile } from 'fs/promises';
-import type { ExecuteRequest, ExecuteResult } from './types';
-import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators';
+import type { ExecuteRequest, ExecuteResult } from './types.js';
+import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators/index.js';
 
 const CPU_LIMIT = process.env.DOCKER_CPU_LIMIT ?? '0.5';
 
@@ -12,68 +9,72 @@ const memoryLimit: Record<string, string> = {
   cpp:    process.env.DOCKER_CPP_MEMORY    ?? '128m',
 };
 
-export async function executeCode(req: ExecuteRequest): Promise<ExecuteResult> {
-  const tmpDir = await mkdtemp(join(tmpdir(), 'lcr-'));
+export interface ProblemData {
+  method_name: string;
+  test_cases: string[];        // JSON strings (sample or hidden based on mode)
+  test_results: string[];      // Expected outputs
+  compare_func: string;        // Language-specific comparison logic
+}
 
-  try {
-    const ext = getFileExtension(req.lang);
-    const fileName = `solution${ext}`;
-    const filePath = join(tmpDir, fileName);
+export async function executeCode(
+  req: ExecuteRequest,
+  problemData: ProblemData
+): Promise<ExecuteResult> {
+  const ext = getFileExtension(req.lang);
+  const fileName = `solution${ext}`;
 
-    const testFileContent = generateTestFile(req);
-    await writeFile(filePath, testFileContent, 'utf8');
+  const testFileContent = generateTestFile(req.code, req.lang, problemData);
 
-    const image = getDockerImage(req.lang);
-    const timeLimit = getTimeLimitMs(req.lang);
-    const mem = memoryLimit[req.lang];
+  const image = getDockerImage(req.lang);
+  const timeLimit = getTimeLimitMs(req.lang);
+  const mem = memoryLimit[req.lang] ?? '128m';
 
-    const result = await runInDocker({
-      image,
-      filePath,
-      fileName,
-      lang: req.lang,
-      timeLimit,
-      mem,
-    });
+  const result = await runInDocker({
+    image,
+    fileName,
+    code: testFileContent,
+    lang: req.lang,
+    timeLimit,
+    mem,
+  });
 
-    return parseDockerOutput(result, req.hidden_test_cases.length);
-  } finally {
-    await rm(tmpDir, { recursive: true, force: true });
-  }
+  return parseDockerOutput(result, problemData.test_cases.length);
 }
 
 interface DockerRunOptions {
   image: string;
-  filePath: string;
   fileName: string;
+  code: string;
   lang: string;
   timeLimit: number;
   mem: string;
 }
 
 async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const { image, filePath, fileName, lang, timeLimit, mem } = opts;
+  const { image, fileName, code, lang, timeLimit, mem } = opts;
 
-  const runCmd = getRunCommand(lang, fileName);
+  // Write code via stdin into the container's /tmp, then execute.
+  // This avoids host path issues when the executor runs inside Docker
+  // (DinD): the host Docker daemon can't see paths inside this container.
+  const runScript = getRunScript(lang, fileName);
 
   const proc = Bun.spawn([
     'docker', 'run',
     '--rm',
     '--network=none',
     `--memory=${mem}`,
-    '--memory-swap=0',          // S4: disable swap so memory limit is hard
+    '--memory-swap=0',
     `--cpus=${CPU_LIMIT}`,
-    '--pids-limit=50',          // S4: prevent fork bombs
-    '--security-opt=no-new-privileges', // S4: block privilege escalation
-    '--read-only',
-    '--tmpfs=/tmp:size=32m',    // S4: cap /tmp size
-    '-v', `${filePath}:/solution/${fileName}:ro`,
-    '-w', '/solution',
+    '--pids-limit=50',
+    '--security-opt=no-new-privileges',
+    '--tmpfs=/tmp:size=32m,exec',
+    '-i',
     image,
-    ...runCmd,
+    'sh', '-c', runScript,
   ], {
     stdout: 'pipe',
     stderr: 'pipe',
+    stdin: new TextEncoder().encode(code),
   });
 
   const timeout = new Promise<never>((_, reject) =>
@@ -94,15 +95,16 @@ async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; st
   return { stdout, stderr, exitCode };
 }
 
-function getRunCommand(lang: string, fileName: string): string[] {
+// Returns a sh -c script that reads code from stdin, writes it to /tmp, then runs it.
+function getRunScript(lang: string, fileName: string): string {
+  const dest = `/tmp/${fileName}`;
   switch (lang) {
     case 'python':
-      return ['python3', fileName];
+      return `cat > ${dest} && python3 ${dest}`;
     case 'java':
-      // fileName is e.g. Solution.java — compile then run
-      return ['sh', '-c', `javac ${fileName} && java ${fileName.replace('.java', '')}`];
+      return `cat > ${dest} && cd /tmp && javac ${fileName} && java ${fileName.replace('.java', '')}`;
     case 'cpp':
-      return ['sh', '-c', `g++ -O2 -o solution ${fileName} && ./solution`];
+      return `cat > ${dest} && cd /tmp && g++ -O2 -o solution ${fileName} && ./solution`;
     default:
       throw new Error(`Unsupported language: ${lang}`);
   }

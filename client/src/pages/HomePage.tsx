@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
+import type { User } from '../module_bindings/types';
+import { useTypedTable } from '../utils/useTypedTable';
+import { identityEq } from '../utils/identity';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const ctx      = useSpacetimeDB();
-  const [users]  = useTable(tables.user);
+  const [users]  = useTypedTable<User>(tables.user);
 
   useEffect(() => {
     const token     = localStorage.getItem('lcr_auth_token');
@@ -21,9 +24,7 @@ export default function HomePage() {
     const myIdentity = ctx.identity;
     if (!myIdentity) return;
 
-    const myUser = (users as any[]).find(
-      (u: any) => u.identity.toHexString() === myIdentity.toHexString()
-    );
+    const myUser = users.find(u => identityEq(u.identity, myIdentity));
 
     if (!myUser) return; // still loading
 

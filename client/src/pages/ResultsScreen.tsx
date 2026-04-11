@@ -1,39 +1,57 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { MatchHistory, User } from '../module_bindings/types';
+import { useTypedTable } from '../utils/useTypedTable';
+import { identityEq } from '../utils/identity';
+import { formatTime } from '../utils/formatTime';
 import Pill from '../components/ui/Pill';
 
 export default function ResultsScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const ctx = useSpacetimeDB();
+  const [timedOut, setTimedOut] = useState(false);
 
   const gameId = searchParams.get('game') ?? '';
 
-  const [historyRows] = useTable(tables.match_history);
-  const [userRows]    = useTable(tables.user);
-
-  const allHistory = historyRows as unknown as MatchHistory[];
-  const users      = userRows   as unknown as User[];
+  const [allHistory] = useTypedTable<MatchHistory>(tables.match_history);
+  const [users]      = useTypedTable<User>(tables.user);
 
   // Find the match for this game (room_code === gameId)
   const match = allHistory
     .filter(m => m.roomCode === gameId)
     .sort((a, b) => Number(b.playedAt.microsSinceUnixEpoch - a.playedAt.microsSinceUnixEpoch))[0];
 
-  const resolveUser = (id: { toHexString(): string } | undefined) =>
-    id ? users.find(u => u.identity.toHexString() === id.toHexString()) : undefined;
+  // Timeout fallback if match data never arrives
+  useEffect(() => {
+    if (match) return;
+    const t = setTimeout(() => setTimedOut(true), 10000);
+    return () => clearTimeout(t);
+  }, [match]);
 
-  const myHex = ctx.identity?.toHexString();
+  const resolveUser = (id: { toHexString(): string } | undefined) =>
+    id ? users.find(u => identityEq(u.identity, id)) : undefined;
 
   if (!match) {
     return (
       <div className="flex flex-col items-center gap-6 mt-20">
-        <div className="text-text-muted">Loading results…</div>
-        <button className="btn-secondary" onClick={() => navigate('/profile')}>
-          Back to Dashboard
-        </button>
+        {timedOut ? (
+          <>
+            <div className="text-text-muted">Match data unavailable.</div>
+            <button className="btn-secondary" onClick={() => navigate('/profile')}>
+              Back to Dashboard
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="text-text-muted">Loading results…</div>
+            <button className="btn-secondary" onClick={() => navigate('/profile')}>
+              Back to Dashboard
+            </button>
+          </>
+        )}
       </div>
     );
   }
@@ -42,18 +60,11 @@ export default function ResultsScreen() {
   const p2 = resolveUser(match.player2Identity);
   const winner = resolveUser(match.winnerIdentity);
 
-  const iWon = match.winnerIdentity.toHexString() === myHex;
-  const myIsP1 = match.player1Identity.toHexString() === myHex;
+  const iWon = identityEq(match.winnerIdentity, ctx.identity);
+  const myIsP1 = identityEq(match.player1Identity, ctx.identity);
 
   const myTime   = myIsP1 ? match.player1SolveTime : match.player2SolveTime;
   const oppTime  = myIsP1 ? match.player2SolveTime : match.player1SolveTime;
-
-  const formatTime = (s: number) => {
-    if (s === 0) return '—';
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}m ${String(sec).padStart(2, '0')}s`;
-  };
 
   const timeDelta = myTime > 0 && oppTime > 0
     ? Math.abs(myTime - oppTime)
@@ -68,7 +79,7 @@ export default function ResultsScreen() {
       accepted: match.player1Accepted,
       solveTime: match.player1SolveTime,
       language: match.player1Language,
-      isWinner: match.player1Identity.toHexString() === match.winnerIdentity.toHexString(),
+      isWinner: identityEq(match.player1Identity, match.winnerIdentity),
       grad: GRAD_P1,
     },
     {
@@ -76,7 +87,7 @@ export default function ResultsScreen() {
       accepted: match.player2Accepted,
       solveTime: match.player2SolveTime,
       language: match.player2Language,
-      isWinner: match.player2Identity.toHexString() === match.winnerIdentity.toHexString(),
+      isWinner: identityEq(match.player2Identity, match.winnerIdentity),
       grad: GRAD_P2,
     },
   ];
@@ -104,7 +115,7 @@ export default function ResultsScreen() {
                 : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
             </div>
           )}
-          <div className="text-sm opacity-60 mt-1">{match.problemTitle}</div>
+          <div className="text-sm opacity-60 mt-1">{JSON.parse(match.problemTitles).join(', ')}</div>
         </div>
       </div>
 
@@ -122,7 +133,7 @@ export default function ResultsScreen() {
               <div>
                 <div className="font-bold text-text">
                   {p.user?.username ?? 'Unknown'}
-                  {p.user?.identity.toHexString() === myHex && (
+                  {p.user && identityEq(p.user.identity, ctx.identity) && (
                     <span className="text-[11px] text-accent ml-1.5">(you)</span>
                   )}
                 </div>
@@ -133,7 +144,7 @@ export default function ResultsScreen() {
               {[
                 ['Solve Time', formatTime(p.solveTime)],
                 ['Language', p.language || '—'],
-                ['Difficulty', match.difficulty],
+                ['Difficulty', JSON.parse(match.difficulties)[0] ?? ''],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-[13px] text-text-muted">{k}</span>

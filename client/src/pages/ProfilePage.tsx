@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
+import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { User, MatchHistory } from '../module_bindings/types';
+import { useTypedTable } from '../utils/useTypedTable';
+import { identityEq } from '../utils/identity';
+import { formatTime } from '../utils/formatTime';
 import Avatar from '../components/ui/Avatar';
 import StatCard from '../components/ui/StatCard';
 import ActivityHeatmap from '../components/ui/ActivityHeatmap';
@@ -10,12 +13,11 @@ import ActivityHeatmap from '../components/ui/ActivityHeatmap';
 // ── Setup form (first-time users) ────────────────────────────────────────
 function SetupForm({ onSaved }: { onSaved: () => void }) {
   const ctx = useSpacetimeDB();
-  const [rows] = useTable(tables.user);
+  const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
 
-  const users = rows as unknown as User[];
   const myUser = ctx.identity
-    ? users.find(u => u.identity.toHexString() === ctx.identity!.toHexString())
+    ? users.find(u => identityEq(u.identity, ctx.identity))
     : undefined;
 
   const githubProfile = (() => {
@@ -88,24 +90,21 @@ function SetupForm({ onSaved }: { onSaved: () => void }) {
 function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
   const navigate = useNavigate();
   const setProfile = useReducer(reducers.setProfile);
-  const [historyRows] = useTable(tables.match_history);
-
-  const myHex = user.identity.toHexString();
+  const [historyRows] = useTypedTable<MatchHistory>(tables.match_history);
 
   const myMatches = useMemo(() => {
-    const rows = historyRows as unknown as MatchHistory[];
-    return rows
+    return historyRows
       .filter(
         m =>
-          m.player1Identity.toHexString() === myHex ||
-          m.player2Identity.toHexString() === myHex,
+          identityEq(m.player1Identity, user.identity) ||
+          identityEq(m.player2Identity, user.identity),
       )
       .sort((a, b) => {
         const ta = Number(a.playedAt.microsSinceUnixEpoch / 1000n);
         const tb = Number(b.playedAt.microsSinceUnixEpoch / 1000n);
         return tb - ta;
       });
-  }, [historyRows, myHex]);
+  }, [historyRows, user.identity]);
 
   const activityMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -147,14 +146,7 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
   };
 
   const resolveUser = (id: { toHexString(): string }) =>
-    allUsers.find(u => u.identity.toHexString() === id.toHexString());
-
-  const formatTime = (seconds: number) => {
-    if (seconds === 0) return '—';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}m ${String(s).padStart(2, '0')}s`;
-  };
+    allUsers.find(u => identityEq(u.identity, id));
 
   return (
     <div className="flex flex-col gap-6">
@@ -236,8 +228,8 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
         ) : (
           <div className="flex flex-col">
             {myMatches.slice(0, 10).map((m, i) => {
-              const isP1 = m.player1Identity.toHexString() === myHex;
-              const won = m.winnerIdentity.toHexString() === myHex;
+              const isP1 = identityEq(m.player1Identity, user.identity);
+              const won = identityEq(m.winnerIdentity, user.identity);
               const oppUser = resolveUser(isP1 ? m.player2Identity : m.player1Identity);
               const oppName = oppUser?.username ?? 'Unknown';
               const myTime = isP1 ? m.player1SolveTime : m.player2SolveTime;
@@ -254,11 +246,11 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
                     />
                     <div>
                       <span className="font-semibold text-sm text-text">vs {oppName}</span>
-                      <span className="text-xs text-text-muted ml-2">{m.problemTitle}</span>
+                      <span className="text-xs text-text-muted ml-2">{JSON.parse(m.problemTitles)[0] ?? ''}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-xs text-text-faint capitalize">{m.difficulty}</span>
+                    <span className="text-xs text-text-faint capitalize">{JSON.parse(m.difficulties)[0] ?? ''}</span>
                     <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
                     <span
                       className="text-[13px] font-bold w-12 text-right"
@@ -281,12 +273,11 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const ctx = useSpacetimeDB();
-  const [rows] = useTable(tables.user);
+  const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
 
-  const users = rows as unknown as User[];
   const myUser = ctx.identity
-    ? users.find(u => u.identity.toHexString() === ctx.identity!.toHexString())
+    ? users.find(u => identityEq(u.identity, ctx.identity))
     : undefined;
 
   // Auto-populate profile from GitHub data on first login so the user

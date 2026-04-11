@@ -11,9 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
-  gameId: __t.string(),
-  passed: __t.u32(),
-  total: __t.u32(),
-  solveTime: __t.u32(),
-  language: __t.string(),
+  username: __t.string(),
+  firstName: __t.string(),
+  lastName: __t.string(),
+  githubId: __t.string(),
+  avatarUrl: __t.string(),
 };
