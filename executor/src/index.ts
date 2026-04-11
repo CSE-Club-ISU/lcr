@@ -60,11 +60,12 @@ const server = Bun.serve({
           );
         }
 
-        // Parse test cases based on mode (bindings use camelCase)
-        const sampleCases = JSON.parse(problem.sampleTestCases || '[]');
-        const sampleResults = JSON.parse(problem.sampleTestResults || '[]');
-        const hiddenCases = JSON.parse(problem.hiddenTestCases || '[]');
-        const hiddenResults = JSON.parse(problem.hiddenTestResults || '[]');
+        // Test cases are pipe-delimited JSON strings, e.g. "[1,2]|[3,4]"
+        const splitPipe = (s: string) => s ? s.split('|') : [];
+        const sampleCases = splitPipe(problem.sampleTestCases);
+        const sampleResults = splitPipe(problem.sampleTestResults);
+        const hiddenCases = splitPipe(problem.hiddenTestCases);
+        const hiddenResults = splitPipe(problem.hiddenTestResults);
 
         const testCases = req.mode === 'run' ? sampleCases : hiddenCases;
         const testResults = req.mode === 'run' ? sampleResults : hiddenResults;

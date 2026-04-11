@@ -1,13 +1,14 @@
 // SpacetimeDB connection manager for the executor.
 // Connects and fetches problem data.
 
-import { DbConnection, tables } from './module_bindings/index.js';
+import { DbConnection } from './module_bindings/index.js';
 import type { Problem } from './module_bindings/types.js';
 
 const SPACETIMEDB_URI = process.env.SPACETIMEDB_URI || 'ws://localhost:3000';
 const SPACETIMEDB_TOKEN = process.env.SPACETIMEDB_TOKEN;
 const MODULE_NAME = 'lcr';
 
+let connection: DbConnection | null = null;
 let problemMap: Map<bigint, Problem> = new Map();
 
 export async function initStdb(): Promise<void> {
@@ -21,33 +22,31 @@ export async function initStdb(): Promise<void> {
     builder.withToken(SPACETIMEDB_TOKEN);
   }
 
-  // Build connection and subscribe
-  const connection = builder.build();
+  connection = builder.build();
 
-  // Subscribe to all problems
-  await connection.subscriptionBuilder().subscribe(['SELECT * FROM problem']);
+  // Subscribe and wait for the initial data to arrive
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Timed out waiting for SpacetimeDB subscription (10s)'));
+    }, 10000);
 
-  // Wait for subscription to apply and populate the problems
-  console.log(`[STDB] Subscription requested, waiting for problems...`);
-
-  // Give subscription time to apply
-  await new Promise(r => setTimeout(r, 500));
-
-  rebuildProblemMap();
-  console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
+    connection!.subscriptionBuilder()
+      .onApplied(() => {
+        clearTimeout(timer);
+        rebuildProblemMap();
+        console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
+        resolve();
+      })
+      .subscribe(['SELECT * FROM problem']);
+  });
 }
 
 function rebuildProblemMap() {
+  if (!connection) return;
   problemMap.clear();
-  // tables.problem should be iterable since it acts as a view of problem rows
-  try {
-    const problems = Array.from(tables.problem as any);
-    for (const problem of problems) {
-      const p = problem as Problem;
-      problemMap.set(p.id, p);
-    }
-  } catch (e) {
-    console.warn('[STDB] Could not iterate problems:', e);
+  for (const problem of (connection.db as any).problem) {
+    const p = problem as Problem;
+    problemMap.set(p.id, p);
   }
 }
 

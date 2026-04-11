@@ -53,8 +53,7 @@ import json, sys
 
 ${code}
 
-def compare(actual, expected):
-${problem.compare_func.split('\n').map(l => '    ' + l).join('\n')}
+${problem.compare_func}
 
 test_data = ${JSON.stringify(testData)}
 results = []
