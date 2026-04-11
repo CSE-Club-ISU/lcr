@@ -38,7 +38,7 @@ export default function AuthCallbackPage() {
   }, [navigate]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen text-gh-muted">
+    <div className="flex items-center justify-center min-h-screen text-text-muted">
       Signing in…
     </div>
   );

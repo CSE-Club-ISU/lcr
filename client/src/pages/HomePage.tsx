@@ -29,12 +29,12 @@ export default function HomePage() {
     if (!myUser.username) {
       navigate('/profile');
     } else {
-      navigate('/lobby');
+      navigate('/profile');
     }
   }, [ctx.isActive, ctx.identity, users, navigate]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen text-gh-muted">
+    <div className="flex items-center justify-center min-h-screen text-text-muted">
       Loading…
     </div>
   );

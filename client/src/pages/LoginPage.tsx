@@ -6,10 +6,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="card flex flex-col items-center gap-4 p-12">
-        <h1 className="m-0 text-5xl font-bold text-gh-bright tracking-tight">LCR</h1>
-        <p className="m-0 text-sm text-gh-muted">Competitive Coding — CS Club ISU</p>
+    <div className="flex items-center justify-center min-h-screen bg-bg font-sans">
+      <div className="card flex flex-col items-center gap-5 p-14">
+        {/* Logo */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-lg bg-charcoal flex items-center justify-center font-black text-[15px] text-gold-bright tracking-tight">
+            LC
+          </div>
+          <span className="font-black text-3xl text-text tracking-tight">
+            LCR<span className="text-gold-bright">.</span>
+          </span>
+        </div>
+        <p className="m-0 text-sm text-text-muted">Competitive Coding — ISU CSE Club</p>
         <button className="btn-primary mt-2" onClick={handleSignIn}>
           Sign in with GitHub
         </button>

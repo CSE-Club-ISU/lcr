@@ -3,19 +3,31 @@ import LoginPage        from './pages/LoginPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import HomePage         from './pages/HomePage';
 import ProfilePage      from './pages/ProfilePage';
-import LobbyPage        from './pages/LobbyPage';
+import MatchScreen      from './pages/MatchScreen';
 import RoomPage         from './pages/RoomPage';
+import ProblemScreen    from './pages/ProblemScreen';
+import ResultsScreen    from './pages/ResultsScreen';
+import LeaderboardScreen from './pages/LeaderboardScreen';
+import AppLayout        from './components/layout/AppLayout';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Bare routes (no sidebar) */}
         <Route path="/login"         element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
-        <Route path="/profile"       element={<ProfilePage />} />
-        <Route path="/lobby"         element={<LobbyPage />} />
-        <Route path="/room/:code"    element={<RoomPage />} />
-        <Route path="/"              element={<HomePage />} />
+
+        {/* Authenticated routes with sidebar layout */}
+        <Route element={<AppLayout />}>
+          <Route path="/"              element={<HomePage />} />
+          <Route path="/profile"       element={<ProfilePage />} />
+          <Route path="/play"          element={<MatchScreen />} />
+          <Route path="/play/room/:code" element={<RoomPage />} />
+          <Route path="/play/match"    element={<ProblemScreen />} />
+          <Route path="/results"       element={<ResultsScreen />} />
+          <Route path="/leaderboard"   element={<LeaderboardScreen />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
