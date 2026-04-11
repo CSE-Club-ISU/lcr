@@ -82,6 +82,16 @@ const game_state = table(
   }
 );
 
+// Stores the executor service's SpacetimeDB identity so submit_result can
+// verify the caller is actually the executor, not a malicious client (S3 fix).
+const executor_config = table(
+  { name: 'executor_config', public: false },
+  {
+    id:                t.u32().primaryKey(),   // singleton row — always id=0
+    executor_identity: t.identity(),
+  }
+);
+
 const chat_message = table(
   { name: 'chat_message', public: true },
   {
@@ -125,7 +135,7 @@ const match_history = table(
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -338,6 +348,12 @@ export const submit_result = spacetimedb.reducer(
     language:        t.string(),
   },
   (ctx, { game_id, player_identity, passed, total, solve_time, language }) => {
+    // S3: Only the registered executor identity may submit results
+    const cfg = ctx.db.executor_config.id.find(0);
+    if (!cfg || cfg.executor_identity.toHexString() !== ctx.sender.toHexString()) {
+      throw new Error('Unauthorized: only the executor may call submit_result');
+    }
+
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') return;
 
@@ -402,6 +418,27 @@ export const submit_result = spacetimedb.reducer(
     updated.status          = 'finished';
     updated.winner_identity = winner_identity;
     ctx.db.game_state.id.update(updated);
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Executor config (S3 fix)
+// ---------------------------------------------------------------------------
+
+// Called once by an admin to register the executor's SpacetimeDB identity.
+// After this, submit_result will only accept calls from that identity.
+export const set_executor_identity = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const existing = ctx.db.executor_config.id.find(0);
+    // Allow first-time registration freely; require admin to overwrite
+    if (existing) {
+      const user = ctx.db.user.identity.find(ctx.sender);
+      if (!user?.is_admin) throw new Error('Unauthorized');
+      ctx.db.executor_config.id.update({ ...existing, executor_identity: ctx.sender });
+    } else {
+      ctx.db.executor_config.insert({ id: 0, executor_identity: ctx.sender });
+    }
   }
 );
 

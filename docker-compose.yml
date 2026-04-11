@@ -1,15 +1,17 @@
 services:
   init:
-    image: clockworklabs/spacetime:latest
-    command: /bin/bash /init.sh
+    build:
+      context: .
+      dockerfile: init.Dockerfile
+    entrypoint: ["/bin/bash", "/init.sh"]
+    command: []
     volumes:
       - .:/workspace
       - ./init.sh:/init.sh
+      - spacetime_config:/root/.config/spacetime
     depends_on:
       spacetimedb:
         condition: service_started
-    networks:
-      - default
 
   spacetimedb:
     image: clockworklabs/spacetime:latest
@@ -68,3 +70,4 @@ services:
 volumes:
   spacetimedb_data:
   auth_data:
+  spacetime_config:   # must be wiped together with spacetimedb_data

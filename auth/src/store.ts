@@ -1,25 +1,45 @@
 /**
- * Persistent mapping of GitHub user ID → SpacetimeDB token.
- * Stored as a simple JSON file so tokens survive auth server restarts.
- * The SpacetimeDB token is stable per identity — using the same token
- * always reconnects as the same SpacetimeDB Identity.
+ * Persistent store backed by a JSON file.
+ * Loaded once into memory at startup; all mutations write through to disk.
+ * This prevents load-modify-save races where one write clobbers another.
+ *
+ * - githubId → stdbToken  (stable, never expires)
+ * - pendingCode → PendingAuth (one-time auth codes, expire after 60s)
  */
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 const STORE_FILE = process.env.STORE_FILE ?? './token-store.json';
 
-type Store = Record<string, string>; // githubId → stdbToken
+export interface PendingAuth {
+  token:     string;
+  githubId:  string;
+  username:  string;
+  name:      string;
+  avatarUrl: string;
+  email:     string;
+  expiresAt: number;
+}
 
-function load(): Store {
-  if (!existsSync(STORE_FILE)) return {};
+interface Store {
+  tokens: Record<string, string>;
+  codes:  Record<string, PendingAuth>;
+}
+
+function loadFromDisk(): Store {
+  if (!existsSync(STORE_FILE)) return { tokens: {}, codes: {} };
   try {
-    return JSON.parse(readFileSync(STORE_FILE, 'utf-8'));
+    const raw = JSON.parse(readFileSync(STORE_FILE, 'utf-8'));
+    if (!raw.tokens) return { tokens: raw, codes: {} }; // migrate old format
+    return raw;
   } catch {
-    return {};
+    return { tokens: {}, codes: {} };
   }
 }
 
-function save(store: Store): void {
+// Single in-memory instance — loaded once, written through on every mutation
+const store: Store = loadFromDisk();
+
+function persist(): void {
   try {
     writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
   } catch (err) {
@@ -28,11 +48,36 @@ function save(store: Store): void {
 }
 
 export function getToken(githubId: string): string | undefined {
-  return load()[githubId];
+  return store.tokens[githubId];
 }
 
 export function setToken(githubId: string, token: string): void {
-  const store = load();
-  store[githubId] = token;
-  save(store);
+  store.tokens[githubId] = token;
+  persist();
+}
+
+export function createCode(data: Omit<PendingAuth, 'expiresAt'>): string {
+  // Prune expired codes
+  const now = Date.now();
+  for (const [k, v] of Object.entries(store.codes)) {
+    if (now > v.expiresAt) delete store.codes[k];
+  }
+  const code = crypto.randomUUID();
+  store.codes[code] = { ...data, expiresAt: now + 60_000 };
+  persist();
+  return code;
+}
+
+export function redeemCode(code: string): Omit<PendingAuth, 'expiresAt'> | undefined {
+  const entry = store.codes[code];
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    delete store.codes[code];
+    persist();
+    return undefined;
+  }
+  delete store.codes[code];
+  persist();
+  const { expiresAt: _unused, ...payload } = entry;
+  return payload;
 }

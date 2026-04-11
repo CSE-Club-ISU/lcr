@@ -1,7 +1,21 @@
 import { Hono } from 'hono';
-import { getToken, setToken } from './store';
+import { getToken, setToken, createCode, redeemCode } from './store';
 
 const app = new Hono();
+
+// Allow the client origin to POST /redeem (CORS preflight)
+const ALLOWED_ORIGIN = process.env.AUTH_REDIRECT_URI
+  ? new URL(process.env.AUTH_REDIRECT_URI).origin
+  : 'http://localhost:5173';
+
+app.use('*', async (c, next) => {
+  await next();
+  c.res.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  c.res.headers.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+});
+
+app.options('*', (c) => c.text('', 204));
 
 const GITHUB_CLIENT_ID     = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
@@ -119,17 +133,32 @@ app.get('/callback', async (c) => {
     setToken(githubId, stdbToken);
   }
 
-  // Pass the SpacetimeDB token + GitHub profile back to the client
-  const params = new URLSearchParams({
-    token:      stdbToken,
-    github_id:  githubId,
-    username:   profile.login,
-    name:       profile.name ?? profile.login,
-    avatar_url: profile.avatar_url,
+  // Issue a one-time code instead of putting the token in the URL (S2 fix).
+  // The client will POST /redeem with this code to get the token.
+  const authCode = createCode({
+    token:     stdbToken,
+    githubId,
+    username:  profile.login,
+    name:      profile.name ?? profile.login,
+    avatarUrl: profile.avatar_url,
     email,
   });
 
-  return c.redirect(`${CLIENT_CALLBACK_URL}?${params}`);
+  return c.redirect(`${CLIENT_CALLBACK_URL}?code=${encodeURIComponent(authCode)}`);
+});
+
+// ---------------------------------------------------------------------------
+// Step 3: Client redeems one-time code → receives token + profile (S2 fix)
+// ---------------------------------------------------------------------------
+
+app.post('/redeem', async (c) => {
+  const body = await c.req.json() as { code?: string };
+  if (!body.code) return c.json({ error: 'missing code' }, 400);
+
+  const entry = redeemCode(body.code);
+  if (!entry) return c.json({ error: 'invalid or expired code' }, 400);
+
+  return c.json(entry);
 });
 
 // ---------------------------------------------------------------------------
