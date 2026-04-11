@@ -122,9 +122,12 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
       ? Math.round((user.totalWins / user.totalMatches) * 100)
       : 0;
 
+  const isGuest = localStorage.getItem('lcr_guest_mode') === 'true';
+
   const handleSignOut = () => {
     localStorage.removeItem('lcr_auth_token');
     localStorage.removeItem('lcr_github_profile');
+    localStorage.removeItem('lcr_guest_mode');
     navigate('/login');
   };
 
@@ -199,9 +202,15 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
           <button onClick={() => navigate('/play')} className="btn-primary py-[11px] text-sm">
             &#9654; Play
           </button>
-          <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
-            Sign out
-          </button>
+          {isGuest ? (
+            <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
+              Sign in with GitHub
+            </button>
+          ) : (
+            <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
+              Sign out
+            </button>
+          )}
         </div>
 
         {/* Stats grid */}
@@ -307,7 +316,8 @@ export default function ProfilePage() {
     }
   }, [myUser?.username]);
 
-  if (!localStorage.getItem('lcr_auth_token')) return null;
+  const isGuest = localStorage.getItem('lcr_guest_mode') === 'true';
+  if (!localStorage.getItem('lcr_auth_token') && !isGuest) return null;
 
   // Still connecting — don't flash the setup form
   if (!ctx.isActive || !myUser) {

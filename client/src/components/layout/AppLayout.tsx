@@ -20,9 +20,11 @@ export default function AppLayout() {
         username={myUser?.username ?? ''}
         avatarUrl={myUser?.avatarUrl}
       />
-      <div className="flex-1 ml-[220px] py-7 px-7 overflow-y-auto max-w-[960px]">
-        <Breadcrumb />
-        <Outlet />
+      <div className="flex-1 ml-[220px] py-7 px-7 overflow-y-auto">
+        <div className="max-w-[960px] mx-auto">
+          <Breadcrumb />
+          <Outlet />
+        </div>
       </div>
     </div>
   );

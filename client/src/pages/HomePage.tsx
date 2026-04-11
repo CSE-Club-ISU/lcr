@@ -9,8 +9,9 @@ export default function HomePage() {
   const [users]  = useTable(tables.user);
 
   useEffect(() => {
-    const token = localStorage.getItem('lcr_auth_token');
-    if (!token) {
+    const token     = localStorage.getItem('lcr_auth_token');
+    const guestMode = localStorage.getItem('lcr_guest_mode') === 'true';
+    if (!token && !guestMode) {
       navigate('/login');
       return;
     }

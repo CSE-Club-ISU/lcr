@@ -19,6 +19,12 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const ExecutorConfig = __t.object("ExecutorConfig", {
+  id: __t.u32(),
+  executorIdentity: __t.identity(),
+});
+export type ExecutorConfig = __Infer<typeof ExecutorConfig>;
+
 export const GameState = __t.object("GameState", {
   id: __t.string(),
   roomCode: __t.string(),
