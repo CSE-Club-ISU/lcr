@@ -26,11 +26,15 @@ const CORS_HEADERS = {
 };
 
 function json(body: unknown, init?: ResponseInit): Response {
-  const res = Response.json(body, init);
-  CORS_HEADERS['Access-Control-Allow-Origin'] && res.headers.set('Access-Control-Allow-Origin', '*');
-  return new Response(res.body, {
-    status: res.status,
-    headers: { ...Object.fromEntries(res.headers), ...CORS_HEADERS },
+  const status = (init as { status?: number } | undefined)?.status ?? 200;
+  const extraHeaders = (init as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...CORS_HEADERS,
+      ...extraHeaders,
+    },
   });
 }
 
