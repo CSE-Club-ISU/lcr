@@ -1,77 +1,148 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { tables } from '../module_bindings';
+import type { MatchHistory, User } from '../module_bindings/types';
 import Pill from '../components/ui/Pill';
-import ProgressBar from '../components/ui/ProgressBar';
-
-const PLAYERS = [
-  { name: 'jake_dev (You)', time: '5:46', memory: '14.2 MB', status: 'Accepted', avatar: 'J', grad: '#C0272D, #F5C518' },
-  { name: 'priya_m', time: '7:00', memory: '14.8 MB', status: 'Accepted', avatar: 'P', grad: '#2563EB, #818CF8' },
-];
 
 export default function ResultsScreen() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const ctx = useSpacetimeDB();
+
+  const gameId = searchParams.get('game') ?? '';
+
+  const [historyRows] = useTable(tables.match_history);
+  const [userRows]    = useTable(tables.user);
+
+  const allHistory = historyRows as unknown as MatchHistory[];
+  const users      = userRows   as unknown as User[];
+
+  // Find the match for this game (room_code === gameId)
+  const match = allHistory
+    .filter(m => m.roomCode === gameId)
+    .sort((a, b) => Number(b.playedAt.microsSinceUnixEpoch - a.playedAt.microsSinceUnixEpoch))[0];
+
+  const resolveUser = (id: { toHexString(): string } | undefined) =>
+    id ? users.find(u => u.identity.toHexString() === id.toHexString()) : undefined;
+
+  const myHex = ctx.identity?.toHexString();
+
+  if (!match) {
+    return (
+      <div className="flex flex-col items-center gap-6 mt-20">
+        <div className="text-text-muted">Loading results…</div>
+        <button className="btn-secondary" onClick={() => navigate('/profile')}>
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const p1 = resolveUser(match.player1Identity);
+  const p2 = resolveUser(match.player2Identity);
+  const winner = resolveUser(match.winnerIdentity);
+
+  const iWon = match.winnerIdentity.toHexString() === myHex;
+  const myIsP1 = match.player1Identity.toHexString() === myHex;
+
+  const myTime   = myIsP1 ? match.player1SolveTime : match.player2SolveTime;
+  const oppTime  = myIsP1 ? match.player2SolveTime : match.player1SolveTime;
+
+  const formatTime = (s: number) => {
+    if (s === 0) return '—';
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}m ${String(sec).padStart(2, '0')}s`;
+  };
+
+  const timeDelta = myTime > 0 && oppTime > 0
+    ? Math.abs(myTime - oppTime)
+    : null;
+
+  const GRAD_P1 = '#C0272D, #F5C518';
+  const GRAD_P2 = '#2563EB, #818CF8';
+
+  const players = [
+    {
+      user: p1,
+      accepted: match.player1Accepted,
+      solveTime: match.player1SolveTime,
+      language: match.player1Language,
+      isWinner: match.player1Identity.toHexString() === match.winnerIdentity.toHexString(),
+      grad: GRAD_P1,
+    },
+    {
+      user: p2,
+      accepted: match.player2Accepted,
+      solveTime: match.player2SolveTime,
+      language: match.player2Language,
+      isWinner: match.player2Identity.toHexString() === match.winnerIdentity.toHexString(),
+      grad: GRAD_P2,
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Win banner */}
+      {/* Result banner */}
       <div
         className="rounded-2xl px-8 py-7 flex items-center justify-between text-white"
-        style={{ background: 'linear-gradient(135deg, #C0272D 0%, #1A0A0A 100%)' }}
+        style={{
+          background: iWon
+            ? 'linear-gradient(135deg, #C0272D 0%, #1A0A0A 100%)'
+            : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        }}
       >
         <div>
           <div className="text-xs font-semibold opacity-80 tracking-widest mb-1">MATCH RESULT</div>
-          <div className="text-4xl font-black tracking-tight leading-none">Victory!</div>
-          <div className="text-sm opacity-80 mt-1.5">You solved it 1m 14s faster than priya_m</div>
-        </div>
-        <div className="text-right">
-          <div className="text-[42px] font-black tracking-tighter">+18</div>
-          <div className="text-sm opacity-80">ELO gained</div>
+          <div className="text-4xl font-black tracking-tight leading-none">
+            {iWon ? 'Victory!' : 'Defeat'}
+          </div>
+          {timeDelta !== null && (
+            <div className="text-sm opacity-80 mt-1.5">
+              {iWon
+                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUser(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
+                : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
+            </div>
+          )}
+          <div className="text-sm opacity-60 mt-1">{match.problemTitle}</div>
         </div>
       </div>
 
       {/* Side-by-side comparison */}
       <div className="grid grid-cols-2 gap-4">
-        {PLAYERS.map((p, i) => (
-          <div key={i} className={`card p-6 ${i === 0 ? 'border-green' : ''}`}>
+        {players.map((p, i) => (
+          <div key={i} className={`card p-6 ${p.isWinner ? 'border-green' : ''}`}>
             <div className="flex items-center gap-3 mb-5">
               <div
                 className="w-10 h-10 rounded-[10px] flex items-center justify-center text-lg font-extrabold text-white"
                 style={{ background: `linear-gradient(135deg, ${p.grad})` }}
               >
-                {p.avatar}
+                {(p.user?.username?.[0] ?? '?').toUpperCase()}
               </div>
               <div>
-                <div className="font-bold text-text">{p.name}</div>
-                <Pill label={p.status} color="green" />
+                <div className="font-bold text-text">
+                  {p.user?.username ?? 'Unknown'}
+                  {p.user?.identity.toHexString() === myHex && (
+                    <span className="text-[11px] text-accent ml-1.5">(you)</span>
+                  )}
+                </div>
+                <Pill label={p.accepted ? 'Accepted' : 'Not solved'} color={p.accepted ? 'green' : 'red'} />
               </div>
             </div>
             <div className="flex flex-col gap-2.5">
-              {[['Solve Time', p.time], ['Memory', p.memory], ['Language', 'Python']].map(([k, v]) => (
+              {[
+                ['Solve Time', formatTime(p.solveTime)],
+                ['Language', p.language || '—'],
+                ['Difficulty', match.difficulty],
+              ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-[13px] text-text-muted">{k}</span>
-                  <span className="text-[13px] font-semibold text-text">{v}</span>
+                  <span className="text-[13px] font-semibold text-text capitalize">{v}</span>
                 </div>
               ))}
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Rating change */}
-      <div className="card p-6">
-        <div className="font-bold text-sm text-text mb-4">Rating Update</div>
-        <div className="flex items-center gap-4">
-          <div className="text-2xl font-extrabold text-text-muted">1,482</div>
-          <div className="text-xl text-text-muted">&rarr;</div>
-          <div className="text-[28px] font-black text-green">1,500</div>
-          <Pill label="+18" color="green" />
-        </div>
-        <div className="mt-3.5">
-          <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-text-muted">Progress to Platinum</span>
-            <span className="font-semibold text-text">1,500 / 1,600</span>
-          </div>
-          <ProgressBar value={1500} max={1600} height={8} />
-        </div>
       </div>
 
       {/* Actions */}

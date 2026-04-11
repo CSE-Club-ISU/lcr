@@ -1,17 +1,27 @@
-import { useMemo } from 'react';
-
 const WEEKS = 16;
 const DAYS = 7;
 const COLORS = ['#2E2926', '#5C4A10', '#F5C518', '#D4A017', '#C0272D'];
 
-export default function ActivityHeatmap() {
-  const cells = useMemo(
-    () =>
-      Array.from({ length: WEEKS * DAYS }, () =>
-        Math.random() > 0.55 ? Math.floor(Math.random() * 4) + 1 : 0,
-      ),
-    [],
-  );
+interface Props {
+  // Map of "YYYY-MM-DD" → match count
+  activityMap: Record<string, number>;
+}
+
+export default function ActivityHeatmap({ activityMap }: Props) {
+  // Build 16-week grid ending today
+  const today = new Date();
+  const cells: number[] = [];
+
+  for (let w = WEEKS - 1; w >= 0; w--) {
+    for (let d = 0; d < DAYS; d++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (w * DAYS + (DAYS - 1 - d)));
+      const key = date.toISOString().slice(0, 10);
+      const count = activityMap[key] ?? 0;
+      // Map count to color index: 0=none, 1=1 match, 2=2, 3=3, 4=4+
+      cells.push(Math.min(count, 4));
+    }
+  }
 
   return (
     <div>

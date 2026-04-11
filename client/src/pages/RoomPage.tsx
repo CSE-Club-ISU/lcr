@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
@@ -5,13 +6,14 @@ import type { Room, User } from '../module_bindings/types';
 import PlayerSlot from '../components/room/PlayerSlot';
 
 export default function RoomPage() {
-  const { code }  = useParams<{ code: string }>();
-  const navigate  = useNavigate();
-  const ctx       = useSpacetimeDB();
-  const [roomRows] = useTable(tables.room);
-  const [userRows] = useTable(tables.user);
-  const leaveRoom  = useReducer(reducers.leaveRoom);
-  const setReady   = useReducer(reducers.setReady);
+  const { code }    = useParams<{ code: string }>();
+  const navigate    = useNavigate();
+  const ctx         = useSpacetimeDB();
+  const [roomRows]  = useTable(tables.room);
+  const [userRows]  = useTable(tables.user);
+  const leaveRoom   = useReducer(reducers.leaveRoom);
+  const setReady    = useReducer(reducers.setReady);
+  const startGame   = useReducer(reducers.startGame);
 
   const rooms = roomRows as unknown as Room[];
   const users = userRows as unknown as User[];
@@ -30,6 +32,20 @@ export default function RoomPage() {
 
   const myReady   = isHost ? room?.hostReady : isGuest ? room?.guestReady : false;
   const bothReady = room?.hostReady && room?.guestReady && !!room?.guestIdentity;
+
+  // Host triggers game start when both are ready
+  useEffect(() => {
+    if (bothReady && isHost && code) {
+      startGame({ code });
+    }
+  }, [bothReady, isHost, code]);
+
+  // All players navigate when game starts
+  useEffect(() => {
+    if (room?.status === 'in_game') {
+      navigate(`/play/match?game=${room.code}`);
+    }
+  }, [room?.status, room?.code, navigate]);
 
   const settings = (() => {
     try { return JSON.parse(room?.settings ?? '{}') as Record<string, string>; } catch { return {}; }
@@ -77,7 +93,7 @@ export default function RoomPage() {
 
         {bothReady && (
           <div className="py-3 px-6 rounded-lg bg-blue text-white font-semibold text-center">
-            Both players ready — game starting soon!
+            Both players ready — game starting…
           </div>
         )}
 

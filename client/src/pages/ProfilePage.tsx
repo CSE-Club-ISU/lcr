@@ -1,23 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
-import type { User } from '../module_bindings/types';
+import type { User, MatchHistory } from '../module_bindings/types';
 import Avatar from '../components/ui/Avatar';
-import RankBadge from '../components/ui/RankBadge';
 import StatCard from '../components/ui/StatCard';
-import ProgressBar from '../components/ui/ProgressBar';
 import ActivityHeatmap from '../components/ui/ActivityHeatmap';
-
-// ── Mock data (backend lacks ELO / stats / match history) ────────────────
-const MOCK_ELO = 1482;
-const MOCK_RANK = 'Gold' as const;
-const MOCK_RECENT = [
-  { opp: 'alex_c', result: 'win' as const, problem: 'Two Sum', rating: '+18', time: '4m 32s' },
-  { opp: 'priya_m', result: 'loss' as const, problem: 'Valid Parentheses', rating: '-12', time: '7m 01s' },
-  { opp: 'jordan_k', result: 'win' as const, problem: 'Merge Intervals', rating: '+21', time: '9m 14s' },
-  { opp: 'wei_l', result: 'win' as const, problem: 'Binary Search', rating: '+15', time: '3m 48s' },
-];
 
 // ── Setup form (first-time users) ────────────────────────────────────────
 function SetupForm({ onSaved }: { onSaved: () => void }) {
@@ -94,9 +82,42 @@ function SetupForm({ onSaved }: { onSaved: () => void }) {
 }
 
 // ── Dashboard (returning users) ──────────────────────────────────────────
-function Dashboard({ user }: { user: User }) {
+function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
   const navigate = useNavigate();
   const setProfile = useReducer(reducers.setProfile);
+  const [historyRows] = useTable(tables.match_history);
+
+  const myHex = user.identity.toHexString();
+
+  const myMatches = useMemo(() => {
+    const rows = historyRows as unknown as MatchHistory[];
+    return rows
+      .filter(
+        m =>
+          m.player1Identity.toHexString() === myHex ||
+          m.player2Identity.toHexString() === myHex,
+      )
+      .sort((a, b) => {
+        const ta = Number(a.playedAt.microsSinceUnixEpoch / 1000n);
+        const tb = Number(b.playedAt.microsSinceUnixEpoch / 1000n);
+        return tb - ta;
+      });
+  }, [historyRows, myHex]);
+
+  const activityMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of myMatches) {
+      const date = new Date(Number(m.playedAt.microsSinceUnixEpoch / 1000n));
+      const key = date.toISOString().slice(0, 10);
+      map[key] = (map[key] ?? 0) + 1;
+    }
+    return map;
+  }, [myMatches]);
+
+  const winRate =
+    user.totalMatches > 0
+      ? Math.round((user.totalWins / user.totalMatches) * 100)
+      : 0;
 
   const [editingUsername, setEditingUsername] = useState(false);
   const [draftUsername, setDraftUsername] = useState(user.username);
@@ -111,6 +132,16 @@ function Dashboard({ user }: { user: User }) {
       avatarUrl: user.avatarUrl,
     });
     setEditingUsername(false);
+  };
+
+  const resolveUser = (id: { toHexString(): string }) =>
+    allUsers.find(u => u.identity.toHexString() === id.toHexString());
+
+  const formatTime = (seconds: number) => {
+    if (seconds === 0) return '—';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${String(s).padStart(2, '0')}s`;
   };
 
   return (
@@ -128,7 +159,10 @@ function Dashboard({ user }: { user: User }) {
                     autoFocus
                     value={draftUsername}
                     onChange={e => setDraftUsername(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') { setDraftUsername(user.username); setEditingUsername(false); } }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveUsername();
+                      if (e.key === 'Escape') { setDraftUsername(user.username); setEditingUsername(false); }
+                    }}
                     className="bg-surface-alt border-[1.5px] border-gold-bright rounded-md px-2 py-0.5 text-[15px] font-bold text-text w-[120px] outline-none"
                   />
                   <button onClick={saveUsername} className="bg-gold-bright border-none rounded-[5px] px-2 py-0.5 text-xs font-bold text-charcoal cursor-pointer">
@@ -153,73 +187,70 @@ function Dashboard({ user }: { user: User }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <RankBadge tier={MOCK_RANK} size="lg" />
-            <div>
-              <div className="font-extrabold text-[22px] text-text tracking-tight">{MOCK_ELO.toLocaleString()}</div>
-              <div className="text-xs text-text-muted">ELO Rating</div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-text-muted">To Platinum</span>
-              <span className="text-text font-semibold">{MOCK_ELO.toLocaleString()} / 1,600</span>
-            </div>
-            <ProgressBar value={MOCK_ELO} max={1600} height={7} />
-          </div>
-
           <button onClick={() => navigate('/play')} className="btn-primary py-[11px] text-sm">
-            &#9654; Find Match
+            &#9654; Play
           </button>
         </div>
 
         {/* Stats grid */}
         <div className="flex-1 grid grid-cols-2 gap-3">
-          <StatCard label="Wins" value="47" sub="This season" accent="#22C55E" />
-          <StatCard label="Win Rate" value="68%" sub="Last 30 days" accent="#3B82F6" />
-          <StatCard label="Solved" value="124" sub="Problems total" />
-          <StatCard label="Streak" value="7d" sub="Current streak" accent="#D4A017" />
+          <StatCard label="Wins" value={String(user.totalWins)} sub="Total" accent="#22C55E" />
+          <StatCard label="Win Rate" value={`${winRate}%`} sub={`${user.totalMatches} matches`} accent="#3B82F6" />
+          <StatCard label="Streak" value={`${user.currentStreak}d`} sub="Current streak" accent="#D4A017" />
+          <StatCard label="Matches" value={String(user.totalMatches)} sub="All time" />
         </div>
       </div>
 
       {/* Activity heatmap */}
       <div className="card p-6">
         <div className="font-bold text-sm text-text mb-4">Activity — Last 16 Weeks</div>
-        <ActivityHeatmap />
+        <ActivityHeatmap activityMap={activityMap} />
       </div>
 
       {/* Recent matches */}
       <div className="card p-6">
         <div className="font-bold text-sm text-text mb-4">Recent Matches</div>
-        <div className="flex flex-col">
-          {MOCK_RECENT.map((m, i) => (
-            <div
-              key={i}
-              className={`flex items-center justify-between py-3 ${i < MOCK_RECENT.length - 1 ? 'border-b border-border' : ''}`}
-            >
-              <div className="flex items-center gap-3">
+        {myMatches.length === 0 ? (
+          <div className="text-sm text-text-muted">No matches yet. <button className="text-accent bg-transparent border-none cursor-pointer p-0 font-semibold" onClick={() => navigate('/play')}>Play your first game!</button></div>
+        ) : (
+          <div className="flex flex-col">
+            {myMatches.slice(0, 10).map((m, i) => {
+              const isP1 = m.player1Identity.toHexString() === myHex;
+              const won = m.winnerIdentity.toHexString() === myHex;
+              const oppUser = resolveUser(isP1 ? m.player2Identity : m.player1Identity);
+              const oppName = oppUser?.username ?? 'Unknown';
+              const myTime = isP1 ? m.player1SolveTime : m.player2SolveTime;
+
+              return (
                 <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: m.result === 'win' ? '#22C55E' : '#EF4444' }}
-                />
-                <div>
-                  <span className="font-semibold text-sm text-text">vs {m.opp}</span>
-                  <span className="text-xs text-text-muted ml-2">{m.problem}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-text-faint">{m.time}</span>
-                <span
-                  className="text-[13px] font-bold w-9 text-right"
-                  style={{ color: m.result === 'win' ? '#22C55E' : '#EF4444' }}
+                  key={String(m.id)}
+                  className={`flex items-center justify-between py-3 ${i < Math.min(myMatches.length, 10) - 1 ? 'border-b border-border' : ''}`}
                 >
-                  {m.rating}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: won ? '#22C55E' : '#EF4444' }}
+                    />
+                    <div>
+                      <span className="font-semibold text-sm text-text">vs {oppName}</span>
+                      <span className="text-xs text-text-muted ml-2">{m.problemTitle}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs text-text-faint capitalize">{m.difficulty}</span>
+                    <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
+                    <span
+                      className="text-[13px] font-bold w-12 text-right"
+                      style={{ color: won ? '#22C55E' : '#EF4444' }}
+                    >
+                      {won ? 'Win' : 'Loss'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -238,10 +269,9 @@ export default function ProfilePage() {
 
   if (!localStorage.getItem('lcr_auth_token')) return null;
 
-  // Show setup form if no username
   if (!myUser?.username) {
     return <SetupForm onSaved={() => navigate('/profile')} />;
   }
 
-  return <Dashboard user={myUser} />;
+  return <Dashboard user={myUser} allUsers={users} />;
 }
