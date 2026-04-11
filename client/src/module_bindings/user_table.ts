@@ -18,4 +18,8 @@ export default __t.row({
   githubId: __t.string().name("github_id"),
   avatarUrl: __t.string().name("avatar_url"),
   isAdmin: __t.bool().name("is_admin"),
+  eloRating: __t.i32().name("elo_rating"),
+  totalWins: __t.u32().name("total_wins"),
+  totalMatches: __t.u32().name("total_matches"),
+  currentStreak: __t.u32().name("current_streak"),
 });

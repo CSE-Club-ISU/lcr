@@ -15,4 +15,6 @@ export default {
   playerIdentity: __t.identity(),
   passed: __t.u32(),
   total: __t.u32(),
+  solveTime: __t.u32(),
+  language: __t.string(),
 };

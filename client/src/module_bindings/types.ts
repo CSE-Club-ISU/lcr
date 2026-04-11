@@ -41,6 +41,25 @@ export const GameState = __t.object("GameState", {
 });
 export type GameState = __Infer<typeof GameState>;
 
+export const MatchHistory = __t.object("MatchHistory", {
+  id: __t.u64(),
+  roomCode: __t.string(),
+  player1Identity: __t.identity(),
+  player2Identity: __t.identity(),
+  winnerIdentity: __t.identity(),
+  problemId: __t.u64(),
+  problemTitle: __t.string(),
+  difficulty: __t.string(),
+  player1SolveTime: __t.u32(),
+  player2SolveTime: __t.u32(),
+  player1Language: __t.string(),
+  player2Language: __t.string(),
+  player1Accepted: __t.bool(),
+  player2Accepted: __t.bool(),
+  playedAt: __t.timestamp(),
+});
+export type MatchHistory = __Infer<typeof MatchHistory>;
+
 export const Problem = __t.object("Problem", {
   id: __t.u64(),
   title: __t.string(),
@@ -81,6 +100,10 @@ export const User = __t.object("User", {
   githubId: __t.string(),
   avatarUrl: __t.string(),
   isAdmin: __t.bool(),
+  eloRating: __t.i32(),
+  totalWins: __t.u32(),
+  totalMatches: __t.u32(),
+  currentStreak: __t.u32(),
 });
 export type User = __Infer<typeof User>;
 
