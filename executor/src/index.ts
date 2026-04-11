@@ -1,4 +1,6 @@
-import { executeCode } from './runner';
+import { executeCode } from './runner.js';
+import { initStdb } from './stdb.js';
+import type { ExecuteRequest } from './types.js';
 
 const PORT = parseInt(process.env.EXECUTOR_PORT ?? '8000');
 
@@ -47,7 +49,41 @@ const server = Bun.serve({
       }
 
       try {
-        const result = await executeCode(body as never);
+        const req = body as unknown as ExecuteRequest;
+
+        // Fetch problem data from SpacetimeDB
+        const problem = (await import('./stdb.js')).getProblem(BigInt(req.problem_id));
+        if (!problem) {
+          return Response.json(
+            { error: `Problem ${req.problem_id} not found` },
+            { status: 400 }
+          );
+        }
+
+        // Parse test cases based on mode (bindings use camelCase)
+        const sampleCases = JSON.parse(problem.sampleTestCases || '[]');
+        const sampleResults = JSON.parse(problem.sampleTestResults || '[]');
+        const hiddenCases = JSON.parse(problem.hiddenTestCases || '[]');
+        const hiddenResults = JSON.parse(problem.hiddenTestResults || '[]');
+
+        const testCases = req.mode === 'run' ? sampleCases : hiddenCases;
+        const testResults = req.mode === 'run' ? sampleResults : hiddenResults;
+        const compareFuncKey = req.lang === 'python' ? 'compareFuncPython' :
+                               req.lang === 'java' ? 'compareFuncJava' : 'compareFuncCpp';
+        const compareFunc = ((problem as any)[compareFuncKey] || 'def compare(a, b): return a == b') as string;
+
+        const problemData = {
+          method_name: problem.methodName,
+          test_cases: testCases,
+          test_results: testResults,
+          compare_func: compareFunc,
+        };
+
+        const result = await executeCode(req, problemData);
+
+        // Note: The client will call submit_result reducer if mode==='submit' and result.success
+        // (The executor is not authorized to call reducers — only the client with proper identity can)
+
         return Response.json(result);
       } catch (err) {
         // On error, release the rate limit immediately so the player can retry
@@ -65,4 +101,7 @@ const server = Bun.serve({
   },
 });
 
+// Initialize SpacetimeDB connection on startup
+console.log('Executor starting up...');
+await initStdb();
 console.log(`Executor listening on port ${server.port}`);

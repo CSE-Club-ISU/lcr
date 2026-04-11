@@ -1,8 +1,8 @@
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
-import type { ExecuteRequest, ExecuteResult } from './types';
-import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators';
+import type { ExecuteRequest, ExecuteResult } from './types.js';
+import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators/index.js';
 
 const CPU_LIMIT = process.env.DOCKER_CPU_LIMIT ?? '0.5';
 
@@ -12,7 +12,17 @@ const memoryLimit: Record<string, string> = {
   cpp:    process.env.DOCKER_CPP_MEMORY    ?? '128m',
 };
 
-export async function executeCode(req: ExecuteRequest): Promise<ExecuteResult> {
+export interface ProblemData {
+  method_name: string;
+  test_cases: string[];        // JSON strings (sample or hidden based on mode)
+  test_results: string[];      // Expected outputs
+  compare_func: string;        // Language-specific comparison logic
+}
+
+export async function executeCode(
+  req: ExecuteRequest,
+  problemData: ProblemData
+): Promise<ExecuteResult> {
   const tmpDir = await mkdtemp(join(tmpdir(), 'lcr-'));
 
   try {
@@ -20,12 +30,16 @@ export async function executeCode(req: ExecuteRequest): Promise<ExecuteResult> {
     const fileName = `solution${ext}`;
     const filePath = join(tmpDir, fileName);
 
-    const testFileContent = generateTestFile(req);
+    const testFileContent = generateTestFile(
+      req.code,
+      req.lang,
+      problemData
+    );
     await writeFile(filePath, testFileContent, 'utf8');
 
     const image = getDockerImage(req.lang);
     const timeLimit = getTimeLimitMs(req.lang);
-    const mem = memoryLimit[req.lang];
+    const mem = memoryLimit[req.lang] ?? '128m';
 
     const result = await runInDocker({
       image,
@@ -36,7 +50,7 @@ export async function executeCode(req: ExecuteRequest): Promise<ExecuteResult> {
       mem,
     });
 
-    return parseDockerOutput(result, req.hidden_test_cases.length);
+    return parseDockerOutput(result, problemData.test_cases.length);
   } finally {
     await rm(tmpDir, { recursive: true, force: true });
   }
