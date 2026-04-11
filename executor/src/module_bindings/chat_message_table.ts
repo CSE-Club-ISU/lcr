@@ -10,10 +10,10 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
-  gameId: __t.string(),
-  passed: __t.u32(),
-  total: __t.u32(),
-  solveTime: __t.u32(),
-  language: __t.string(),
-};
+export default __t.row({
+  id: __t.u64().primaryKey(),
+  gameId: __t.string().name("game_id"),
+  senderIdentity: __t.identity().name("sender_identity"),
+  text: __t.string(),
+  sent: __t.timestamp(),
+});

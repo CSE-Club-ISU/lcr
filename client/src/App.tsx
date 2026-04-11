@@ -9,6 +9,7 @@ import ProblemScreen    from './pages/ProblemScreen';
 import ResultsScreen    from './pages/ResultsScreen';
 import LeaderboardScreen from './pages/LeaderboardScreen';
 import AppLayout        from './components/layout/AppLayout';
+import RequireAuth      from './components/RequireAuth';
 
 export default function App() {
   return (
@@ -19,7 +20,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
         {/* Authenticated routes with sidebar layout */}
-        <Route element={<AppLayout />}>
+        <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route path="/"              element={<HomePage />} />
           <Route path="/profile"       element={<ProfilePage />} />
           <Route path="/play"          element={<MatchScreen />} />

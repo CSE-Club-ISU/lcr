@@ -12,8 +12,5 @@ import {
 
 export default {
   gameId: __t.string(),
-  passed: __t.u32(),
-  total: __t.u32(),
-  solveTime: __t.u32(),
-  language: __t.string(),
+  text: __t.string(),
 };

@@ -87,13 +87,6 @@ export const Problem = __t.object("Problem", {
 });
 export type Problem = __Infer<typeof Problem>;
 
-export const Queue = __t.object("Queue", {
-  identity: __t.identity(),
-  difficulty: __t.string(),
-  queuedAt: __t.timestamp(),
-});
-export type Queue = __Infer<typeof Queue>;
-
 export const Room = __t.object("Room", {
   code: __t.string(),
   hostIdentity: __t.identity(),
