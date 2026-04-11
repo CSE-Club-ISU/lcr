@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useSpacetimeDB, useTable, useReducer } from 'spacetimedb/react';
+import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { GameState, Problem, User } from '../module_bindings/types';
+import { useTypedTable } from '../utils/useTypedTable';
+import { identityEq } from '../utils/identity';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
@@ -15,13 +17,9 @@ export default function ProblemScreen() {
 
   const gameId = searchParams.get('game') ?? '';
 
-  const [gameRows]  = useTable(tables.game_state);
-  const [probRows]  = useTable(tables.problem);
-  const [userRows]  = useTable(tables.user);
-
-  const games    = gameRows as unknown as GameState[];
-  const problems = probRows as unknown as Problem[];
-  const users    = userRows as unknown as User[];
+  const [games]    = useTypedTable<GameState>(tables.game_state);
+  const [problems] = useTypedTable<Problem>(tables.problem);
+  const [users]    = useTypedTable<User>(tables.user);
 
   const game = games.find(g => g.id === gameId);
 
@@ -32,11 +30,10 @@ export default function ProblemScreen() {
     return id !== undefined ? problems.find(p => p.id === id) : undefined;
   }, [game, problems]);
 
-  const myHex = ctx.identity?.toHexString();
-  const isP1 = game?.player1Identity.toHexString() === myHex;
+  const isP1 = identityEq(game?.player1Identity, ctx.identity);
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
   const oppUser = oppIdentity
-    ? users.find(u => u.identity.toHexString() === oppIdentity.toHexString())
+    ? users.find(u => identityEq(u.identity, oppIdentity))
     : undefined;
 
   // Timer based on game start time

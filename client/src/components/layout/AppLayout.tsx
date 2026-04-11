@@ -1,17 +1,18 @@
 import { Outlet } from 'react-router-dom';
-import { useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../../module_bindings';
 import type { User } from '../../module_bindings/types';
+import { useTypedTable } from '../../utils/useTypedTable';
+import { identityEq } from '../../utils/identity';
 import Sidebar from './Sidebar';
 import Breadcrumb from './Breadcrumb';
 
 export default function AppLayout() {
   const ctx = useSpacetimeDB();
-  const [userRows] = useTable(tables.user);
+  const [users] = useTypedTable<User>(tables.user);
 
-  const users = userRows as unknown as User[];
   const myUser = ctx.identity
-    ? users.find((u) => u.identity.toHexString() === ctx.identity!.toHexString())
+    ? users.find((u) => identityEq(u.identity, ctx.identity))
     : undefined;
 
   return (
