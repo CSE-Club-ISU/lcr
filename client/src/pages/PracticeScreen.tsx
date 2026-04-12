@@ -8,6 +8,7 @@ import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
+import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -143,6 +144,11 @@ export default function PracticeScreen() {
   const [code, setCode] = useState('');
   const [resetCount, setResetCount] = useState(0);
   const baseRef = useRef(0);
+  const [selectedLangState, setSelectedLangState] = useState<Language>(loadSavedLang);
+  function setSelectedLang(lang: Language) {
+    saveLang(lang);
+    setSelectedLangState(lang);
+  }
 
   // Auto-select first problem if nothing stored or stored id is gone
   const seededRef = useRef(false);
@@ -160,7 +166,8 @@ export default function PracticeScreen() {
 
   function selectProblem(p: Problem) {
     setProblemIdRaw(p.id);
-    setCode('');
+    setCode(getBoilerplate(p, selectedLangState));
+    setResetCount(c => c + 1);
     setTestResults(null);
     setRunSummary(null);
     setError(null);
@@ -213,6 +220,7 @@ export default function PracticeScreen() {
 
   function resetCode() {
     if (!problem) return;
+    setCode(getBoilerplate(problem, selectedLangState));
     setResetCount(c => c + 1);
     setTestResults(null);
     setRunSummary(null);
@@ -238,7 +246,7 @@ export default function PracticeScreen() {
           game_id: '',
           player_identity: ctx.identity?.toHexString() ?? '',
           code,
-          lang: 'python',
+          lang: selectedLangState,
           problem_id: Number(problem.id),
           mode: 'run',
           solve_time: elapsedSec,
@@ -311,9 +319,15 @@ export default function PracticeScreen() {
         <div className="flex-1 flex flex-col gap-3 min-h-0">
           {problem && (
             <CodeEditor
-              key={`${String(problemId)}-${resetCount}`}
-              initialCode={problem.boilerplatePython ?? ''}
+              key={`${String(problemId)}:${selectedLangState}-${resetCount}`}
+              initialCode={getBoilerplate(problem, selectedLangState)}
               onChange={setCode}
+              language={selectedLangState}
+              onLanguageChange={(lang) => {
+                setSelectedLang(lang);
+                setCode(getBoilerplate(problem, lang));
+                setResetCount(c => c + 1);
+              }}
               vimMode={settings.vimMode}
             />
           )}
