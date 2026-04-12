@@ -8,8 +8,8 @@ import { useTable } from 'spacetimedb/react';
  * matches the table's generated type (e.g. useTypedTable<Problem>(tables.problem)).
  */
 export function useTypedTable<T>(...args: Parameters<typeof useTable>): [T[], boolean] {
-  const [rows, loading] = useTable(args[0], args[1]);
+  const [rows, isReady] = useTable(args[0], args[1]);
   // The SDK row type and the generated type are structurally identical;
   // this cast bridges the nominal gap between the two representations.
-  return [rows as unknown as T[], loading];
+  return [rows as unknown as T[], isReady];
 }
