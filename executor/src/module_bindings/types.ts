@@ -55,6 +55,18 @@ export const GameState = __t.object("GameState", {
   status: __t.string(),
   startTime: __t.timestamp(),
   winnerIdentity: __t.option(__t.identity()),
+  player1Currency: __t.u32(),
+  player2Currency: __t.u32(),
+  player1QuizBonus: __t.u32(),
+  player2QuizBonus: __t.u32(),
+  player1LastQuizAt: __t.timestamp(),
+  player2LastQuizAt: __t.timestamp(),
+  player1Shield: __t.i32(),
+  player2Shield: __t.i32(),
+  player1DmgBonus: __t.i32(),
+  player2DmgBonus: __t.i32(),
+  player1DmgMultPct: __t.i32(),
+  player2DmgMultPct: __t.i32(),
 });
 export type GameState = __Infer<typeof GameState>;
 
@@ -76,6 +88,31 @@ export const MatchHistory = __t.object("MatchHistory", {
   playedAt: __t.timestamp(),
 });
 export type MatchHistory = __Infer<typeof MatchHistory>;
+
+export const PlayerLoadoutPref = __t.object("PlayerLoadoutPref", {
+  identity: __t.identity(),
+  powerupIds: __t.string(),
+});
+export type PlayerLoadoutPref = __Infer<typeof PlayerLoadoutPref>;
+
+export const Powerup = __t.object("Powerup", {
+  id: __t.u64(),
+  name: __t.string(),
+  description: __t.string(),
+  kind: __t.string(),
+  target: __t.string(),
+  cost: __t.u32(),
+  effectData: __t.string(),
+});
+export type Powerup = __Infer<typeof Powerup>;
+
+export const PowerupLoadout = __t.object("PowerupLoadout", {
+  id: __t.u64(),
+  gameId: __t.string(),
+  playerIdentity: __t.identity(),
+  powerupIds: __t.string(),
+});
+export type PowerupLoadout = __Infer<typeof PowerupLoadout>;
 
 export const Problem = __t.object("Problem", {
   id: __t.u64(),
@@ -107,6 +144,15 @@ export const Queue = __t.object("Queue", {
 });
 export type Queue = __Infer<typeof Queue>;
 
+export const QuizQuestion = __t.object("QuizQuestion", {
+  id: __t.u64(),
+  questionType: __t.string(),
+  prompt: __t.string(),
+  options: __t.string(),
+  answer: __t.string(),
+});
+export type QuizQuestion = __Infer<typeof QuizQuestion>;
+
 export const Room = __t.object("Room", {
   code: __t.string(),
   hostIdentity: __t.identity(),
@@ -117,6 +163,16 @@ export const Room = __t.object("Room", {
   settings: __t.string(),
 });
 export type Room = __Infer<typeof Room>;
+
+export const SabotageEvent = __t.object("SabotageEvent", {
+  id: __t.u64(),
+  gameId: __t.string(),
+  targetIdentity: __t.identity(),
+  effectType: __t.string(),
+  effectData: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type SabotageEvent = __Infer<typeof SabotageEvent>;
 
 export const Submission = __t.object("Submission", {
   id: __t.u64(),

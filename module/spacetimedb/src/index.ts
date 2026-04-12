@@ -80,6 +80,90 @@ const game_state = table(
     status:                 t.string(),   // "in_progress" | "finished"
     start_time:             t.timestamp(),
     winner_identity:        t.identity().optional(),
+    // Powerup state
+    player1_currency:       t.u32(),
+    player2_currency:       t.u32(),
+    player1_quiz_bonus:     t.u32(),   // currency earned from quizzes (added to passive accrual)
+    player2_quiz_bonus:     t.u32(),
+    player1_last_quiz_at:   t.timestamp(),   // rate limit cooldown
+    player2_last_quiz_at:   t.timestamp(),
+    player1_shield:         t.i32(),   // pending damage reduction (flat)
+    player2_shield:         t.i32(),
+    player1_dmg_bonus:      t.i32(),   // pending flat bonus damage on next solve
+    player2_dmg_bonus:      t.i32(),
+    player1_dmg_mult_pct:   t.i32(),   // pending pct multiplier on next solve (100 = +100%)
+    player2_dmg_mult_pct:   t.i32(),
+  }
+);
+
+// Powerup catalog (seeded once)
+const powerup = table(
+  { name: 'powerup', public: true },
+  {
+    id:           t.u64().primaryKey().autoInc(),
+    name:         t.string(),
+    description:  t.string(),
+    kind:         t.string(),   // "damage" | "defense" | "sabotage"
+    target:       t.string(),   // "self" | "opponent"
+    cost:         t.u32(),
+    effect_data:  t.string(),   // JSON effect config, e.g. { amount: 20 } or { type: "delete_line" }
+  }
+);
+
+// Quiz questions (seeded)
+const quiz_question = table(
+  { name: 'quiz_question', public: true },
+  {
+    id:             t.u64().primaryKey().autoInc(),
+    question_type:  t.string(),   // "mcq" | "tf" | "code_fill"
+    prompt:         t.string(),
+    options:        t.string(),   // JSON array for MCQ, "[]" otherwise
+    answer:         t.string(),   // canonical correct answer
+  }
+);
+
+// Per-game loadout: which powerups the player may buy mid-match
+const powerup_loadout = table(
+  {
+    name: 'powerup_loadout',
+    public: true,
+    indexes: [
+      { accessor: 'loadout_game_id', algorithm: 'btree', columns: ['game_id'] },
+    ],
+  },
+  {
+    id:              t.u64().primaryKey().autoInc(),
+    game_id:         t.string(),
+    player_identity: t.identity(),
+    powerup_ids:     t.string(),   // JSON array of powerup id strings
+  }
+);
+
+// Ephemeral sabotage effects — client picks up and applies, then calls clear_sabotage_event
+const sabotage_event = table(
+  {
+    name: 'sabotage_event',
+    public: true,
+    indexes: [
+      { accessor: 'sabotage_target', algorithm: 'btree', columns: ['target_identity'] },
+    ],
+  },
+  {
+    id:               t.u64().primaryKey().autoInc(),
+    game_id:          t.string(),
+    target_identity:  t.identity(),
+    effect_type:      t.string(),   // "delete_line" | "font_size_up" | "font_blur" | "cursor_freeze"
+    effect_data:      t.string(),   // JSON, e.g. { duration_ms: 3000 }
+    created_at:       t.timestamp(),
+  }
+);
+
+// Pre-match loadout selection (persists across matches for UX convenience)
+const player_loadout_pref = table(
+  { name: 'player_loadout_pref', public: true },
+  {
+    identity:    t.identity().primaryKey(),
+    powerup_ids: t.string(),   // JSON array
   }
 );
 
@@ -193,7 +277,7 @@ const queue = table(
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code, powerup, quiz_question, powerup_loadout, sabotage_event, player_loadout_pref });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -310,7 +394,31 @@ function startGameState(
     status:                'in_progress',
     start_time:            ctx.timestamp,
     winner_identity:       undefined,
+    player1_currency:       0,
+    player2_currency:       0,
+    player1_quiz_bonus:     0,
+    player2_quiz_bonus:     0,
+    player1_last_quiz_at:   ctx.timestamp,
+    player2_last_quiz_at:   ctx.timestamp,
+    player1_shield:         0,
+    player2_shield:         0,
+    player1_dmg_bonus:      0,
+    player2_dmg_bonus:      0,
+    player1_dmg_mult_pct:   0,
+    player2_dmg_mult_pct:   0,
   });
+
+  // Copy per-player loadout from player_loadout_pref into powerup_loadout for this game.
+  for (const [identity, _isP1] of [[p1Identity, true], [p2Identity, false]] as const) {
+    const pref = ctx.db.player_loadout_pref.identity.find(identity as IdentityLike);
+    const powerupIds = pref ? pref.powerup_ids : '[]';
+    ctx.db.powerup_loadout.insert({
+      id:              0n,
+      game_id:         roomCode,
+      player_identity: identity as IdentityLike,
+      powerup_ids:     powerupIds,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -742,6 +850,36 @@ export const save_draft = spacetimedb.reducer(
         code,
         updated_at:      ctx.timestamp,
       });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Powerup loadout preferences
+// ---------------------------------------------------------------------------
+
+export const set_loadout_pref = spacetimedb.reducer(
+  { powerup_ids: t.string() },
+  (ctx, { powerup_ids }) => {
+    // Validate JSON array of id strings
+    let ids: string[];
+    try {
+      ids = JSON.parse(powerup_ids);
+    } catch {
+      throw new SenderError('powerup_ids must be a JSON array');
+    }
+    if (!Array.isArray(ids)) throw new SenderError('powerup_ids must be a JSON array');
+    if (ids.length > 8) throw new SenderError('Loadout too large (max 8)');
+    for (const idStr of ids) {
+      const p = ctx.db.powerup.id.find(BigInt(idStr));
+      if (!p) throw new SenderError(`Unknown powerup id ${idStr}`);
+    }
+
+    const existing = ctx.db.player_loadout_pref.identity.find(ctx.sender);
+    if (existing) {
+      ctx.db.player_loadout_pref.identity.update({ ...existing, powerup_ids });
+    } else {
+      ctx.db.player_loadout_pref.insert({ identity: ctx.sender, powerup_ids });
     }
   }
 );

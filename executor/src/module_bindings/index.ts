@@ -49,6 +49,7 @@ import SaveDraftReducer from "./save_draft_reducer";
 import SeedProblemReducer from "./seed_problem_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
+import SetLoadoutPrefReducer from "./set_loadout_pref_reducer";
 import SetProfileReducer from "./set_profile_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
@@ -63,9 +64,14 @@ import UseAbilityReducer from "./use_ability_reducer";
 import ChatMessageRow from "./chat_message_table";
 import GameStateRow from "./game_state_table";
 import MatchHistoryRow from "./match_history_table";
+import PlayerLoadoutPrefRow from "./player_loadout_pref_table";
+import PowerupRow from "./powerup_table";
+import PowerupLoadoutRow from "./powerup_loadout_table";
 import ProblemRow from "./problem_table";
 import QueueRow from "./queue_table";
+import QuizQuestionRow from "./quiz_question_table";
 import RoomRow from "./room_table";
+import SabotageEventRow from "./sabotage_event_table";
 import SubmissionRow from "./submission_table";
 import UserRow from "./user_table";
 
@@ -112,6 +118,42 @@ const tablesSchema = __schema({
       { name: 'match_history_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MatchHistoryRow),
+  player_loadout_pref: __table({
+    name: 'player_loadout_pref',
+    indexes: [
+      { accessor: 'identity', name: 'player_loadout_pref_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_loadout_pref_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerLoadoutPrefRow),
+  powerup: __table({
+    name: 'powerup',
+    indexes: [
+      { accessor: 'id', name: 'powerup_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'powerup_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PowerupRow),
+  powerup_loadout: __table({
+    name: 'powerup_loadout',
+    indexes: [
+      { accessor: 'loadout_game_id', name: 'powerup_loadout_game_id_idx_btree', algorithm: 'btree', columns: [
+        'gameId',
+      ] },
+      { accessor: 'id', name: 'powerup_loadout_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'powerup_loadout_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PowerupLoadoutRow),
   problem: __table({
     name: 'problem',
     indexes: [
@@ -137,6 +179,17 @@ const tablesSchema = __schema({
       { name: 'queue_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, QueueRow),
+  quiz_question: __table({
+    name: 'quiz_question',
+    indexes: [
+      { accessor: 'id', name: 'quiz_question_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'quiz_question_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, QuizQuestionRow),
   room: __table({
     name: 'room',
     indexes: [
@@ -148,6 +201,20 @@ const tablesSchema = __schema({
       { name: 'room_code_key', constraint: 'unique', columns: ['code'] },
     ],
   }, RoomRow),
+  sabotage_event: __table({
+    name: 'sabotage_event',
+    indexes: [
+      { accessor: 'id', name: 'sabotage_event_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'sabotage_target', name: 'sabotage_event_target_identity_idx_btree', algorithm: 'btree', columns: [
+        'targetIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'sabotage_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SabotageEventRow),
   submission: __table({
     name: 'submission',
     indexes: [
@@ -192,6 +259,7 @@ const reducersSchema = __reducers(
   __reducerSchema("seed_problem", SeedProblemReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
+  __reducerSchema("set_loadout_pref", SetLoadoutPrefReducer),
   __reducerSchema("set_profile", SetProfileReducer),
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("start_game", StartGameReducer),
