@@ -81,8 +81,9 @@ const game_state = table(
     start_time:             t.timestamp(),
     winner_identity:        t.identity().optional(),
     // Powerup state
-    player1_currency:       t.u32(),
-    player2_currency:       t.u32(),
+    // Currency model: available = floor((now - start_time) / POWERUP_TICK_SEC) + quiz_bonus - spent
+    player1_spent:          t.u32(),   // currency already spent on powerups
+    player2_spent:          t.u32(),
     player1_quiz_bonus:     t.u32(),   // currency earned from quizzes (added to passive accrual)
     player2_quiz_bonus:     t.u32(),
     player1_last_quiz_at:   t.timestamp(),   // rate limit cooldown
@@ -330,8 +331,22 @@ type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
 type IdentityLike = ProblemRow['created_by'];
 type DraftCodeRow = NonNullable<ReturnType<DbCtx['db']['draft_code']['id']['find']>>;
+type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
 
 const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+
+// Powerup currency: +1 every 3 seconds of active game
+const POWERUP_TICK_SEC = 3;
+
+/** Compute currency available to a player based on elapsed time, quiz bonus, and amount spent. */
+function availableCurrency(game: GameStateRow, isP1: boolean, nowMicros: bigint): number {
+  const elapsedMicros = nowMicros - game.start_time.microsSinceUnixEpoch;
+  const elapsedSec = Number(elapsedMicros / 1_000_000n);
+  const passive = Math.max(0, Math.floor(elapsedSec / POWERUP_TICK_SEC));
+  const bonus = isP1 ? game.player1_quiz_bonus : game.player2_quiz_bonus;
+  const spent = isP1 ? game.player1_spent : game.player2_spent;
+  return passive + bonus - spent;
+}
 
 /** Select `count` distinct problems from `pool` using a numeric seed, then sort easy→hard. */
 function selectProblems(pool: ProblemRow[], seed: number, count: number): ProblemRow[] {
@@ -394,8 +409,8 @@ function startGameState(
     status:                'in_progress',
     start_time:            ctx.timestamp,
     winner_identity:       undefined,
-    player1_currency:       0,
-    player2_currency:       0,
+    player1_spent:          0,
+    player2_spent:          0,
     player1_quiz_bonus:     0,
     player2_quiz_bonus:     0,
     player1_last_quiz_at:   ctx.timestamp,
@@ -589,8 +604,6 @@ export const send_chat = spacetimedb.reducer(
 // ---------------------------------------------------------------------------
 // endGame helper — called by submit_result and forfeit
 // ---------------------------------------------------------------------------
-
-type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
 
 function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
   const loserIdentity = winnerIdentity.toHexString() === game.player1_identity.toHexString()

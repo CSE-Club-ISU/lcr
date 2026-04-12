@@ -6,6 +6,7 @@ import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
 import { useSettings } from '../hooks/useSettings';
+import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
@@ -130,6 +131,7 @@ export default function ProblemScreen() {
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
+  const currency = usePowerupCurrency(game, isP1);
   const startingHp = useMemo(() => {
     if (!game) return 100;
     const room = rooms.find(r => r.code === game.roomCode);
@@ -319,6 +321,12 @@ export default function ProblemScreen() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Powerup currency */}
+        <div className="flex items-center gap-2 shrink-0 px-3 py-1 rounded-lg border border-border bg-surface">
+          <span className="text-[11px] text-text-muted uppercase tracking-wider">Energy</span>
+          <span className="font-extrabold text-accent text-lg leading-none">{currency}</span>
         </div>
 
         <div className="flex items-center gap-5 shrink-0">
