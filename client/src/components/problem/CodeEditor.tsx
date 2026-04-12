@@ -1,5 +1,7 @@
 import CodeMirror from '@uiw/react-codemirror';
 import { python } from '@codemirror/lang-python';
+import { indentUnit } from '@codemirror/language';
+import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { vim } from '@replit/codemirror-vim';
 import Pill from '../ui/Pill';
@@ -11,7 +13,12 @@ interface Props {
 }
 
 export default function CodeEditor({ initialCode, onChange, vimMode }: Props) {
-  const extensions = [python(), ...(vimMode ? [vim()] : [])];
+  const extensions = [
+    python(),
+    indentUnit.of('    '),
+    EditorState.tabSize.of(4),
+    ...(vimMode ? [vim()] : []),
+  ];
 
   return (
     <div className="flex-1 flex flex-col gap-3 min-h-0">

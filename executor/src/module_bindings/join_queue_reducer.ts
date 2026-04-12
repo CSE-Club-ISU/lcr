@@ -12,4 +12,5 @@ import {
 
 export default {
   difficulty: __t.string(),
+  problemCount: __t.u32(),
 };

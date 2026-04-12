@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
@@ -13,13 +13,14 @@ import CodeEditor from '../components/problem/CodeEditor';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
-
+const DRAFT_DEBOUNCE_MS = 1000;
 
 export default function ProblemScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
+  const saveDraft = useReducer(reducers.saveDraft);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -30,23 +31,85 @@ export default function ProblemScreen() {
   const [rooms]    = useTypedTable<Room>(tables.room);
 
   const game = games.find(g => g.id === gameId);
-
   const isP1 = identityEq(game?.player1Identity, ctx.identity);
 
-  const problem = useMemo(() => {
-    if (!game) return undefined;
-    const ids: string[] = (() => { try { return JSON.parse(game.problemIds); } catch { return []; } })();
-    const problemIndex = isP1 ? (game.player1ProblemIndex ?? 0) : (game.player2ProblemIndex ?? 0);
-    const id = ids[problemIndex] ? BigInt(ids[problemIndex]) : undefined;
-    return id !== undefined ? problems.find(p => p.id === id) : undefined;
-  }, [game, problems, isP1]);
+  // All problem ids for this game, ordered as assigned by server (easy→hard)
+  const problemIds: string[] = useMemo(() => {
+    if (!game) return [];
+    try { return JSON.parse(game.problemIds); }
+    catch (e) { console.error('[ProblemScreen] failed to parse problemIds:', e); return []; }
+  }, [game?.problemIds]);
 
-  const problemCount = useMemo(() => {
-    if (!game) return 1;
-    try { return JSON.parse(game.problemIds).length; } catch { return 1; }
-  }, [game]);
+  const problemCount = problemIds.length;
 
-  const playerProblemIndex = isP1 ? (game?.player1ProblemIndex ?? 0) : (game?.player2ProblemIndex ?? 0);
+  // My solved ids (set for O(1) lookup)
+  const mySolvedIds: Set<string> = useMemo(() => {
+    if (!game) return new Set();
+    try {
+      const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
+      return new Set(JSON.parse(raw ?? '[]'));
+    } catch (e) { console.error('[ProblemScreen] failed to parse my solvedIds:', e); return new Set(); }
+  }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
+
+  // Opponent's solved ids
+  const oppSolvedIds: Set<string> = useMemo(() => {
+    if (!game) return new Set();
+    try {
+      const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
+      return new Set(JSON.parse(raw ?? '[]'));
+    } catch (e) { console.error('[ProblemScreen] failed to parse opp solvedIds:', e); return new Set(); }
+  }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
+
+  // Currently viewed problem index (navigation)
+  const [viewIndex, setViewIndex] = useState(0);
+
+  // When a new problem is solved, stay on current view (don't auto-advance)
+  const viewedProblemId = problemIds[viewIndex] ?? '';
+  const viewedProblem: Problem | undefined = useMemo(() => {
+    if (!viewedProblemId) return undefined;
+    return problems.find(p => p.id === BigInt(viewedProblemId));
+  }, [viewedProblemId, problems]);
+
+  const isSolved = mySolvedIds.has(viewedProblemId);
+
+  // Per-problem code: keyed by problem id string
+  const [codeMap, setCodeMap] = useState<Record<string, string>>({});
+  const [resetCount, setResetCount] = useState(0);
+
+  // Initialise code for a problem if not yet in map
+  useEffect(() => {
+    if (!viewedProblemId || !viewedProblem) return;
+    setCodeMap(prev => {
+      if (prev[viewedProblemId] !== undefined) return prev;
+      return { ...prev, [viewedProblemId]: viewedProblem.boilerplatePython ?? '' };
+    });
+  }, [viewedProblemId, viewedProblem?.boilerplatePython]);
+
+  const currentCode = codeMap[viewedProblemId] ?? '';
+
+  const handleCodeChange = useCallback((val: string) => {
+    setCodeMap(prev => ({ ...prev, [viewedProblemId]: val }));
+  }, [viewedProblemId]);
+
+  // Debounced draft save (persists empty strings too — player may intentionally clear)
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!viewedProblemId || !gameId) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraft({ gameId, problemId: BigInt(viewedProblemId), code: currentCode });
+    }, DRAFT_DEBOUNCE_MS);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [currentCode, viewedProblemId, gameId]);
+
+  function resetCode() {
+    if (!viewedProblem) return;
+    setCodeMap(prev => ({ ...prev, [viewedProblemId]: viewedProblem.boilerplatePython ?? '' }));
+    setResetCount(c => c + 1);
+    setTestResults(null);
+    setRunSummary(null);
+    setError(null);
+  }
 
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
   const oppUser = oppIdentity
@@ -61,27 +124,18 @@ export default function ProblemScreen() {
     try { return JSON.parse(room?.settings ?? '{}').starting_hp ?? 100; } catch { return 100; }
   }, [game?.roomCode, rooms]);
 
-  // Editor state
-  const [code, setCode] = useState('');
-  const [resetCount, setResetCount] = useState(0);
-  useEffect(() => {
-    if (problem?.boilerplatePython) setCode(problem.boilerplatePython);
-  }, [problem?.id]);
-
   // Execution state
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
   const [runSummary, setRunSummary] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function resetCode() {
-    if (!problem) return;
-    setCode(problem.boilerplatePython ?? '');
-    setResetCount(c => c + 1);
+  // Clear execution state when switching problems
+  useEffect(() => {
     setTestResults(null);
     setRunSummary(null);
     setError(null);
-  }
+  }, [viewedProblemId]);
 
   // Timer
   const [seconds, setSeconds] = useState<number>(20 * 60);
@@ -118,28 +172,32 @@ export default function ProblemScreen() {
     return Math.floor((Date.now() - startMs) / 1000);
   }, [game, submitting]);
 
-  async function runTests() {
-    if (!problem || !game) return;
+  async function callExecutor(mode: 'run' | 'submit') {
+    if (!viewedProblem || !game) return;
     setError(null);
     setTestResults(null);
     setRunSummary(null);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(mode === 'submit' && EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
+        },
         body: JSON.stringify({
           game_id: gameId,
           player_identity: ctx.identity?.toHexString() ?? '',
-          code,
+          code: currentCode,
           lang: 'python',
-          problem_id: Number(problem.id),
-          mode: 'run',
+          problem_id: Number(viewedProblem.id),
+          mode,
           solve_time: solveTimeSec,
         }),
       });
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.`);
+        const verb = mode === 'run' ? 'running' : 'submitting';
+        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before ${verb} again.`);
         return;
       }
       const data: ExecuteResponse = await res.json();
@@ -156,47 +214,13 @@ export default function ProblemScreen() {
     }
   }
 
+  async function runTests() { await callExecutor('run'); }
+
   async function submit() {
-    if (!problem || !game || submitting) return;
-    setError(null);
-    setTestResults(null);
-    setRunSummary(null);
+    if (!viewedProblem || !game || submitting || isSolved) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${EXECUTOR_URL}/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
-        },
-        body: JSON.stringify({
-          game_id: gameId,
-          player_identity: ctx.identity?.toHexString() ?? '',
-          code,
-          lang: 'python',
-          problem_id: Number(problem.id),
-          mode: 'submit',
-          solve_time: solveTimeSec,
-        }),
-      });
-      if (res.status === 429) {
-        const retryAfter = res.headers.get('Retry-After');
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before submitting again.`);
-        return;
-      }
-      const data: ExecuteResponse = await res.json();
-      if (data.compile_error) {
-        setError(data.compile_error);
-      } else if (data.runtime_error) {
-        setError(data.runtime_error);
-      } else {
-        setTestResults(data.results);
-        setRunSummary(`${data.passed} / ${data.total} tests passed`);
-        // submit_result reducer is now called by the executor service directly.
-        // Navigation is handled by the useEffect watching game.status
-      }
-    } catch (e) {
-      setError(String(e));
+      await callExecutor('submit');
     } finally {
       setSubmitting(false);
     }
@@ -213,26 +237,46 @@ export default function ProblemScreen() {
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
       {/* Top bar */}
       <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          {problem && (
-            <>
-              <Pill label={problem.difficulty} color={difficultyColor(problem.difficulty)} />
-              <span className="font-bold text-[15px] text-text truncate">{problem.title}</span>
-              {problemCount > 1 && (
-                <span className="text-xs text-text-muted shrink-0">
-                  {playerProblemIndex + 1} / {problemCount}
-                </span>
-              )}
-            </>
+        {/* Problem selector */}
+        <div className="flex items-center gap-2 min-w-0">
+          {problemIds.map((pid, idx) => {
+            const prob = problems.find(p => p.id === BigInt(pid));
+            const solved = mySolvedIds.has(pid);
+            const oppSolved = oppSolvedIds.has(pid);
+            const active = idx === viewIndex;
+            return (
+              <button
+                key={pid}
+                onClick={() => setViewIndex(idx)}
+                className={[
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
+                  active
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
+                ].join(' ')}
+                title={prob?.title ?? `Problem ${idx + 1}`}
+              >
+                <span>{idx + 1}</span>
+                {solved && <span className="text-green text-xs">&#10003;</span>}
+                {oppSolved && !solved && <span className="text-orange text-xs">&#9679;</span>}
+              </button>
+            );
+          })}
+          {viewedProblem && (
+            <div className="flex items-center gap-2 ml-2 min-w-0">
+              <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
+              <span className="font-bold text-[15px] text-text truncate">{viewedProblem.title}</span>
+              {isSolved && <span className="text-green text-xs font-semibold">Solved</span>}
+            </div>
           )}
-          {!problem && <span className="text-text-muted text-sm">Loading…</span>}
+          {!viewedProblem && <span className="text-text-muted text-sm">Loading…</span>}
         </div>
 
         {/* HP bars */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col gap-1 w-28">
             <div className="flex justify-between text-[10px] text-text-muted">
-              <span>YOU</span>
+              <span>YOU ({mySolvedIds.size}/{problemCount})</span>
               <span>{playerHp} HP</span>
             </div>
             <div className="h-2 bg-surface rounded-full overflow-hidden">
@@ -244,7 +288,7 @@ export default function ProblemScreen() {
           </div>
           <div className="flex flex-col gap-1 w-28">
             <div className="flex justify-between text-[10px] text-text-muted">
-              <span>{oppUser?.username ?? 'OPP'}</span>
+              <span>{oppUser?.username ?? 'OPP'} ({oppSolvedIds.size}/{problemCount})</span>
               <span>{oppHp} HP</span>
             </div>
             <div className="h-2 bg-surface rounded-full overflow-hidden">
@@ -275,9 +319,14 @@ export default function ProblemScreen() {
 
       {/* Main split */}
       <div className="flex gap-3 flex-1 min-h-0">
-        <ProblemPanel problem={problem} />
+        <ProblemPanel problem={viewedProblem} />
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          <CodeEditor key={`${String(problem?.id)}-${resetCount}`} initialCode={code} onChange={setCode} vimMode={settings.vimMode} />
+          <CodeEditor
+            key={`${viewedProblemId}-${resetCount}`}
+            initialCode={currentCode}
+            onChange={handleCodeChange}
+            vimMode={settings.vimMode}
+          />
 
           {/* Test results */}
           {(testResults || error || runSummary) && (
@@ -304,23 +353,24 @@ export default function ProblemScreen() {
           <div className="flex gap-2.5 shrink-0">
             <button
               onClick={resetCode}
-              disabled={!problem}
+              disabled={!viewedProblem}
               className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
             >
               ↺ Reset
             </button>
             <button
               onClick={runTests}
-              className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt"
+              disabled={!viewedProblem}
+              className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
             >
               &#9655; Run Tests
             </button>
             <button
               onClick={submit}
-              disabled={submitting}
+              disabled={submitting || isSolved || !viewedProblem}
               className="flex-1 py-[11px] rounded-[10px] border-none bg-accent text-white font-bold text-sm cursor-pointer disabled:opacity-50"
             >
-              {submitting ? 'Submitting…' : '↑ Submit'}
+              {isSolved ? '✓ Solved' : submitting ? 'Submitting…' : '↑ Submit'}
             </button>
           </div>
         </div>

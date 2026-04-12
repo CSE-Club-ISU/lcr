@@ -45,6 +45,7 @@ import JoinRoomReducer from "./join_room_reducer";
 import LeaveQueueReducer from "./leave_queue_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import PromoteToAdminReducer from "./promote_to_admin_reducer";
+import SaveDraftReducer from "./save_draft_reducer";
 import SeedProblemReducer from "./seed_problem_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
@@ -52,6 +53,7 @@ import SetProfileReducer from "./set_profile_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
 import SubmitResultReducer from "./submit_result_reducer";
+import UpdateProblemReducer from "./update_problem_reducer";
 import UseAbilityReducer from "./use_ability_reducer";
 
 // Import all procedure arg schemas
@@ -185,6 +187,7 @@ const reducersSchema = __reducers(
   __reducerSchema("leave_queue", LeaveQueueReducer),
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("promote_to_admin", PromoteToAdminReducer),
+  __reducerSchema("save_draft", SaveDraftReducer),
   __reducerSchema("seed_problem", SeedProblemReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
@@ -192,6 +195,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("start_game", StartGameReducer),
   __reducerSchema("submit_result", SubmitResultReducer),
+  __reducerSchema("update_problem", UpdateProblemReducer),
   __reducerSchema("use_ability", UseAbilityReducer),
 );
 

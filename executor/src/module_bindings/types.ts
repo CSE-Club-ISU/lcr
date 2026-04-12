@@ -19,6 +19,16 @@ export const ChatMessage = __t.object("ChatMessage", {
 });
 export type ChatMessage = __Infer<typeof ChatMessage>;
 
+export const DraftCode = __t.object("DraftCode", {
+  id: __t.u64(),
+  gameId: __t.string(),
+  playerIdentity: __t.identity(),
+  problemId: __t.u64(),
+  code: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type DraftCode = __Infer<typeof DraftCode>;
+
 export const ExecutorConfig = __t.object("ExecutorConfig", {
   id: __t.u32(),
   executorIdentity: __t.identity(),
@@ -36,8 +46,8 @@ export const GameState = __t.object("GameState", {
   player2Sp: __t.i32(),
   player1Mp: __t.i32(),
   player2Mp: __t.i32(),
-  player1ProblemIndex: __t.u32(),
-  player2ProblemIndex: __t.u32(),
+  player1SolvedIds: __t.string(),
+  player2SolvedIds: __t.string(),
   player1Abilities: __t.string(),
   player2Abilities: __t.string(),
   problemIds: __t.string(),
@@ -91,6 +101,7 @@ export type Problem = __Infer<typeof Problem>;
 export const Queue = __t.object("Queue", {
   identity: __t.identity(),
   difficulty: __t.string(),
+  problemCount: __t.u32(),
   queuedAt: __t.timestamp(),
 });
 export type Queue = __Infer<typeof Queue>;

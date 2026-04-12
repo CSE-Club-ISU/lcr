@@ -13,5 +13,6 @@ import {
 export default __t.row({
   identity: __t.identity().primaryKey(),
   difficulty: __t.string(),
+  problemCount: __t.u32().name("problem_count"),
   queuedAt: __t.timestamp().name("queued_at"),
 });
