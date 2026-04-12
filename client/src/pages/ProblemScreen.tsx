@@ -10,6 +10,7 @@ import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
+import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -72,39 +73,49 @@ export default function ProblemScreen() {
 
   const isSolved = mySolvedIds.has(viewedProblemId);
 
-  // Per-problem code: keyed by problem id string
+  // Selected language — persisted to localStorage, shared across all problems/games
+  const [selectedLang, setSelectedLangState] = useState<Language>(loadSavedLang);
+
+  function setSelectedLang(lang: Language) {
+    saveLang(lang);
+    setSelectedLangState(lang);
+  }
+
+  // Per-(problem, language) code: keyed by `${problemId}:${lang}`
   const [codeMap, setCodeMap] = useState<Record<string, string>>({});
   const [resetCount, setResetCount] = useState(0);
 
-  // Initialise code for a problem if not yet in map
+  const codeKey = `${viewedProblemId}:${selectedLang}`;
+
+  // Initialise code for a (problem, language) pair if not yet in map
   useEffect(() => {
     if (!viewedProblemId || !viewedProblem) return;
     setCodeMap(prev => {
-      if (prev[viewedProblemId] !== undefined) return prev;
-      return { ...prev, [viewedProblemId]: viewedProblem.boilerplatePython ?? '' };
+      if (prev[codeKey] !== undefined) return prev;
+      return { ...prev, [codeKey]: getBoilerplate(viewedProblem, selectedLang) };
     });
-  }, [viewedProblemId, viewedProblem?.boilerplatePython]);
+  }, [codeKey, viewedProblem]);
 
-  const currentCode = codeMap[viewedProblemId] ?? '';
+  const currentCode = codeMap[codeKey] ?? '';
 
   const handleCodeChange = useCallback((val: string) => {
-    setCodeMap(prev => ({ ...prev, [viewedProblemId]: val }));
-  }, [viewedProblemId]);
+    setCodeMap(prev => ({ ...prev, [codeKey]: val }));
+  }, [codeKey]);
 
-  // Debounced draft save (persists empty strings too — player may intentionally clear)
+  // Debounced draft save — keyed by (game, problem, language)
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!viewedProblemId || !gameId) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
-      saveDraft({ gameId, problemId: BigInt(viewedProblemId), code: currentCode });
+      saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
     }, DRAFT_DEBOUNCE_MS);
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
-  }, [currentCode, viewedProblemId, gameId]);
+  }, [currentCode, viewedProblemId, gameId, selectedLang]);
 
   function resetCode() {
     if (!viewedProblem) return;
-    setCodeMap(prev => ({ ...prev, [viewedProblemId]: viewedProblem.boilerplatePython ?? '' }));
+    setCodeMap(prev => ({ ...prev, [codeKey]: getBoilerplate(viewedProblem, selectedLang) }));
     setResetCount(c => c + 1);
     setTestResults(null);
     setRunSummary(null);
@@ -188,7 +199,7 @@ export default function ProblemScreen() {
           game_id: gameId,
           player_identity: ctx.identity?.toHexString() ?? '',
           code: currentCode,
-          lang: 'python',
+          lang: selectedLang,
           problem_id: Number(viewedProblem.id),
           mode,
           solve_time: solveTimeSec,
@@ -322,9 +333,11 @@ export default function ProblemScreen() {
         <ProblemPanel problem={viewedProblem} />
         <div className="flex-1 flex flex-col gap-3 min-h-0">
           <CodeEditor
-            key={`${viewedProblemId}-${resetCount}`}
+            key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
             initialCode={currentCode}
             onChange={handleCodeChange}
+            language={selectedLang}
+            onLanguageChange={setSelectedLang}
             vimMode={settings.vimMode}
           />
 

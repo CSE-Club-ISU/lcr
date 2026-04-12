@@ -37,9 +37,6 @@ const problem = table(
     boilerplate_python:   t.string(),
     boilerplate_java:     t.string(),
     boilerplate_cpp:      t.string(),
-    compare_func_python:  t.string(),
-    compare_func_java:    t.string(),
-    compare_func_cpp:     t.string(),
     created_by:           t.identity(),
     is_approved:          t.bool(),
     problem_kind:         t.string(),   // "algorithm" | "data_structure"
@@ -166,6 +163,7 @@ const draft_code = table(
     game_id:         t.string(),
     player_identity: t.identity(),
     problem_id:      t.u64(),
+    language:        t.string(),
     code:            t.string(),
     updated_at:      t.timestamp(),
   }
@@ -654,8 +652,8 @@ export const set_executor_identity = spacetimedb.reducer(
 const MAX_DRAFT_CODE_BYTES = 64 * 1024;
 
 export const save_draft = spacetimedb.reducer(
-  { game_id: t.string(), problem_id: t.u64(), code: t.string() },
-  (ctx, { game_id, problem_id, code }) => {
+  { game_id: t.string(), problem_id: t.u64(), language: t.string(), code: t.string() },
+  (ctx, { game_id, problem_id, language, code }) => {
     if (code.length > MAX_DRAFT_CODE_BYTES) throw new SenderError('Draft code too large');
 
     const game = ctx.db.game_state.id.find(game_id);
@@ -666,12 +664,13 @@ export const save_draft = spacetimedb.reducer(
       throw new SenderError('Not a participant in this game');
     }
 
-    // Upsert: find existing draft for this player+game+problem (small table — iter is fine)
+    // Upsert: find existing draft for this player+game+problem+language (small table — iter is fine)
     let found: DraftCodeRow | undefined;
     for (const row of ctx.db.draft_code.iter()) {
       if (row.game_id === game_id &&
           row.player_identity.toHexString() === senderHex &&
-          row.problem_id === problem_id) {
+          row.problem_id === problem_id &&
+          row.language === language) {
         found = row;
         break;
       }
@@ -685,6 +684,7 @@ export const save_draft = spacetimedb.reducer(
         game_id,
         player_identity: ctx.sender,
         problem_id,
+        language,
         code,
         updated_at:      ctx.timestamp,
       });
@@ -841,9 +841,6 @@ const PROBLEM_ARGS = {
   boilerplate_python:  t.string(),
   boilerplate_java:    t.string(),
   boilerplate_cpp:     t.string(),
-  compare_func_python: t.string(),
-  compare_func_java:   t.string(),
-  compare_func_cpp:    t.string(),
   problem_kind:        t.string(),
 };
 
@@ -864,9 +861,6 @@ function validateAndInsertProblem(ctx: any, args: any) {
     boilerplate_python:   args.boilerplate_python,
     boilerplate_java:     args.boilerplate_java,
     boilerplate_cpp:      args.boilerplate_cpp,
-    compare_func_python:  args.compare_func_python,
-    compare_func_java:    args.compare_func_java,
-    compare_func_cpp:     args.compare_func_cpp,
     created_by:           ctx.sender,
     is_approved:          true,
     problem_kind:         args.problem_kind,
@@ -904,9 +898,6 @@ export const update_problem = spacetimedb.reducer(
       boilerplate_python:  args.boilerplate_python,
       boilerplate_java:    args.boilerplate_java,
       boilerplate_cpp:     args.boilerplate_cpp,
-      compare_func_python: args.compare_func_python,
-      compare_func_java:   args.compare_func_java,
-      compare_func_cpp:    args.compare_func_cpp,
       problem_kind:        args.problem_kind,
     });
   }

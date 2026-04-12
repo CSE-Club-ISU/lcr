@@ -52,14 +52,28 @@ function shuffle(arr, r) {
   return out;
 }
 
-// Python-only problems all leave these fields empty.
-const EMPTY_LANGS = {
-  boilerplate_java: '',
-  boilerplate_cpp: '',
-  compare_func_java: '',
-  compare_func_cpp: '',
-};
-const EQUAL_COMPARE = 'def compare(expected, actual): return expected == actual';
+// ---------------------------------------------------------------------------
+// Per-language boilerplate helpers
+// ---------------------------------------------------------------------------
+
+// Algorithm contract:
+//   Java: public static Object <method>(Object... _args)  ← harness entry
+//         Use toInt/toLong/toStr/toIntArray/etc. helpers to extract typed args.
+//   C++:  json <method>(const json& args)                 ← harness entry
+//         Use args[i].get<T>() to extract typed values.
+//
+// Data structure contract:
+//   Java: class with public Object call(String m, Object... a) dispatch
+//         Use explicit if/else — no reflection.
+//   C++:  struct with json call(const std::string& m, const json& a) dispatch
+//         Use explicit if/else.
+
+function algoBoilerplates(method, javaBody, cppBody) {
+  return {
+    boilerplate_java: `public static Object ${method}(Object... _args) {\n${javaBody}\n}`,
+    boilerplate_cpp:  `json ${method}(const json& args) {\n${cppBody}\n}`,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Problems
@@ -89,8 +103,11 @@ const problems = [
     })(),
     hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
     boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: 'def compare(expected, actual): return sorted(expected) == sorted(actual)',
+    ...algoBoilerplates(
+      'two_sum',
+      '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here\n    return new int[]{};',
+      '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here\n    return vector<int>{};',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -112,8 +129,11 @@ const problems = [
       };
     })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'reverse_string',
+      '    String s = toStr(_args[0]);\n    // Your code here\n    return "";',
+      '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return "";',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -130,8 +150,11 @@ const problems = [
     hidden_test_cases: '121|-121|10|0|1221|12321|123',
     hidden_test_results: 'true|false|false|true|true|true|false',
     boilerplate_python: 'def is_palindrome(x: int) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'is_palindrome',
+      '    long x = toLong(_args[0]);\n    // Your code here\n    return false;',
+      '    long x = args[0].get<long>();\n    // Your code here\n    return false;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -151,8 +174,11 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'contains_duplicate',
+      '    int[] nums = toIntArray(_args[0]);\n    // Your code here\n    return false;',
+      '    vector<int> nums = args[0].get<vector<int>>();\n    // Your code here\n    return false;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -174,8 +200,11 @@ const problems = [
       };
     })(),
     boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'max_in_array',
+      '    long[] nums = toLongArray(_args[0]);\n    // Your code here (don\'t use Arrays.stream().max())\n    return 0L;',
+      '    vector<long> nums = args[0].get<vector<long>>();\n    // Your code here (don\'t use *max_element)\n    return 0;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -194,8 +223,11 @@ const problems = [
     hidden_test_cases: '3|5|15|1|10',
     hidden_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]|["1"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz"]',
     boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'fizz_buzz',
+      '    long n = toLong(_args[0]);\n    List<String> result = new ArrayList<>();\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
+      '    long n = args[0].get<long>();\n    vector<string> result;\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -211,8 +243,11 @@ const problems = [
     hidden_test_cases: '123|9999|0|1|100|12345|999999999',
     hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'sum_of_digits',
+      '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
+      '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -229,8 +264,11 @@ const problems = [
     hidden_test_cases: '0|1|2|3|6|10|15|50',
     hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'fib',
+      '    long n = toLong(_args[0]);\n    // Your code here (iterative, no recursion)\n    return 0L;',
+      '    long n = args[0].get<long>();\n    // Your code here (iterative, no recursion)\n    return 0;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -248,8 +286,11 @@ const problems = [
     hidden_test_cases: '"()"|"()[]{}"|"(]"|"([)]"|"{[]}"|""|"((("',
     hidden_test_results: 'true|true|false|false|true|true|false',
     boilerplate_python: 'def is_valid(s: str) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'is_valid',
+      '    String s = toStr(_args[0]);\n    // Your code here\n    return false;',
+      '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return false;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -287,8 +328,40 @@ const problems = [
       '        pass\n\n' +
       '    def get_min(self) -> int:\n' +
       '        pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    boilerplate_java:
+      'class MinStack {\n' +
+      '    // add fields here\n\n' +
+      '    private void push(long val) { }\n\n' +
+      '    private void pop() { }\n\n' +
+      '    private long top() { return 0; }\n\n' +
+      '    private long getMin() { return 0; }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    public Object call(String m, Object... a) {\n' +
+      '        if (m.equals("MinStack")) return null;\n' +
+      '        if (m.equals("push"))    { push(toLong(a[0])); return null; }\n' +
+      '        if (m.equals("pop"))     { pop(); return null; }\n' +
+      '        if (m.equals("top"))     { return top(); }\n' +
+      '        if (m.equals("get_min")) { return getMin(); }\n' +
+      '        throw new RuntimeException("unknown op: " + m);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct MinStack {\n' +
+      '    // add fields here\n\n' +
+      '    void push(long val) { }\n\n' +
+      '    void pop() { }\n\n' +
+      '    long top() { return 0; }\n\n' +
+      '    long getMin() { return 0; }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "MinStack") return nullptr;\n' +
+      '        if (m == "push")    { push(a[0].get<long>()); return nullptr; }\n' +
+      '        if (m == "pop")     { pop(); return nullptr; }\n' +
+      '        if (m == "top")     { return top(); }\n' +
+      '        if (m == "get_min") { return getMin(); }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 
@@ -313,8 +386,11 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'is_anagram',
+      '    String s = toStr(_args[0]);\n    String t = toStr(_args[1]);\n    // Your code here\n    return false;',
+      '    std::string s = args[0].get<std::string>();\n    std::string t = args[1].get<std::string>();\n    // Your code here\n    return false;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -335,8 +411,11 @@ const problems = [
     })(),
     hidden_test_results: '4|-1|0|-1|2|4|4999',
     boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'binary_search',
+      '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here (must be O(log n))\n    return -1L;',
+      '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here (must be O(log n))\n    return -1;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -363,9 +442,12 @@ const problems = [
       '    # Treat the list as a linked list and reverse it with pointers.\n' +
       '    # Return the result as a list.\n' +
       '    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
-    problem_kind: 'data_structure',
+    ...algoBoilerplates(
+      'reverse_list',
+      '    int[] head = toIntArray(_args[0]);\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return new int[]{};',
+      '    vector<int> head = args[0].get<vector<int>>();\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return vector<int>{};',
+    ),
+    problem_kind: 'algorithm',
   },
 
   {
@@ -381,8 +463,11 @@ const problems = [
     hidden_test_cases: '1|2|3|4|5|10|40',
     hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    ...algoBoilerplates(
+      'climb_stairs',
+      '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
+      '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -415,8 +500,38 @@ const problems = [
       '        pass\n\n' +
       '    def put(self, key: int, value: int) -> None:\n' +
       '        pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    boilerplate_java:
+      'class LRUCache {\n' +
+      '    // add fields here\n\n' +
+      '    private void init(long capacity) {\n' +
+      '        // initialize with capacity\n' +
+      '    }\n\n' +
+      '    private long get(long key) { return -1; }\n\n' +
+      '    private void put(long key, long value) { }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    public Object call(String m, Object... a) {\n' +
+      '        if (m.equals("LRUCache")) { init(toLong(a[0])); return null; }\n' +
+      '        if (m.equals("get"))      { return get(toLong(a[0])); }\n' +
+      '        if (m.equals("put"))      { put(toLong(a[0]), toLong(a[1])); return null; }\n' +
+      '        throw new RuntimeException("unknown op: " + m);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct LRUCache {\n' +
+      '    // add fields here\n\n' +
+      '    void init(long capacity) {\n' +
+      '        // initialize with capacity\n' +
+      '    }\n\n' +
+      '    long get(long key) { return -1; }\n\n' +
+      '    void put(long key, long value) { }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "LRUCache") { init(a[0].get<long>()); return nullptr; }\n' +
+      '        if (m == "get")      { return get(a[0].get<long>()); }\n' +
+      '        if (m == "put")      { put(a[0].get<long>(), a[1].get<long>()); return nullptr; }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 
@@ -448,8 +563,36 @@ const problems = [
       '        pass\n\n' +
       '    def starts_with(self, prefix: str) -> bool:\n' +
       '        pass',
-    ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
+    boilerplate_java:
+      'class Trie {\n' +
+      '    // add fields here\n\n' +
+      '    private void insert(String word) { }\n\n' +
+      '    private boolean search(String word) { return false; }\n\n' +
+      '    private boolean startsWith(String prefix) { return false; }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    public Object call(String m, Object... a) {\n' +
+      '        if (m.equals("Trie"))        return null;\n' +
+      '        if (m.equals("insert"))      { insert(toStr(a[0])); return null; }\n' +
+      '        if (m.equals("search"))      { return search(toStr(a[0])); }\n' +
+      '        if (m.equals("starts_with")) { return startsWith(toStr(a[0])); }\n' +
+      '        throw new RuntimeException("unknown op: " + m);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct Trie {\n' +
+      '    // add fields here\n\n' +
+      '    void insert(const std::string& word) { }\n\n' +
+      '    bool search(const std::string& word) { return false; }\n\n' +
+      '    bool startsWith(const std::string& prefix) { return false; }\n\n' +
+      '    // harness dispatch — do not modify\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "Trie")        return nullptr;\n' +
+      '        if (m == "insert")      { insert(a[0].get<std::string>()); return nullptr; }\n' +
+      '        if (m == "search")      { return search(a[0].get<std::string>()); }\n' +
+      '        if (m == "starts_with") { return startsWith(a[0].get<std::string>()); }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 

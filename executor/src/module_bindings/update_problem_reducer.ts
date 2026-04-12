@@ -23,8 +23,5 @@ export default {
   boilerplatePython: __t.string(),
   boilerplateJava: __t.string(),
   boilerplateCpp: __t.string(),
-  compareFuncPython: __t.string(),
-  compareFuncJava: __t.string(),
-  compareFuncCpp: __t.string(),
   problemKind: __t.string(),
 };

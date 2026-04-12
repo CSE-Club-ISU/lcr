@@ -70,6 +70,14 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  cpp-runner:
+    build:
+      context: ./executor
+      dockerfile: Dockerfile.cpp
+    image: lcr-cpp-runner:latest
+    # This service exists only to build the image; it never runs.
+    profiles: [build]
+
 volumes:
   spacetimedb_data:
   auth_data:

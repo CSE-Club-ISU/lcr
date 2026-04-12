@@ -16,7 +16,8 @@ interface ProblemJson {
   description: string;
   method_name: string;
   boilerplate_python: string;
-  compare_func_python?: string;
+  boilerplate_java?: string;
+  boilerplate_cpp?: string;
   sample_test_cases: unknown[][];
   sample_test_results: unknown[];
   hidden_test_cases: unknown[][];
@@ -31,7 +32,8 @@ interface EditDraft {
   description: string;
   methodName: string;
   boilerplatePython: string;
-  compareFuncPython: string;
+  boilerplateJava: string;
+  boilerplateCpp: string;
   sampleTestCases: string;
   sampleTestResults: string;
   hiddenTestCases: string;
@@ -42,7 +44,6 @@ interface EditDraft {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const DEFAULT_COMPARE = 'def compare(expected, actual): return expected == actual';
 const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
 
 function serializeCases(cases: unknown[][]): string {
@@ -75,7 +76,8 @@ function problemToDraft(p: Problem): EditDraft {
     description:       p.description,
     methodName:        p.methodName,
     boilerplatePython: p.boilerplatePython,
-    compareFuncPython: p.compareFuncPython || DEFAULT_COMPARE,
+    boilerplateJava:   p.boilerplateJava ?? '',
+    boilerplateCpp:    p.boilerplateCpp  ?? '',
     sampleTestCases:   p.sampleTestCases,
     sampleTestResults: p.sampleTestResults,
     hiddenTestCases:   p.hiddenTestCases,
@@ -92,6 +94,7 @@ function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void
   const [draft, setDraft] = useState<EditDraft>(() => problemToDraft(problem));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [boilerplateTab, setBoilerplateTab] = useState<'python' | 'java' | 'cpp'>('python');
 
   function field(key: keyof EditDraft) {
     return {
@@ -118,11 +121,8 @@ function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void
       hiddenTestCases:    draft.hiddenTestCases,
       hiddenTestResults:  draft.hiddenTestResults,
       boilerplatePython:  draft.boilerplatePython,
-      boilerplateJava:    '',
-      boilerplateCpp:     '',
-      compareFuncPython:  draft.compareFuncPython || DEFAULT_COMPARE,
-      compareFuncJava:    '',
-      compareFuncCpp:     '',
+      boilerplateJava:    draft.boilerplateJava,
+      boilerplateCpp:     draft.boilerplateCpp,
       problemKind:        draft.problemKind,
     });
     setSaving(false);
@@ -189,16 +189,23 @@ function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void
             <textarea className={textareaCls} rows={5} {...field('description')} />
           </div>
 
-          {/* Boilerplate */}
+          {/* Boilerplate (tabbed) */}
           <div className="flex flex-col gap-1.5">
-            <label className={labelCls}>Boilerplate Python</label>
-            <textarea className={textareaCls} rows={6} {...field('boilerplatePython')} />
-          </div>
-
-          {/* Compare func */}
-          <div className="flex flex-col gap-1.5">
-            <label className={labelCls}>Compare Function (Python)</label>
-            <textarea className={textareaCls} rows={2} {...field('compareFuncPython')} />
+            <label className={labelCls}>Boilerplate</label>
+            <div className="flex gap-1 mb-1">
+              {(['python', 'java', 'cpp'] as const).map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => setBoilerplateTab(lang)}
+                  className={`text-[11px] font-semibold px-3 py-1 rounded-md border cursor-pointer ${boilerplateTab === lang ? 'border-accent text-accent bg-surface-alt' : 'border-border text-text-muted bg-transparent hover:text-text'}`}
+                >
+                  {lang === 'python' ? 'Python' : lang === 'java' ? 'Java' : 'C++'}
+                </button>
+              ))}
+            </div>
+            {boilerplateTab === 'python' && <textarea className={textareaCls} rows={6} {...field('boilerplatePython')} />}
+            {boilerplateTab === 'java'   && <textarea className={textareaCls} rows={6} {...field('boilerplateJava')} />}
+            {boilerplateTab === 'cpp'    && <textarea className={textareaCls} rows={6} {...field('boilerplateCpp')} />}
           </div>
 
           {/* Test cases — pipe-delimited raw strings */}
@@ -402,6 +409,8 @@ const SCHEMA_EXAMPLE = `{
   "description": "Design a stack with O(1) getMin.",
   "method_name": "MinStack",
   "boilerplate_python": "class MinStack:\\n    def __init__(self): pass\\n    def push(self, val): pass\\n    def pop(self): pass\\n    def top(self): pass\\n    def getMin(self): pass",
+  "boilerplate_java": "class MinStack {\\n    public MinStack() {}\\n    public void push(Object... args) {}\\n    public Object pop(Object... args) { return null; }\\n    public Object top(Object... args) { return null; }\\n    public Object getMin(Object... args) { return null; }\\n    public Object call(String m, Object... a) throws Exception {\\n        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\\n    }\\n}",
+  "boilerplate_cpp": "#include <stack>\\nstruct MinStack {\\n    json call(const std::string& m, const json& a) {\\n        if (m == \\"push\\") { /* ... */ return nullptr; }\\n        if (m == \\"pop\\")  { /* ... */ return nullptr; }\\n        if (m == \\"top\\")  { return nullptr; }\\n        if (m == \\"getMin\\") { return nullptr; }\\n        throw std::runtime_error(\\"unknown op: \\" + m);\\n    }\\n};",
   "sample_test_cases": [
     [["MinStack"],["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
   ],
@@ -420,10 +429,10 @@ Schema:
   "kind": "algorithm" | "data_structure",
   "difficulty": "easy" | "medium" | "hard",
   "description": string,            // full problem statement
-  "method_name": string,            // Python function name (algorithm) or class name (data_structure)
-  "boilerplate_python": string,     // starter code shown to the player (use \\n for newlines)
-  "compare_func_python": string,    // optional — Python function: def compare(expected, actual): return bool
-                                    // omit for strict equality; use sorted() for order-independent results
+  "method_name": string,            // function name (algorithm) or class name (data_structure)
+  "boilerplate_python": string,     // Python starter code (use \\n for newlines)
+  "boilerplate_java": string,       // optional — Java starter code
+  "boilerplate_cpp": string,        // optional — C++ starter code
   "sample_test_cases": array[],     // algorithm: list of arg arrays e.g. [[2,7,11,15], 9]
                                     // data_structure: list of op sequences e.g. [["push",1],["pop"]]
   "sample_test_results": array,     // one expected result per test case
@@ -431,6 +440,12 @@ Schema:
   "hidden_test_cases": array[],     // same format, used for final grading (not shown to player)
   "hidden_test_results": array
 }
+
+Java contract: algorithm methods must have signature \`public static Object <method_name>(Object... args)\`.
+Data structure classes must have a \`public Object call(String m, Object... a)\` dispatch method.
+
+C++ contract: algorithm functions must have signature \`json <method_name>(const json& args)\`.
+Data structure structs must have a \`json call(const std::string& m, const json& a)\` dispatch method.
 
 Algorithm example:
 {
@@ -440,12 +455,12 @@ Algorithm example:
   "description": "Given an array of integers and a target, return indices of the two numbers that add up to the target.",
   "method_name": "two_sum",
   "boilerplate_python": "def two_sum(nums: list, target: int) -> list:\\n    pass",
-  "compare_func_python": "def compare(expected, actual): return sorted(expected) == sorted(actual)",
+  "boilerplate_java": "public static Object two_sum(Object... args) {\\n    return null;\\n}",
+  "boilerplate_cpp": "json two_sum(const json& args) {\\n    return nullptr;\\n}",
   "sample_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6]],
   "sample_test_results": [[0,1], [1,2]],
   "hidden_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6], [[-1,-2,-3,-4,-5], -8]],
-  "hidden_test_results": [[0,1], [1,2], [2,4]],
-  "auto_approve": true
+  "hidden_test_results": [[0,1], [1,2], [2,4]]
 }
 
 Data structure example:
@@ -500,11 +515,8 @@ function CreateTab() {
         hiddenTestCases: serializeCases(p.hidden_test_cases),
         hiddenTestResults: serializeResults(p.hidden_test_results),
         boilerplatePython: p.boilerplate_python,
-        boilerplateJava: '',
-        boilerplateCpp: '',
-        compareFuncPython: p.compare_func_python || DEFAULT_COMPARE,
-        compareFuncJava: '',
-        compareFuncCpp: '',
+        boilerplateJava: p.boilerplate_java ?? '',
+        boilerplateCpp: p.boilerplate_cpp ?? '',
         problemKind: p.kind,
       });
     }
