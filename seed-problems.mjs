@@ -52,14 +52,11 @@ function shuffle(arr, r) {
   return out;
 }
 
-// Python-only problems all leave these fields empty.
+// Placeholder boilerplates for Java and C++ — populated per-problem in future.
 const EMPTY_LANGS = {
   boilerplate_java: '',
   boilerplate_cpp: '',
-  compare_func_java: '',
-  compare_func_cpp: '',
 };
-const EQUAL_COMPARE = 'def compare(expected, actual): return expected == actual';
 
 // ---------------------------------------------------------------------------
 // Problems
@@ -90,7 +87,6 @@ const problems = [
     hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
     boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: 'def compare(expected, actual): return sorted(expected) == sorted(actual)',
     problem_kind: 'algorithm',
   },
 
@@ -113,7 +109,6 @@ const problems = [
     })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -131,7 +126,6 @@ const problems = [
     hidden_test_results: 'true|false|false|true|true|true|false',
     boilerplate_python: 'def is_palindrome(x: int) -> bool:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -152,7 +146,6 @@ const problems = [
     hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -175,7 +168,6 @@ const problems = [
     })(),
     boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -195,7 +187,6 @@ const problems = [
     hidden_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]|["1"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz"]',
     boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -212,7 +203,6 @@ const problems = [
     hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -230,7 +220,6 @@ const problems = [
     hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -249,7 +238,6 @@ const problems = [
     hidden_test_results: 'true|true|false|false|true|true|false',
     boilerplate_python: 'def is_valid(s: str) -> bool:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -288,7 +276,6 @@ const problems = [
       '    def get_min(self) -> int:\n' +
       '        pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -314,7 +301,6 @@ const problems = [
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -336,7 +322,6 @@ const problems = [
     hidden_test_results: '4|-1|0|-1|2|4|4999',
     boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -364,7 +349,6 @@ const problems = [
       '    # Return the result as a list.\n' +
       '    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -382,7 +366,6 @@ const problems = [
     hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -416,7 +399,6 @@ const problems = [
       '    def put(self, key: int, value: int) -> None:\n' +
       '        pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -449,7 +431,6 @@ const problems = [
       '    def starts_with(self, prefix: str) -> bool:\n' +
       '        pass',
     ...EMPTY_LANGS,
-    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 

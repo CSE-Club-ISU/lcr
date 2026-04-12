@@ -24,6 +24,7 @@ export const DraftCode = __t.object("DraftCode", {
   gameId: __t.string(),
   playerIdentity: __t.identity(),
   problemId: __t.u64(),
+  language: __t.string(),
   code: __t.string(),
   updatedAt: __t.timestamp(),
 });
@@ -89,9 +90,6 @@ export const Problem = __t.object("Problem", {
   boilerplatePython: __t.string(),
   boilerplateJava: __t.string(),
   boilerplateCpp: __t.string(),
-  compareFuncPython: __t.string(),
-  compareFuncJava: __t.string(),
-  compareFuncCpp: __t.string(),
   createdBy: __t.identity(),
   isApproved: __t.bool(),
   problemKind: __t.string(),

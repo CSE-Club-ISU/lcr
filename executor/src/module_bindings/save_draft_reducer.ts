@@ -13,5 +13,6 @@ import {
 export default {
   gameId: __t.string(),
   problemId: __t.u64(),
+  language: __t.string(),
   code: __t.string(),
 };
