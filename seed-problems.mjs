@@ -68,12 +68,10 @@ function shuffle(arr, r) {
 //   C++:  struct with json call(const std::string& m, const json& a) dispatch
 //         Use explicit if/else.
 
-function algoBoilerplates(javaMethod, javaBody, cppSignature, cppBody) {
+function algoBoilerplates(method, javaBody, cppBody) {
   return {
-    boilerplate_java:
-      `public static Object ${javaMethod}(Object... _args) {\n${javaBody}\n}`,
-    boilerplate_cpp:
-      `json ${cppSignature}(const json& args) {\n${cppBody}\n}`,
+    boilerplate_java: `public static Object ${method}(Object... _args) {\n${javaBody}\n}`,
+    boilerplate_cpp:  `json ${method}(const json& args) {\n${cppBody}\n}`,
   };
 }
 
@@ -108,7 +106,6 @@ const problems = [
     ...algoBoilerplates(
       'two_sum',
       '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here\n    return new int[]{};',
-      'two_sum',
       '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here\n    return vector<int>{};',
     ),
     problem_kind: 'algorithm',
@@ -135,7 +132,6 @@ const problems = [
     ...algoBoilerplates(
       'reverse_string',
       '    String s = toStr(_args[0]);\n    // Your code here\n    return "";',
-      'reverse_string',
       '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return "";',
     ),
     problem_kind: 'algorithm',
@@ -157,7 +153,6 @@ const problems = [
     ...algoBoilerplates(
       'is_palindrome',
       '    long x = toLong(_args[0]);\n    // Your code here\n    return false;',
-      'is_palindrome',
       '    long x = args[0].get<long>();\n    // Your code here\n    return false;',
     ),
     problem_kind: 'algorithm',
@@ -182,7 +177,6 @@ const problems = [
     ...algoBoilerplates(
       'contains_duplicate',
       '    int[] nums = toIntArray(_args[0]);\n    // Your code here\n    return false;',
-      'contains_duplicate',
       '    vector<int> nums = args[0].get<vector<int>>();\n    // Your code here\n    return false;',
     ),
     problem_kind: 'algorithm',
@@ -209,7 +203,6 @@ const problems = [
     ...algoBoilerplates(
       'max_in_array',
       '    long[] nums = toLongArray(_args[0]);\n    // Your code here (don\'t use Arrays.stream().max())\n    return 0L;',
-      'max_in_array',
       '    vector<long> nums = args[0].get<vector<long>>();\n    // Your code here (don\'t use *max_element)\n    return 0;',
     ),
     problem_kind: 'algorithm',
@@ -233,7 +226,6 @@ const problems = [
     ...algoBoilerplates(
       'fizz_buzz',
       '    long n = toLong(_args[0]);\n    List<String> result = new ArrayList<>();\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
-      'fizz_buzz',
       '    long n = args[0].get<long>();\n    vector<string> result;\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
     ),
     problem_kind: 'algorithm',
@@ -254,7 +246,6 @@ const problems = [
     ...algoBoilerplates(
       'sum_of_digits',
       '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
-      'sum_of_digits',
       '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
     ),
     problem_kind: 'algorithm',
@@ -276,7 +267,6 @@ const problems = [
     ...algoBoilerplates(
       'fib',
       '    long n = toLong(_args[0]);\n    // Your code here (iterative, no recursion)\n    return 0L;',
-      'fib',
       '    long n = args[0].get<long>();\n    // Your code here (iterative, no recursion)\n    return 0;',
     ),
     problem_kind: 'algorithm',
@@ -299,7 +289,6 @@ const problems = [
     ...algoBoilerplates(
       'is_valid',
       '    String s = toStr(_args[0]);\n    // Your code here\n    return false;',
-      'is_valid',
       '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return false;',
     ),
     problem_kind: 'algorithm',
@@ -400,7 +389,6 @@ const problems = [
     ...algoBoilerplates(
       'is_anagram',
       '    String s = toStr(_args[0]);\n    String t = toStr(_args[1]);\n    // Your code here\n    return false;',
-      'is_anagram',
       '    std::string s = args[0].get<std::string>();\n    std::string t = args[1].get<std::string>();\n    // Your code here\n    return false;',
     ),
     problem_kind: 'algorithm',
@@ -426,7 +414,6 @@ const problems = [
     ...algoBoilerplates(
       'binary_search',
       '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here (must be O(log n))\n    return -1L;',
-      'binary_search',
       '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here (must be O(log n))\n    return -1;',
     ),
     problem_kind: 'algorithm',
@@ -458,7 +445,6 @@ const problems = [
     ...algoBoilerplates(
       'reverse_list',
       '    int[] head = toIntArray(_args[0]);\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return new int[]{};',
-      'reverse_list',
       '    vector<int> head = args[0].get<vector<int>>();\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return vector<int>{};',
     ),
     problem_kind: 'algorithm',
@@ -480,7 +466,6 @@ const problems = [
     ...algoBoilerplates(
       'climb_stairs',
       '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
-      'climb_stairs',
       '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
     ),
     problem_kind: 'algorithm',

@@ -266,43 +266,23 @@ const JAVA_JSON_UTIL = `
   static boolean compare(Object a, Object b) { return stringify(a).equals(stringify(b)); }
 
   // ── Type-extraction helpers (used by boilerplate bridges) ────────────────
-  static int toInt(Object o) { return (int)(long)(Long) o; }
+  // Parser produces Long for integers and Double for fractions; toInt narrows.
+  static int toInt(Object o) { return Math.toIntExact((Long) o); }
   static long toLong(Object o) { return (Long) o; }
-  static double toDouble(Object o) { return o instanceof Double ? (Double) o : (double)(Long) o; }
   static String toStr(Object o) { return (String) o; }
-  static boolean toBool(Object o) { return (Boolean) o; }
   @SuppressWarnings("unchecked")
   static int[] toIntArray(Object o) {
-    java.util.List<Object> l = (java.util.List<Object>) o;
+    var l = (java.util.List<Object>) o;
     int[] a = new int[l.size()];
     for (int i = 0; i < l.size(); i++) a[i] = toInt(l.get(i));
     return a;
   }
   @SuppressWarnings("unchecked")
   static long[] toLongArray(Object o) {
-    java.util.List<Object> l = (java.util.List<Object>) o;
+    var l = (java.util.List<Object>) o;
     long[] a = new long[l.size()];
     for (int i = 0; i < l.size(); i++) a[i] = toLong(l.get(i));
     return a;
-  }
-  @SuppressWarnings("unchecked")
-  static double[] toDoubleArray(Object o) {
-    java.util.List<Object> l = (java.util.List<Object>) o;
-    double[] a = new double[l.size()];
-    for (int i = 0; i < l.size(); i++) a[i] = toDouble(l.get(i));
-    return a;
-  }
-  @SuppressWarnings("unchecked")
-  static String[] toStrArray(Object o) {
-    java.util.List<Object> l = (java.util.List<Object>) o;
-    return l.stream().map(x -> (String) x).toArray(String[]::new);
-  }
-  @SuppressWarnings("unchecked")
-  static int[][] toIntMatrix(Object o) {
-    java.util.List<Object> rows = (java.util.List<Object>) o;
-    int[][] m = new int[rows.size()][];
-    for (int i = 0; i < rows.size(); i++) m[i] = toIntArray(rows.get(i));
-    return m;
   }
 `.trimStart();
 
@@ -332,6 +312,7 @@ function generateJava(code: string, problem: ProblemData): string {
           }`;
 
   return `import java.util.*;
+import java.util.stream.*;
 
 public class solution {
   // ── User code ─────────────────────────────────────────────────────────────
@@ -414,9 +395,17 @@ function generateCpp(code: string, problem: ProblemData): string {
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <algorithm>
+#include <climits>
+#include <numeric>
+#include <unordered_map>
+#include <unordered_set>
+#include <map>
+#include <set>
+#include <queue>
+#include <stack>
 using json = nlohmann::json;
-using std::vector;
-using std::string;
+using namespace std;
 
 ${code}
 
