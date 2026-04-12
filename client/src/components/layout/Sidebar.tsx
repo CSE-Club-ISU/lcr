@@ -9,7 +9,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: "play", label: "Play", icon: "▶", path: "/play" },
+  { id: "play",           label: "Play",           icon: "▶", path: "/play" },
+  { id: "create-problem", label: "Create Problem",  icon: "+", path: "/problems/new" },
 ];
 
 interface Props {
