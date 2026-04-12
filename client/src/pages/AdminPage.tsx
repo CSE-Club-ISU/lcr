@@ -18,6 +18,9 @@ interface ProblemJson {
   boilerplate_python: string;
   boilerplate_java?: string;
   boilerplate_cpp?: string;
+  param_types?: string;        // algo: JSON array string e.g. '["int[]","int"]'
+  return_type?: string;        // algo: e.g. "int[]"
+  method_signatures?: string;  // data_structure: JSON object string
   sample_test_cases: unknown[][];
   sample_test_results: unknown[];
   hidden_test_cases: unknown[][];
@@ -34,6 +37,9 @@ interface EditDraft {
   boilerplatePython: string;
   boilerplateJava: string;
   boilerplateCpp: string;
+  paramTypes: string;
+  returnType: string;
+  methodSignatures: string;
   sampleTestCases: string;
   sampleTestResults: string;
   hiddenTestCases: string;
@@ -76,8 +82,11 @@ function problemToDraft(p: Problem): EditDraft {
     description:       p.description,
     methodName:        p.methodName,
     boilerplatePython: p.boilerplatePython,
-    boilerplateJava:   p.boilerplateJava ?? '',
-    boilerplateCpp:    p.boilerplateCpp  ?? '',
+    boilerplateJava:   p.boilerplateJava   ?? '',
+    boilerplateCpp:    p.boilerplateCpp    ?? '',
+    paramTypes:        (p as any).paramTypes        ?? '',
+    returnType:        (p as any).returnType        ?? '',
+    methodSignatures:  (p as any).methodSignatures  ?? '',
     sampleTestCases:   p.sampleTestCases,
     sampleTestResults: p.sampleTestResults,
     hiddenTestCases:   p.hiddenTestCases,
@@ -124,6 +133,9 @@ function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void
       boilerplateJava:    draft.boilerplateJava,
       boilerplateCpp:     draft.boilerplateCpp,
       problemKind:        draft.problemKind,
+      paramTypes:         draft.paramTypes,
+      returnType:         draft.returnType,
+      methodSignatures:   draft.methodSignatures,
     });
     setSaving(false);
     onClose();
@@ -182,6 +194,28 @@ function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void
             <label className={labelCls}>Method / Class Name</label>
             <input className={`${inputCls} font-mono`} {...field('methodName')} />
           </div>
+
+          {/* Typed signature fields — algorithm */}
+          {draft.problemKind === 'algorithm' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className={labelCls}>Param Types <span className="normal-case font-normal text-text-muted">(JSON array, e.g. ["int[]","int"])</span></label>
+                <input className={`${inputCls} font-mono`} placeholder='["int[]","int"]' {...field('paramTypes')} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className={labelCls}>Return Type <span className="normal-case font-normal text-text-muted">(e.g. int[], bool, void)</span></label>
+                <input className={`${inputCls} font-mono`} placeholder='int[]' {...field('returnType')} />
+              </div>
+            </div>
+          )}
+
+          {/* Typed signature fields — data structure */}
+          {draft.problemKind === 'data_structure' && (
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Method Signatures <span className="normal-case font-normal text-text-muted">(JSON: method→{'{'}params,return{'}'}, empty = generic)</span></label>
+              <textarea className={`${textareaCls} text-[12px]`} rows={5} placeholder={'{"push":{"params":["int"],"return":"void"},"pop":{"params":[],"return":"int"}}'} {...field('methodSignatures')} />
+            </div>
+          )}
 
           {/* Description */}
           <div className="flex flex-col gap-1.5">
@@ -408,17 +442,18 @@ const SCHEMA_EXAMPLE = `{
   "difficulty": "medium",
   "description": "Design a stack with O(1) getMin.",
   "method_name": "MinStack",
-  "boilerplate_python": "class MinStack:\\n    def __init__(self): pass\\n    def push(self, val): pass\\n    def pop(self): pass\\n    def top(self): pass\\n    def getMin(self): pass",
-  "boilerplate_java": "class MinStack {\\n    public MinStack() {}\\n    public void push(Object... args) {}\\n    public Object pop(Object... args) { return null; }\\n    public Object top(Object... args) { return null; }\\n    public Object getMin(Object... args) { return null; }\\n    public Object call(String m, Object... a) throws Exception {\\n        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\\n    }\\n}",
-  "boilerplate_cpp": "#include <stack>\\nstruct MinStack {\\n    json call(const std::string& m, const json& a) {\\n        if (m == \\"push\\") { /* ... */ return nullptr; }\\n        if (m == \\"pop\\")  { /* ... */ return nullptr; }\\n        if (m == \\"top\\")  { return nullptr; }\\n        if (m == \\"getMin\\") { return nullptr; }\\n        throw std::runtime_error(\\"unknown op: \\" + m);\\n    }\\n};",
+  "boilerplate_python": "class MinStack:\\n    def __init__(self): pass\\n    def push(self, val: int) -> None: pass\\n    def pop(self) -> None: pass\\n    def top(self) -> int: pass\\n    def get_min(self) -> int: pass",
+  "boilerplate_java": "class MinStack {\\n    public void push(long val) { }\\n    public void pop() { }\\n    public long top() { return 0; }\\n    public long get_min() { return 0; }\\n}",
+  "boilerplate_cpp": "struct MinStack {\\n    void push(long long val) { }\\n    void pop() { }\\n    long long top() { return 0; }\\n    long long get_min() { return 0; }\\n};",
+  "method_signatures": "{\\"push\\":{\\"params\\":[\\"long\\"],\\"return\\":\\"void\\"},\\"pop\\":{\\"params\\":[],\\"return\\":\\"void\\"},\\"top\\":{\\"params\\":[],\\"return\\":\\"long\\"},\\"get_min\\":{\\"params\\":[],\\"return\\":\\"long\\"}}",
   "sample_test_cases": [
-    [["MinStack"],["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
+    [["push",-2],["push",0],["push",-3],["get_min"],["pop"],["top"],["get_min"]]
   ],
-  "sample_test_results": [-3],
+  "sample_test_results": [-2],
   "hidden_test_cases": [
-    [["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
+    [["push",-2],["push",0],["push",-3],["get_min"],["pop"],["top"],["get_min"]]
   ],
-  "hidden_test_results": [0]
+  "hidden_test_results": [-2]
 }`;
 
 const LLM_PROMPT = `Generate a coding problem in the following JSON format for a competitive programming app. Output only valid JSON (or a JSON array for multiple problems), no extra text.
@@ -430,9 +465,14 @@ Schema:
   "difficulty": "easy" | "medium" | "hard",
   "description": string,            // full problem statement
   "method_name": string,            // function name (algorithm) or class name (data_structure)
-  "boilerplate_python": string,     // Python starter code (use \\n for newlines)
-  "boilerplate_java": string,       // optional — Java starter code
-  "boilerplate_cpp": string,        // optional — C++ starter code
+  "boilerplate_python": string,     // Python starter code with type hints (use \\n for newlines)
+  "boilerplate_java": string,       // Java starter code with native typed signature
+  "boilerplate_cpp": string,        // C++ starter code with native typed signature
+  // Algorithm only — declare param and return types for typed bridge generation:
+  "param_types": string,            // JSON array string, e.g. '["int[]","int"]'
+  "return_type": string,            // e.g. "int[]", "bool", "string", "void"
+  // Data structure only — declare per-method signatures:
+  "method_signatures": string,      // JSON object string: {"method":{"params":[...],"return":"..."}}
   "sample_test_cases": array[],     // algorithm: list of arg arrays e.g. [[2,7,11,15], 9]
                                     // data_structure: list of op sequences e.g. [["push",1],["pop"]]
   "sample_test_results": array,     // one expected result per test case
@@ -441,11 +481,15 @@ Schema:
   "hidden_test_results": array
 }
 
-Java contract: algorithm methods must have signature \`public static Object <method_name>(Object... args)\`.
-Data structure classes must have a \`public Object call(String m, Object... a)\` dispatch method.
+Supported TypeName values: int, long, double, bool, string,
+  int[], long[], double[], string[], bool[],
+  int[][], long[][], double[][], string[][],
+  map<string,int>, map<string,string>, map<int,int>,
+  set<int>, set<string>, void, any
 
-C++ contract: algorithm functions must have signature \`json <method_name>(const json& args)\`.
-Data structure structs must have a \`json call(const std::string& m, const json& a)\` dispatch method.
+Java contract: use native typed method signatures matching param_types/return_type.
+C++ contract: use native typed function signatures matching param_types/return_type.
+Python contract: use standard type hints.
 
 Algorithm example:
 {
@@ -454,9 +498,11 @@ Algorithm example:
   "difficulty": "easy",
   "description": "Given an array of integers and a target, return indices of the two numbers that add up to the target.",
   "method_name": "two_sum",
-  "boilerplate_python": "def two_sum(nums: list, target: int) -> list:\\n    pass",
-  "boilerplate_java": "public static Object two_sum(Object... args) {\\n    return null;\\n}",
-  "boilerplate_cpp": "json two_sum(const json& args) {\\n    return nullptr;\\n}",
+  "param_types": "[\\"int[]\\",\\"int\\"]",
+  "return_type": "int[]",
+  "boilerplate_python": "def two_sum(nums: list[int], target: int) -> list[int]:\\n    pass",
+  "boilerplate_java": "public int[] two_sum(int[] nums, int target) {\\n    return new int[]{};\\n}",
+  "boilerplate_cpp": "vector<int> two_sum(vector<int> nums, int target) {\\n    return {};\\n}",
   "sample_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6]],
   "sample_test_results": [[0,1], [1,2]],
   "hidden_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6], [[-1,-2,-3,-4,-5], -8]],
@@ -518,6 +564,9 @@ function CreateTab() {
         boilerplateJava: p.boilerplate_java ?? '',
         boilerplateCpp: p.boilerplate_cpp ?? '',
         problemKind: p.kind,
+        paramTypes: p.param_types ?? '',
+        returnType: p.return_type ?? '',
+        methodSignatures: p.method_signatures ?? '',
       });
     }
     setSubmitCount(parsed.length);
