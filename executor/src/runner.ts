@@ -106,7 +106,7 @@ async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; st
  * Returns a shell script that reads code from stdin, writes it to /tmp, and executes it.
  *
  * Security model:
- * - fileName is validated above to contain only [A-Za-z0-9_.] — no shell metacharacters.
+ * - fileName is validated at the start of this function to contain only [A-Za-z0-9_.] — no shell metacharacters.
  * - Code content is piped via stdin, not a shell argument, so it cannot inject commands.
  * - The container already runs with --network=none, --pids-limit=50, --security-opt=no-new-privileges.
  *
@@ -115,12 +115,13 @@ async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; st
  * inputs used in shell strings, or better: avoid shell strings entirely and use exec arrays.
  */
 function getRunScript(lang: string, fileName: string): string {
-  // Defensive check: fileName should only contain safe characters.
+  // Validate fileName first — must only contain safe characters.
   // The generators always produce 'solution.py', 'Solution.java', 'solution.cpp'.
-  // This assertion catches any future code paths that might pass untrusted input.
+  // This catches any future code paths that might pass untrusted input.
   if (!/^[A-Za-z][A-Za-z0-9_.]*$/.test(fileName)) {
     throw new Error(`getRunScript: unsafe fileName rejected: ${JSON.stringify(fileName)}`);
   }
+
   const dest = `/tmp/${fileName}`;
   switch (lang) {
     case 'python':
