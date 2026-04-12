@@ -35,6 +35,8 @@ export async function initStdb(): Promise<void> {
         .onApplied(() => {
           clearTimeout(timer);
           rebuildProblemMap();
+          // Register this executor's identity so submit_result accepts our calls
+          connection!.reducers.setExecutorIdentity({});
           console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
           resolve();
         })
