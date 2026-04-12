@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import AdminSolveProblemReducer from "../admin_solve_problem_reducer";
+import AnswerQuizReducer from "../answer_quiz_reducer";
 import BuyAbilityReducer from "../buy_ability_reducer";
 import ClaimFirstAdminReducer from "../claim_first_admin_reducer";
 import ClearSabotageEventReducer from "../clear_sabotage_event_reducer";
@@ -37,6 +38,7 @@ import UseAbilityReducer from "../use_ability_reducer";
 import UsePowerupReducer from "../use_powerup_reducer";
 
 export type AdminSolveProblemParams = __Infer<typeof AdminSolveProblemReducer>;
+export type AnswerQuizParams = __Infer<typeof AnswerQuizReducer>;
 export type BuyAbilityParams = __Infer<typeof BuyAbilityReducer>;
 export type ClaimFirstAdminParams = __Infer<typeof ClaimFirstAdminReducer>;
 export type ClearSabotageEventParams = __Infer<typeof ClearSabotageEventReducer>;

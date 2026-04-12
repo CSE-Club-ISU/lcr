@@ -1001,6 +1001,43 @@ export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
 });
 
 // ---------------------------------------------------------------------------
+// Quiz mini-game
+// ---------------------------------------------------------------------------
+
+const QUIZ_COOLDOWN_SEC = 30;
+const QUIZ_REWARD = 10;
+
+export const answer_quiz = spacetimedb.reducer(
+  { game_id: t.string(), question_id: t.u64(), answer: t.string() },
+  (ctx, { game_id, question_id, answer }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not in progress');
+
+    const isP1 = game.player1_identity.toHexString() === ctx.sender.toHexString();
+    const isP2 = game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isP1 && !isP2) throw new SenderError('Not a participant in this game');
+
+    const lastAt = isP1 ? game.player1_last_quiz_at : game.player2_last_quiz_at;
+    const elapsedSec = Number((ctx.timestamp.microsSinceUnixEpoch - lastAt.microsSinceUnixEpoch) / 1_000_000n);
+    if (elapsedSec < QUIZ_COOLDOWN_SEC) throw new SenderError(`Quiz cooling down (${QUIZ_COOLDOWN_SEC - elapsedSec}s)`);
+
+    const q = ctx.db.quiz_question.id.find(question_id);
+    if (!q) throw new SenderError('Question not found');
+
+    const correct = q.answer.trim().toLowerCase() === answer.trim().toLowerCase();
+    const updated = { ...game };
+    if (isP1) {
+      updated.player1_last_quiz_at = ctx.timestamp;
+      if (correct) updated.player1_quiz_bonus = game.player1_quiz_bonus + QUIZ_REWARD;
+    } else {
+      updated.player2_last_quiz_at = ctx.timestamp;
+      if (correct) updated.player2_quiz_bonus = game.player2_quiz_bonus + QUIZ_REWARD;
+    }
+    ctx.db.game_state.id.update(updated);
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Powerup loadout preferences
 // ---------------------------------------------------------------------------
 
