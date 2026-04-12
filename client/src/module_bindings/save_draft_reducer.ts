@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  difficulty: __t.string(),
-  problemCount: __t.u32(),
+  gameId: __t.string(),
+  problemId: __t.u64(),
+  code: __t.string(),
 };

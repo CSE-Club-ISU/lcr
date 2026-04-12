@@ -16,6 +16,8 @@ const DIFFICULTIES = [
   { value: "hard",   label: "Hard",   color: "text-red" },
 ] as const;
 
+const PROBLEM_COUNTS = [1, 2, 3] as const;
+
 export default function MatchScreen() {
   const navigate = useNavigate();
   const ctx = useSpacetimeDB();
@@ -27,6 +29,7 @@ export default function MatchScreen() {
   const [queueRows] = useTypedTable<Queue>(tables.queue);
   const [games]     = useTypedTable<GameState>(tables.game_state);
 
+  const [problemCount, setProblemCount] = useState<1 | 2 | 3>(1);
   const [friendCode,  setFriendCode]  = useState("");
   const [joinCode,    setJoinCode]    = useState("");
   const [friendError, setFriendError] = useState("");
@@ -51,7 +54,7 @@ export default function MatchScreen() {
   }, [games, ctx.identity, navigate]);
 
   const handleQueue = (difficulty: string) => {
-    joinQueue({ difficulty });
+    joinQueue({ difficulty, problemCount });
   };
 
   const handleCreateFriendRoom = (e: React.FormEvent) => {
@@ -86,6 +89,27 @@ export default function MatchScreen() {
           Choose a difficulty and get matched with another player instantly.
         </div>
 
+        {/* Problem count selector */}
+        {!myQueueEntry && (
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xs text-text-muted">Problems:</span>
+            {PROBLEM_COUNTS.map(n => (
+              <button
+                key={n}
+                onClick={() => setProblemCount(n)}
+                className={[
+                  'px-3 py-1 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
+                  problemCount === n
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border bg-transparent text-text-muted hover:text-text',
+                ].join(' ')}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+
         {myQueueEntry ? (
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -103,7 +127,7 @@ export default function MatchScreen() {
                 >
                   {myQueueEntry.difficulty}
                 </span>{" "}
-                match…
+                match ({myQueueEntry.problemCount} problem{myQueueEntry.problemCount !== 1 ? "s" : ""})…
               </span>
             </div>
             <button

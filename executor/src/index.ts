@@ -159,6 +159,7 @@ const server = Bun.serve({
             conn.reducers.submitResult({
               gameId,
               playerIdentity: execReq.player_identity,
+              problemId: BigInt(execReq.problem_id),
               passed: result.passed,
               total: result.total,
               solveTime: execReq.solve_time ?? 0,

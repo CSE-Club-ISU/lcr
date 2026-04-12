@@ -72,11 +72,11 @@ const game_state = table(
     player2_sp:             t.i32(),
     player1_mp:             t.i32(),
     player2_mp:             t.i32(),
-    player1_problem_index:  t.u32(),
-    player2_problem_index:  t.u32(),
+    player1_solved_ids:     t.string(),   // JSON array of solved problem id strings
+    player2_solved_ids:     t.string(),
     player1_abilities:      t.string(),   // JSON array of ability ids
     player2_abilities:      t.string(),
-    problem_ids:            t.string(),   // JSON array of problem ids (as strings)
+    problem_ids:            t.string(),   // JSON array of problem ids (as strings), sorted easy→hard
     status:                 t.string(),   // "in_progress" | "finished"
     start_time:             t.timestamp(),
     winner_identity:        t.identity().optional(),
@@ -154,6 +154,26 @@ const submission = table(
   }
 );
 
+// Persists a player's in-progress code draft for a specific problem in a game.
+// Non-public so only the owning player's subscription sees it.
+const draft_code = table(
+  {
+    name: 'draft_code',
+    public: false,
+    indexes: [
+      { accessor: 'draft_code_game_player', algorithm: 'btree', columns: ['game_id', 'player_identity'] },
+    ],
+  },
+  {
+    id:              t.u64().primaryKey().autoInc(),
+    game_id:         t.string(),
+    player_identity: t.identity(),
+    problem_id:      t.u64(),
+    code:            t.string(),
+    updated_at:      t.timestamp(),
+  }
+);
+
 // Queue for difficulty-based matchmaking
 const queue = table(
   {
@@ -164,9 +184,10 @@ const queue = table(
     ],
   },
   {
-    identity:   t.identity().primaryKey(),
-    difficulty: t.string(),   // "easy" | "medium" | "hard"
-    queued_at:  t.timestamp(),
+    identity:      t.identity().primaryKey(),
+    difficulty:    t.string(),   // "easy" | "medium" | "hard"
+    problem_count: t.u32(),      // 1 | 2 | 3
+    queued_at:     t.timestamp(),
   }
 );
 
@@ -174,7 +195,7 @@ const queue = table(
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -226,7 +247,9 @@ export const set_profile = spacetimedb.reducer(
 type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
 
-/** Select `count` distinct approved problems from `pool` using a numeric seed. */
+const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+
+/** Select `count` distinct problems from `pool` using a numeric seed, then sort easy→hard. */
 function selectProblems(pool: ProblemRow[], seed: number, count: number): ProblemRow[] {
   const selected: ProblemRow[] = [];
   const usedIndices = new Set<number>();
@@ -238,6 +261,8 @@ function selectProblems(pool: ProblemRow[], seed: number, count: number): Proble
     }
     if (i >= pool.length * 2) break; // safety — shouldn't happen given count ≤ pool.length
   }
+  // Sort easy → hard; within same difficulty preserve selection order (stable-ish)
+  selected.sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 0) - (DIFFICULTY_ORDER[b.difficulty] ?? 0));
   return selected;
 }
 
@@ -261,8 +286,8 @@ function startGameState(
     player2_sp:            0,
     player1_mp:            0,
     player2_mp:            0,
-    player1_problem_index: 0,
-    player2_problem_index: 0,
+    player1_solved_ids:    '[]',
+    player2_solved_ids:    '[]',
     player1_abilities:     '[]',
     player2_abilities:     '[]',
     problem_ids:           JSON.stringify(selectedProblems.map(p => p.id.toString())),
@@ -354,9 +379,15 @@ export const start_game = spacetimedb.reducer(
     const settings = JSON.parse(room.settings) as Record<string, unknown>;
     const difficulty = (settings.difficulty as string) ?? 'medium';
 
-    // Pick approved problems matching difficulty
+    // Difficulty ceiling: easy → [easy], medium → [easy,medium], hard → [easy,medium,hard]
+    const allowedDifficulties = difficulty === 'easy'
+      ? ['easy']
+      : difficulty === 'medium'
+        ? ['easy', 'medium']
+        : ['easy', 'medium', 'hard'];
+
     const approved = [...ctx.db.problem.iter()].filter(
-      p => p.is_approved && p.difficulty === difficulty
+      p => p.is_approved && allowedDifficulties.includes(p.difficulty)
     );
     if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
 
@@ -504,12 +535,13 @@ export const submit_result = spacetimedb.reducer(
   {
     game_id:         t.string(),
     player_identity: t.string(),   // hex identity of the player who submitted
+    problem_id:      t.u64(),      // which problem was submitted
     passed:          t.u32(),
     total:           t.u32(),
     solve_time:      t.u32(),    // seconds
     language:        t.string(),
   },
-  (ctx, { game_id, player_identity: playerIdentityHex, passed, total, solve_time, language }) => {
+  (ctx, { game_id, player_identity: playerIdentityHex, problem_id, passed, total, solve_time, language }) => {
     // Only the registered executor service may submit results — never a player client
     const executorConfig = ctx.db.executor_config.id.find(0);
     if (!executorConfig) throw new SenderError('Executor not configured');
@@ -528,18 +560,18 @@ export const submit_result = spacetimedb.reducer(
     const player_identity = isP1 ? game.player1_identity : game.player2_identity;
     const accepted = passed === total && total > 0;
 
-    // Determine current problem for this player
+    // Validate problem_id is part of this game
     const problemIds = JSON.parse(game.problem_ids) as string[];
     const problemCount = problemIds.length;
-    const problemIndex = isP1 ? game.player1_problem_index : game.player2_problem_index;
-    const problemId = BigInt(problemIds[problemIndex] ?? '0');
+    const problemIdStr = problem_id.toString();
+    if (!problemIds.includes(problemIdStr)) throw new SenderError('problem_id is not part of this game');
 
     // Always record the submission attempt
     ctx.db.submission.insert({
       id:              0n,
       game_id,
       player_identity,
-      problem_id:      problemId,
+      problem_id,
       passed,
       total,
       solve_time,
@@ -549,6 +581,13 @@ export const submit_result = spacetimedb.reducer(
 
     if (!accepted) return; // player can retry
 
+    // Check if this problem was already solved — ignore duplicate solves
+    const solvedIds: string[] = JSON.parse(isP1 ? game.player1_solved_ids : game.player2_solved_ids);
+    if (solvedIds.includes(problemIdStr)) return; // already counted
+
+    // Record the solve
+    const newSolvedIds = [...solvedIds, problemIdStr];
+
     // Proportional HP damage: each problem is worth startingHp / problemCount HP
     const room = ctx.db.room.code.find(game.room_code);
     const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
@@ -557,25 +596,22 @@ export const submit_result = spacetimedb.reducer(
 
     let updated = { ...game };
     if (isP1) {
+      updated.player1_solved_ids = JSON.stringify(newSolvedIds);
       updated.player2_hp = Math.max(0, game.player2_hp - damage);
-      updated.player1_problem_index = game.player1_problem_index + 1;
     } else {
+      updated.player2_solved_ids = JSON.stringify(newSolvedIds);
       updated.player1_hp = Math.max(0, game.player1_hp - damage);
-      updated.player2_problem_index = game.player2_problem_index + 1;
     }
 
     const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
-    const newProblemIndex = isP1 ? updated.player1_problem_index : updated.player2_problem_index;
     const winner_identity = isP1 ? game.player1_identity : game.player2_identity;
 
-    if (opponentHp <= 0 || newProblemIndex >= problemCount) {
-      // Game over — use the updated HP/index before calling endGame
+    // Win condition: solved all problems, OR opponent HP hits 0
+    if (newSolvedIds.length >= problemCount || opponentHp <= 0) {
       ctx.db.game_state.id.update(updated);
-      // Re-fetch to pass the latest row to endGame
       const updatedGame = ctx.db.game_state.id.find(game_id)!;
       endGame(ctx, updatedGame, winner_identity);
     } else {
-      // Game continues — update state and let players keep going
       ctx.db.game_state.id.update(updated);
     }
   }
@@ -603,6 +639,42 @@ export const set_executor_identity = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
+// Draft code reducer
+// ---------------------------------------------------------------------------
+
+export const save_draft = spacetimedb.reducer(
+  { game_id: t.string(), problem_id: t.u64(), code: t.string() },
+  (ctx, { game_id, problem_id, code }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not found or not in progress');
+
+    const senderHex = ctx.sender.toHexString();
+    if (senderHex !== game.player1_identity.toHexString() && senderHex !== game.player2_identity.toHexString()) {
+      throw new SenderError('Not a participant in this game');
+    }
+
+    // Upsert: find existing draft for this player+game+problem
+    let found: { id: bigint } | undefined;
+    for (const row of ctx.db.draft_code.draft_code_game_player.filter([game_id, ctx.sender] as any)) {
+      if ((row as any).problem_id === problem_id) { found = row as any; break; }
+    }
+
+    if (found) {
+      ctx.db.draft_code.id.update({ ...(found as any), code, updated_at: ctx.timestamp });
+    } else {
+      ctx.db.draft_code.insert({
+        id:              0n,
+        game_id,
+        player_identity: ctx.sender,
+        problem_id,
+        code,
+        updated_at:      ctx.timestamp,
+      });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Ability reducers (stubs — Phase 3)
 // ---------------------------------------------------------------------------
 
@@ -625,10 +697,12 @@ export const use_ability = spacetimedb.reducer(
 // ---------------------------------------------------------------------------
 
 export const join_queue = spacetimedb.reducer(
-  { difficulty: t.string() },
-  (ctx, { difficulty }) => {
+  { difficulty: t.string(), problem_count: t.u32() },
+  (ctx, { difficulty, problem_count }) => {
     if (!['easy', 'medium', 'hard'].includes(difficulty))
       throw new SenderError('Invalid difficulty');
+    if (![1, 2, 3].includes(problem_count))
+      throw new SenderError('problem_count must be 1, 2, or 3');
 
     // Prevent queuing while already in an active game
     for (const g of ctx.db.game_state.iter()) {
@@ -641,14 +715,17 @@ export const join_queue = spacetimedb.reducer(
     // Upsert queue entry
     const existing = ctx.db.queue.identity.find(ctx.sender);
     if (existing) {
-      ctx.db.queue.identity.update({ ...existing, difficulty, queued_at: ctx.timestamp });
+      ctx.db.queue.identity.update({ ...existing, difficulty, problem_count, queued_at: ctx.timestamp });
     } else {
-      ctx.db.queue.insert({ identity: ctx.sender, difficulty, queued_at: ctx.timestamp });
+      ctx.db.queue.insert({ identity: ctx.sender, difficulty, problem_count, queued_at: ctx.timestamp });
     }
 
-    // Find another player queued for the same difficulty
+    // Strict match: same difficulty AND same problem_count
     const candidates = [...ctx.db.queue.queue_difficulty.filter(difficulty)]
-      .filter(q => q.identity.toHexString() !== ctx.sender.toHexString());
+      .filter(q =>
+        q.identity.toHexString() !== ctx.sender.toHexString() &&
+        q.problem_count === problem_count
+      );
 
     if (candidates.length === 0) return; // nobody to match yet
 
@@ -664,7 +741,7 @@ export const join_queue = spacetimedb.reducer(
     // Generate a deterministic room code unique to this reducer call
     const code = 'Q' + ctx.timestamp.microsSinceUnixEpoch.toString(16).slice(-5).toUpperCase();
 
-    const settings = JSON.stringify({ difficulty, problem_count: 1, starting_hp: 100 });
+    const settings = JSON.stringify({ difficulty, problem_count, starting_hp: 100 });
     ctx.db.room.insert({
       code,
       host_identity:  opponent.identity,   // earlier queuer is host
@@ -675,16 +752,22 @@ export const join_queue = spacetimedb.reducer(
       settings,
     });
 
-    // Note: don't call start_game — just start immediately via helper logic.
-    // This avoids readiness checks since both are auto-ready in queue matches.
+    // Difficulty ceiling: easy → [easy], medium → [easy,medium], hard → [easy,medium,hard]
+    const allowedDifficulties = difficulty === 'easy'
+      ? ['easy']
+      : difficulty === 'medium'
+        ? ['easy', 'medium']
+        : ['easy', 'medium', 'hard'];
+
     const approvedProblems = [...ctx.db.problem.iter()].filter(
-      p => p.is_approved && p.difficulty === difficulty
+      p => p.is_approved && allowedDifficulties.includes(p.difficulty)
     );
     if (approvedProblems.length === 0) throw new SenderError('No approved problems for this difficulty');
 
     const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
-    const selected = selectProblems(approvedProblems, seed, 1);
+    const count = Math.min(problem_count, approvedProblems.length);
+    const selected = selectProblems(approvedProblems, seed, count);
 
     startGameState(ctx, code, opponent.identity, ctx.sender, selected, 100);
     const room = ctx.db.room.code.find(code)!;
