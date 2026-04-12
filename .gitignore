@@ -25,6 +25,7 @@ module/spacetimedb/.spacetime/
 # Editor
 .vscode/
 .idea/
+.claude/
 *.iml
 .DS_Store
 Thumbs.db

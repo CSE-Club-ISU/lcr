@@ -36,8 +36,18 @@ spacetime publish "${DB_NAME}" \
 
 echo "Module published successfully!"
 
-# Extract auth token from saved TOML config
+# Extract the SpacetimeDB identity token from cli.toml using grep+sed.
+# This is fragile: it assumes the token is on its own line as:
+#   spacetimedb_token = "..."
+# If the TOML format changes or the value contains escaped quotes, this breaks.
+# A more robust alternative would use a proper TOML parser or a JSON config.
 TOKEN=$(grep -E '^spacetimedb_token\s*=' "${CONFIG_DIR}/cli.toml" 2>/dev/null | head -1 | sed 's/.*= *"//;s/".*//')
+
+if [ -z "${TOKEN}" ]; then
+  echo "[init] ERROR: Failed to extract SpacetimeDB token from cli.toml. Executor cannot start." >&2
+  exit 1
+fi
+
 echo "Token extracted: ${TOKEN:0:8}..."
 
 echo "Seeding problems..."

@@ -5,14 +5,20 @@ import { tables, reducers } from '../module_bindings';
 import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
+import { difficultyColor, hpColor } from '../utils/difficulty';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useSettings } from '../hooks/useSettings';
 import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
-import type { TestResult, ExecuteResponse } from '../utils/executor-types';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
+import { useExecutionState } from '../hooks/useExecutionState';
+import type { ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEditor';
+import TimerBar from '../components/problem/TimerBar';
 import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
+import { safeParseJson, splitPipe } from '../utils/parseJson';
 import PowerupShop from '../components/powerup/PowerupShop';
 import type { QuizResult } from '../components/powerup/QuizPanel';
 
@@ -43,8 +49,7 @@ export default function ProblemScreen() {
   // All problem ids for this game, ordered as assigned by server (easy→hard)
   const problemIds: string[] = useMemo(() => {
     if (!game) return [];
-    try { return JSON.parse(game.problemIds); }
-    catch (e) { console.error('[ProblemScreen] failed to parse problemIds:', e); return []; }
+    return safeParseJson<string[]>(game.problemIds, [], 'problemIds');
   }, [game?.problemIds]);
 
   const problemCount = problemIds.length;
@@ -52,19 +57,15 @@ export default function ProblemScreen() {
   // My solved ids (set for O(1) lookup)
   const mySolvedIds: Set<string> = useMemo(() => {
     if (!game) return new Set();
-    try {
-      const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
-      return new Set(JSON.parse(raw ?? '[]'));
-    } catch (e) { console.error('[ProblemScreen] failed to parse my solvedIds:', e); return new Set(); }
+    const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
+    return new Set(safeParseJson<string[]>(raw ?? '[]', [], 'mySolvedIds'));
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Opponent's solved ids
   const oppSolvedIds: Set<string> = useMemo(() => {
     if (!game) return new Set();
-    try {
-      const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
-      return new Set(JSON.parse(raw ?? '[]'));
-    } catch (e) { console.error('[ProblemScreen] failed to parse opp solvedIds:', e); return new Set(); }
+    const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
+    return new Set(safeParseJson<string[]>(raw ?? '[]', [], 'oppSolvedIds'));
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Currently viewed problem index (navigation)
@@ -110,32 +111,31 @@ export default function ProblemScreen() {
   }, [codeKey]);
 
   // Debounced draft save — keyed by (game, problem, language)
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveDraftDebounced = useDebouncedCallback(
+    () => {
+      if (!viewedProblemId || !gameId) return;
+      saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
+    },
+    DRAFT_DEBOUNCE_MS,
+  );
+
   useEffect(() => {
     if (!viewedProblemId || !gameId) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
-    }, DRAFT_DEBOUNCE_MS);
-    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+    saveDraftDebounced();
   }, [currentCode, viewedProblemId, gameId, selectedLang]);
 
   function resetCode() {
     if (!viewedProblem) return;
     setCodeMap(prev => ({ ...prev, [codeKey]: getBoilerplate(viewedProblem, selectedLang) }));
     setResetCount(c => c + 1);
-    setTestResults(null);
-    setRunSummary(null);
-    setError(null);
+    execDispatch({ type: 'CLEAR' });
   }
 
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
   const oppUser = oppIdentity
     ? users.find(u => identityEq(u.identity, oppIdentity))
     : undefined;
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
@@ -151,44 +151,13 @@ export default function ProblemScreen() {
   }, [game?.roomCode, rooms]);
 
   // Execution state
-  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
-  const [runSummary, setRunSummary] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const { state: execState, dispatch: execDispatch } = useExecutionState();
+  const { running, submitting, testResults, runSummary, error, quizResult } = execState;
 
   // Clear execution state when switching problems
   useEffect(() => {
-    setTestResults(null);
-    setRunSummary(null);
-    setError(null);
-    setQuizResult(null);
+    execDispatch({ type: 'CLEAR' });
   }, [viewedProblemId]);
-
-  // Timer
-  const [seconds, setSeconds] = useState<number>(20 * 60);
-  const lastExpireAttemptRef = useRef(0);
-  useEffect(() => {
-    if (!game) return;
-    const startMs = Number(game.startTime.microsSinceUnixEpoch / 1000n);
-    const maxSeconds = 20 * 60;
-    const tick = () => {
-      const now = Date.now();
-      const elapsed = Math.floor((now - startMs) / 1000);
-      const remaining = Math.max(0, maxSeconds - elapsed);
-      setSeconds(remaining);
-      // Once the clock hits 0, nudge the server to resolve. Retry every 10s in
-      // case the server's elapsed check rejects us due to clock skew.
-      if (remaining === 0 && game.status === 'in_progress' && now - lastExpireAttemptRef.current > 10_000) {
-        lastExpireAttemptRef.current = now;
-        expireGame({ gameId });
-      }
-    };
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [game?.startTime, game?.status, gameId, expireGame]);
 
   // Navigate to results when game finishes
   useEffect(() => {
@@ -196,13 +165,6 @@ export default function ProblemScreen() {
       navigate(`/results?game=${gameId}`);
     }
   }, [game?.status, gameId, navigate]);
-
-  const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-  const secs = String(seconds % 60).padStart(2, '0');
-  const timeStr = `${mins}:${secs}`;
-
-  const difficultyColor = (d: string): 'green' | 'yellow' | 'red' =>
-    d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
 
   const solveTimeSec = useMemo(() => {
     if (!game) return 0;
@@ -212,10 +174,11 @@ export default function ProblemScreen() {
 
   async function callExecutor(mode: 'run' | 'submit') {
     if (!viewedProblem || !game) return;
-    setError(null);
-    setTestResults(null);
-    setRunSummary(null);
-    setQuizResult(null);
+    if (mode === 'run') {
+      execDispatch({ type: 'RUN_START' });
+    } else {
+      execDispatch({ type: 'SUBMIT_START' });
+    }
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
@@ -236,48 +199,35 @@ export default function ProblemScreen() {
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
         const verb = mode === 'run' ? 'running' : 'submitting';
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before ${verb} again.`);
+        execDispatch({ type: 'ERROR', message: `Too many requests — wait ${retryAfter ?? 'a few'} second(s) before ${verb} again.` });
         return;
       }
       const data: ExecuteResponse = await res.json();
       if (data.compile_error) {
-        setError(data.compile_error);
+        execDispatch({ type: 'ERROR', message: data.compile_error });
       } else if (data.runtime_error) {
-        setError(data.runtime_error);
+        execDispatch({ type: 'ERROR', message: data.runtime_error });
       } else {
-        setTestResults(data.results);
-        setRunSummary(`${data.passed} / ${data.total} tests passed`);
+        const summary = `${data.passed} / ${data.total} tests passed`;
+        if (mode === 'run') {
+          execDispatch({ type: 'RUN_DONE', testResults: data.results, summary });
+        } else {
+          execDispatch({ type: 'SUBMIT_DONE', testResults: data.results, summary });
+        }
       }
     } catch (e) {
-      setError(String(e));
+      execDispatch({ type: 'ERROR', message: String(e) });
     }
   }
 
   async function runTests() {
     if (running) return;
-    setRunning(true);
-    try {
-      await callExecutor('run');
-    } finally {
-      setRunning(false);
-    }
+    await callExecutor('run');
   }
 
   async function submit() {
     if (!viewedProblem || !game || submitting || isSolved) return;
-    setSubmitting(true);
-    try {
-      await callExecutor('submit');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function hpColor(hp: number, max: number) {
-    const pct = hp / max;
-    if (pct > 0.5) return 'bg-green';
-    if (pct > 0.25) return 'bg-orange';
-    return 'bg-red';
+    await callExecutor('submit');
   }
 
   const navBar = (
@@ -373,12 +323,13 @@ export default function ProblemScreen() {
 
         {/* Right: time + actions */}
         <div className="flex items-center gap-5 shrink-0">
-          <div className="text-center">
-            <div className="text-[11px] text-text-muted">TIME LEFT</div>
-            <div className={`font-extrabold text-lg tracking-tight ${seconds < 300 ? 'text-red' : 'text-text'}`}>
-              {timeStr}
-            </div>
-          </div>
+          {game && (
+            <TimerBar
+              startTimeMicros={game.startTime.microsSinceUnixEpoch}
+              status={game.status}
+              onExpire={() => expireGame({ gameId })}
+            />
+          )}
           <div className="w-px h-8 bg-border" />
           {myUser?.isAdmin && viewedProblem && !isSolved && (
             <button
@@ -414,7 +365,7 @@ export default function ProblemScreen() {
                 myIdentity={ctx.identity ?? undefined}
                 currency={currency}
                 isP1={isP1}
-                onQuizAnswered={setQuizResult}
+                onQuizAnswered={(result: QuizResult) => execDispatch({ type: 'QUIZ_RESULT', result })}
               />
             ) : viewedProblem ? (
               <div className="flex flex-col gap-0">
@@ -422,8 +373,8 @@ export default function ProblemScreen() {
                   {viewedProblem.description}
                 </div>
                 {(() => {
-                  const cases = viewedProblem.sampleTestCases?.split('|').filter(Boolean) ?? [];
-                  const results = viewedProblem.sampleTestResults?.split('|').filter(Boolean) ?? [];
+                  const cases = splitPipe(viewedProblem.sampleTestCases);
+                  const results = splitPipe(viewedProblem.sampleTestResults);
                   if (cases.length === 0) return null;
                   return (
                     <div className="flex flex-col gap-3 mt-5">
