@@ -6,10 +6,6 @@ import { useTypedTable } from "../utils/useTypedTable";
 import { identityEq } from "../utils/identity";
 import type { Queue, GameState } from "../module_bindings/types";
 
-function randomCode(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
-}
-
 const DIFFICULTIES = [
   { value: "easy",   label: "Easy",   color: "text-green" },
   { value: "medium", label: "Medium", color: "text-yellow" },
@@ -24,15 +20,12 @@ export default function MatchScreen() {
 
   const joinQueue  = useReducer(reducers.joinQueue);
   const leaveQueue = useReducer(reducers.leaveQueue);
-  const createRoom = useReducer(reducers.createRoom);
 
   const [queueRows] = useTypedTable<Queue>(tables.queue);
   const [games]     = useTypedTable<GameState>(tables.game_state);
 
   const [problemCount, setProblemCount] = useState<1 | 2 | 3>(1);
-  const [friendCode,  setFriendCode]  = useState("");
   const [joinCode,    setJoinCode]    = useState("");
-  const [friendError, setFriendError] = useState("");
 
   // Which difficulty queue this player is currently in (undefined = not queued)
   const myQueueEntry = ctx.identity
@@ -57,21 +50,8 @@ export default function MatchScreen() {
     joinQueue({ difficulty, problemCount });
   };
 
-  const handleCreateFriendRoom = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFriendError("");
-    const code = friendCode.trim() || randomCode();
-    if (!/^[A-Z0-9]{4,8}$/.test(code)) {
-      setFriendError("Code must be 4-8 alphanumeric characters");
-      return;
-    }
-    const settings = JSON.stringify({
-      difficulty: "easy",
-      problem_count: 1,
-      starting_hp: 100,
-    });
-    createRoom({ code: code.toUpperCase(), settings });
-    navigate(`/play/room/${code.toUpperCase()}`);
+  const handleCreateFriendRoom = () => {
+    navigate("/play/custom/new");
   };
 
   const handleJoinFriend = (e: React.FormEvent) => {
@@ -159,27 +139,25 @@ export default function MatchScreen() {
         </div>
         <div className="flex gap-6">
           {/* Create room */}
-          <form
-            onSubmit={handleCreateFriendRoom}
-            className="flex flex-col gap-2 flex-1"
-          >
+          <div className="flex flex-col gap-2 flex-1">
             <label className="text-xs text-text-muted">Create a room</label>
-            <div className="flex gap-2">
-              <input
-                className="input-field flex-1"
-                value={friendCode}
-                onChange={(e) => setFriendCode(e.target.value.toUpperCase())}
-                placeholder="Code (auto)"
-                maxLength={8}
-              />
-              <button className="btn-primary px-4 py-2 text-sm" type="submit">
-                Create
-              </button>
-            </div>
-            {friendError && (
-              <p className="m-0 text-red text-[13px]">{friendError}</p>
-            )}
-          </form>
+            <p className="text-[13px] text-text-muted m-0">
+              Pick problems, order, and settings, then share a code with a friend.
+            </p>
+            <button
+              className="btn-primary px-4 py-2 text-sm self-start"
+              onClick={handleCreateFriendRoom}
+            >
+              Set up game
+            </button>
+          </div>
+
+          {/* OR divider */}
+          <div className="flex flex-col items-center gap-2 py-1">
+            <div className="w-px flex-1 bg-border" />
+            <span className="text-[11px] font-semibold text-text-faint uppercase tracking-widest">or</span>
+            <div className="w-px flex-1 bg-border" />
+          </div>
 
           {/* Join room */}
           <form

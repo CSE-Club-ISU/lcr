@@ -381,7 +381,47 @@ export const set_ready = spacetimedb.reducer(
 // Game reducers
 // ---------------------------------------------------------------------------
 
-// Called by the host when both players are ready. Picks N problems, creates game state.
+type RoomSettingsV1 = {
+  version?: number;
+  mode?: string;
+  startingHp?: number;
+  starting_hp?: number; // legacy
+  problemSelection?: { kind: string; problemIds?: string[]; difficulty?: string; count?: number };
+  // legacy flat fields
+  difficulty?: string;
+  problem_count?: number;
+};
+
+/**
+ * Resolve the problem list for a game from the room settings JSON.
+ * Supports both the new v1 format (problemSelection.kind) and the legacy
+ * flat format ({ difficulty, problem_count }) used by old matchmaking rooms.
+ */
+function resolveProblemsForStart(ctx: DbCtx, rawSettings: RoomSettingsV1, seed: number): ProblemRow[] {
+  const ps = rawSettings.problemSelection;
+
+  if (ps?.kind === 'explicit') {
+    // Host chose specific problems in a specific order — honour exactly.
+    const ids = ps.problemIds ?? [];
+    if (ids.length === 0) throw new SenderError('No problems selected');
+    const problems: ProblemRow[] = [];
+    for (const idStr of ids) {
+      const id = BigInt(idStr);
+      const p = ctx.db.problem.id.find(id);
+      if (!p) throw new SenderError(`Problem ${idStr} not found`);
+      if (!p.is_approved) throw new SenderError(`Problem ${idStr} is not approved`);
+      problems.push(p);
+    }
+    return problems; // preserve host-defined order, no sort
+  }
+
+  // 'random' or legacy flat format
+  const difficulty = ps?.difficulty ?? rawSettings.difficulty ?? 'medium';
+  const count = Math.max(1, ps?.count ?? Number(rawSettings.problem_count ?? 1));
+  return pickGameProblems(ctx, difficulty, count, seed);
+}
+
+// Called by the host when both players are ready. Picks/resolves problems, creates game state.
 export const start_game = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
@@ -392,19 +432,30 @@ export const start_game = spacetimedb.reducer(
     if (!room.guest_identity) throw new SenderError('No guest in room');
     if (room.status === 'in_game') return; // already started
 
-    const settings = JSON.parse(room.settings) as Record<string, unknown>;
-    const difficulty = (settings.difficulty as string) ?? 'medium';
+    const rawSettings = JSON.parse(room.settings) as RoomSettingsV1;
+    const starting_hp = Number(rawSettings.startingHp ?? rawSettings.starting_hp ?? 100);
 
     // ctx.timestamp varies per call — sufficient entropy for a club tool.
     const seed = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
 
-    const problemCount = Math.max(1, Number(settings.problem_count ?? 1));
-    const selected = pickGameProblems(ctx, difficulty, problemCount, seed);
-    const starting_hp = Number(settings.starting_hp ?? 100);
+    const selected = resolveProblemsForStart(ctx, rawSettings, seed);
 
     startGameState(ctx, room.code, room.host_identity, room.guest_identity, selected, starting_hp);
     ctx.db.room.code.update({ ...room, status: 'in_game' });
+  }
+);
+
+// Host can update settings while the room is still in 'waiting' state.
+// Resets both ready flags so players must re-confirm the new settings.
+export const update_room_settings = spacetimedb.reducer(
+  { code: t.string(), settings: t.string() },
+  (ctx, { code, settings }) => {
+    const room = ctx.db.room.code.find(code);
+    if (!room) throw new SenderError('Room not found');
+    if (ctx.sender.toHexString() !== room.host_identity.toHexString()) throw new SenderError('Only the host can update settings');
+    if (room.status !== 'waiting') throw new SenderError('Cannot change settings after game has started');
+    ctx.db.room.code.update({ ...room, settings, host_ready: false, guest_ready: false });
   }
 );
 
@@ -766,7 +817,12 @@ export const join_queue = spacetimedb.reducer(
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
     const selected = pickGameProblems(ctx, difficulty, problem_count, seed);
 
-    const settings = JSON.stringify({ difficulty, problem_count, starting_hp: 100 });
+    const settings = JSON.stringify({
+      version: 1,
+      mode: 'matchmaking',
+      startingHp: 100,
+      problemSelection: { kind: 'random', difficulty, count: problem_count },
+    });
     ctx.db.room.insert({
       code,
       host_identity:  opponent.identity,   // earlier queuer is host
