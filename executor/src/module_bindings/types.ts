@@ -150,6 +150,7 @@ export const QuizQuestion = __t.object("QuizQuestion", {
   prompt: __t.string(),
   options: __t.string(),
   answer: __t.string(),
+  explanation: __t.string(),
 });
 export type QuizQuestion = __Infer<typeof QuizQuestion>;
 

@@ -16,4 +16,5 @@ export default __t.row({
   prompt: __t.string(),
   options: __t.string(),
   answer: __t.string(),
+  explanation: __t.string(),
 });
