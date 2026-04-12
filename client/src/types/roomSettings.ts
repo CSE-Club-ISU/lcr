@@ -35,15 +35,26 @@ export function defaultMatchmakingSettings(
   };
 }
 
+/** Return true if the parsed object looks like a valid RoomSettings v1. */
+function isRoomSettingsV1(raw: Record<string, unknown>): raw is RoomSettings {
+  return (
+    raw["version"] === 1 &&
+    (raw["mode"] === "custom" || raw["mode"] === "matchmaking") &&
+    typeof raw["startingHp"] === "number" &&
+    raw["problemSelection"] !== null &&
+    typeof raw["problemSelection"] === "object"
+  );
+}
+
 export function parseRoomSettings(json: string): RoomSettings {
   try {
     const raw = JSON.parse(json) as Record<string, unknown>;
 
     // Legacy format: { difficulty, problem_count, starting_hp }
-    if (!raw.version) {
-      const difficulty = (raw.difficulty as string) ?? "easy";
-      const count = Number(raw.problem_count ?? 1);
-      const startingHp = Number(raw.starting_hp ?? 100);
+    if (!raw["version"]) {
+      const difficulty = (raw["difficulty"] as string) ?? "easy";
+      const count = Number(raw["problem_count"] ?? 1);
+      const startingHp = Number(raw["starting_hp"] ?? 100);
       return {
         version: 1,
         mode: "matchmaking",
@@ -52,7 +63,8 @@ export function parseRoomSettings(json: string): RoomSettings {
       };
     }
 
-    return raw as unknown as RoomSettings;
+    if (isRoomSettingsV1(raw)) return raw;
+    return defaultCustomSettings();
   } catch {
     return defaultCustomSettings();
   }
