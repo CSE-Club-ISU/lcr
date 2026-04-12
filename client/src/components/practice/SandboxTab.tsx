@@ -52,6 +52,13 @@ export default function SandboxTab() {
     if (running) return;
     setResult(null);
     setFetchError(null);
+
+    // Catch the most common Java mistake before paying a network round-trip.
+    if (lang === 'java' && !/^\s*public\s+class\s+Main\b/.test(code)) {
+      setFetchError('Java: your code must contain a public class named Main (found at the top level).');
+      return;
+    }
+
     setRunning(true);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {

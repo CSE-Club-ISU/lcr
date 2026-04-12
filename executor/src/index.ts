@@ -40,6 +40,17 @@ function checkRateLimit(gameId: string): { allowed: boolean; retryAfterMs: numbe
 const SANDBOX_COOLDOWN_MS = parseIntEnv('SANDBOX_RATE_LIMIT_COOLDOWN_MS', 5000);
 const sandboxRateLimitMap = new Map<string, number>(); // identity hex → eligible timestamp
 
+// Evict expired entries from sandboxRateLimitMap every 10 minutes.
+// Without this the map grows forever — one entry per unique identity that ever
+// hits the sandbox endpoint. Entries whose eligible timestamp is in the past
+// are safe to drop because the next request will just re-insert them.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, eligible] of sandboxRateLimitMap) {
+    if (now >= eligible) sandboxRateLimitMap.delete(key);
+  }
+}, 10 * 60 * 1000);
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': CLIENT_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -123,7 +134,14 @@ const server = Bun.serve({
 
         const identity = v.req.player_identity;
 
-        // Server-side guard: reject guests (github_id is empty for guest accounts)
+        // Server-side guard: reject guests (github_id is empty for guest accounts).
+        // Eventual-consistency note: getUser() reads from the executor's in-memory
+        // SpacetimeDB subscription. A real GitHub user who joins and immediately hits
+        // this endpoint could transiently get a 403 if their User row hasn't been
+        // applied yet (e.g. right after reconnect). This is acceptable — the client
+        // can retry — because the window is milliseconds and sandbox is not latency-
+        // sensitive. player_identity is also client-provided with no cryptographic
+        // proof of possession; see SECURITY.md for the known trust-model gap.
         const user = getUser(identity);
         if (!user || !user.githubId) {
           return json(
