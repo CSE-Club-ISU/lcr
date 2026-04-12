@@ -30,14 +30,19 @@ export async function initStdb(): Promise<void> {
       reject(new Error('Timed out waiting for SpacetimeDB subscription (10s)'));
     }, 10000);
 
-    connection!.subscriptionBuilder()
-      .onApplied(() => {
-        clearTimeout(timer);
-        rebuildProblemMap();
-        console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
-        resolve();
-      })
-      .subscribe(['SELECT * FROM problem']);
+    try {
+      connection!.subscriptionBuilder()
+        .onApplied(() => {
+          clearTimeout(timer);
+          rebuildProblemMap();
+          console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
+          resolve();
+        })
+        .subscribe(['SELECT * FROM problem']);
+    } catch (err) {
+      clearTimeout(timer);
+      reject(err);
+    }
   });
 }
 
@@ -52,4 +57,8 @@ function rebuildProblemMap() {
 
 export function getProblem(id: bigint): Problem | undefined {
   return problemMap.get(id);
+}
+
+export function getConnection(): DbConnection | null {
+  return connection;
 }

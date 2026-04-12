@@ -5,7 +5,6 @@ export interface ProblemData {
   method_name: string;
   test_cases: string[];
   test_results: string[];
-  compare_func: string;
 }
 
 export function getFileExtension(lang: Language): string {
@@ -50,18 +49,27 @@ function generatePython(code: string, problem: ProblemData): string {
   return generatePythonAlgorithm(code, problem);
 }
 
+// Fixed deep-equality comparator used for all problems.
+// Avoids per-problem compare_func injection.
+const PYTHON_COMPARE_FUNC = `
+def compare(a, b):
+    import json
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+`.trim();
+
 function generatePythonAlgorithm(code: string, problem: ProblemData): string {
   const testData = problem.test_cases.map((tc, i) => ({
     input: tc,
     expected: problem.test_results[i],
   }));
 
+  // method_name is validated before reaching here (alphanumeric + underscore only)
   return `
 import json, sys
 
 ${code}
 
-${problem.compare_func}
+${PYTHON_COMPARE_FUNC}
 
 test_data = ${JSON.stringify(testData)}
 results = []
@@ -89,12 +97,14 @@ function generatePythonDataStructure(code: string, problem: ProblemData): string
     expected: problem.test_results[i],
   }));
 
+  // method_name is validated before reaching here (alphanumeric + underscore only)
+  // op[0] (method name) comes from admin-authored test case data, not user input.
   return `
 import json, sys
 
 ${code}
 
-${problem.compare_func}
+${PYTHON_COMPARE_FUNC}
 
 test_data = ${JSON.stringify(testData)}
 results = []

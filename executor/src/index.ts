@@ -1,8 +1,15 @@
 import { executeCode } from './runner.js';
-import { initStdb } from './stdb.js';
+import { initStdb, getConnection } from './stdb.js';
 import type { ExecuteRequest } from './types.js';
 
 const PORT = parseInt(process.env.EXECUTOR_PORT ?? '8000');
+
+// Restrict CORS to the known client origin
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
+
+// Shared secret that the client must include in every /execute request.
+// Set EXECUTOR_SECRET in the environment; requests missing it are rejected.
+const EXECUTOR_SECRET = process.env.EXECUTOR_SECRET ?? '';
 
 // S5: Rate limiting — max 1 in-flight execution per game_id, with a cooldown
 // after completion. Prevents a single game from spamming Docker containers.
@@ -20,22 +27,41 @@ function checkRateLimit(gameId: string): { allowed: boolean; retryAfterMs: numbe
 }
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': CLIENT_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': `Content-Type, X-Executor-Secret`,
 };
 
-function json(body: unknown, init?: ResponseInit): Response {
-  const status = (init as { status?: number } | undefined)?.status ?? 200;
-  const extraHeaders = (init as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+function json(body: unknown, init?: { status?: number; headers?: Record<string, string> }): Response {
   return new Response(JSON.stringify(body), {
-    status,
+    status: init?.status ?? 200,
     headers: {
       'Content-Type': 'application/json',
       ...CORS_HEADERS,
-      ...extraHeaders,
+      ...(init?.headers ?? {}),
     },
   });
+}
+
+const VALID_LANGS = new Set(['python', 'java', 'cpp']);
+const VALID_MODES = new Set(['run', 'submit']);
+const MAX_CODE_BYTES = 64 * 1024; // 64 KB
+
+function validateRequest(body: Record<string, unknown>): { req: ExecuteRequest } | { error: string } {
+  const { lang, mode, problem_id, code, player_identity, game_id, solve_time } = body;
+  if (!VALID_LANGS.has(lang as string))
+    return { error: `lang must be one of: ${[...VALID_LANGS].join(', ')}` };
+  if (!VALID_MODES.has(mode as string))
+    return { error: `mode must be one of: ${[...VALID_MODES].join(', ')}` };
+  if (typeof code !== 'string' || code.length === 0)
+    return { error: 'code must be a non-empty string' };
+  if (new TextEncoder().encode(code).length > MAX_CODE_BYTES)
+    return { error: 'code exceeds 64 KB limit' };
+  if (typeof problem_id !== 'number' || !Number.isInteger(problem_id) || problem_id < 0)
+    return { error: 'problem_id must be a non-negative integer' };
+  if (mode === 'submit' && typeof player_identity !== 'string')
+    return { error: 'player_identity is required for submit mode' };
+  return { req: body as unknown as ExecuteRequest };
 }
 
 const server = Bun.serve({
@@ -49,6 +75,11 @@ const server = Bun.serve({
     }
 
     if (req.method === 'POST' && url.pathname === '/execute') {
+      // Verify shared secret when one is configured
+      if (EXECUTOR_SECRET && req.headers.get('X-Executor-Secret') !== EXECUTOR_SECRET) {
+        return json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       let body: Record<string, unknown>;
       try {
         body = await req.json() as Record<string, unknown>;
@@ -56,7 +87,18 @@ const server = Bun.serve({
         return json({ error: 'invalid JSON' }, { status: 400 });
       }
 
-      const gameId = typeof body.game_id === 'string' ? body.game_id : '';
+      const validation = validateRequest(body);
+      if ('error' in validation) {
+        return json({ error: validation.error }, { status: 400 });
+      }
+      const execReq = validation.req;
+
+      // Java and C++ runners are not yet implemented
+      if (execReq.lang === 'java' || execReq.lang === 'cpp') {
+        return json({ error: `${execReq.lang} is not yet supported` }, { status: 400 });
+      }
+
+      const gameId = execReq.game_id ?? '';
 
       // Practice mode sends an empty game_id — skip rate limiting in that case
       if (gameId) {
@@ -73,15 +115,20 @@ const server = Bun.serve({
       }
 
       try {
-        const req = body as unknown as ExecuteRequest;
-
-        // Fetch problem data from SpacetimeDB
-        const problem = (await import('./stdb.js')).getProblem(BigInt(req.problem_id));
+        const { getProblem } = await import('./stdb.js');
+        const problem = getProblem(BigInt(execReq.problem_id));
         if (!problem) {
-          return json(
-            { error: `Problem ${req.problem_id} not found` },
-            { status: 400 }
-          );
+          return json({ error: `Problem ${execReq.problem_id} not found` }, { status: 400 });
+        }
+
+        if (!problem.isApproved) {
+          return json({ error: `Problem ${execReq.problem_id} is not approved` }, { status: 400 });
+        }
+
+        // Validate method_name to prevent code injection
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(problem.methodName)) {
+          console.error(`Problem ${execReq.problem_id} has invalid method_name: ${problem.methodName}`);
+          return json({ error: 'Problem has invalid method_name' }, { status: 500 });
         }
 
         // Test cases are pipe-delimited JSON strings, e.g. "[1,2]|[3,4]"
@@ -91,29 +138,41 @@ const server = Bun.serve({
         const hiddenCases = splitPipe(problem.hiddenTestCases);
         const hiddenResults = splitPipe(problem.hiddenTestResults);
 
-        const testCases = req.mode === 'run' ? sampleCases : hiddenCases;
-        const testResults = req.mode === 'run' ? sampleResults : hiddenResults;
-        const compareFuncKey = req.lang === 'python' ? 'compareFuncPython' :
-                               req.lang === 'java' ? 'compareFuncJava' : 'compareFuncCpp';
-        const compareFunc = ((problem as any)[compareFuncKey] || 'def compare(a, b): return a == b') as string;
+        const testCases = execReq.mode === 'run' ? sampleCases : hiddenCases;
+        const testResults = execReq.mode === 'run' ? sampleResults : hiddenResults;
 
         const problemData = {
           kind: ((problem as any).problemKind || 'algorithm') as 'algorithm' | 'data_structure',
           method_name: problem.methodName,
           test_cases: testCases,
           test_results: testResults,
-          compare_func: compareFunc,
         };
 
-        const result = await executeCode(req, problemData);
+        const result = await executeCode(execReq, problemData);
 
-        // Note: The client will call submit_result reducer if mode==='submit' and result.success
-        // (The executor is not authorized to call reducers — only the client with proper identity can)
+        // For submit mode with a game, call submit_result on behalf of the player.
+        // The executor's SpacetimeDB identity (set via set_executor_identity) is the
+        // only identity authorized to call this reducer.
+        if (execReq.mode === 'submit' && gameId && execReq.player_identity) {
+          const conn = getConnection();
+          if (conn) {
+            conn.reducers.submitResult({
+              gameId,
+              playerIdentity: execReq.player_identity,
+              passed: result.passed,
+              total: result.total,
+              solveTime: execReq.solve_time ?? 0,
+              language: execReq.lang,
+            });
+          } else {
+            console.warn('[executor] No SpacetimeDB connection — submit_result not called');
+          }
+        }
 
         return json(result);
       } catch (err) {
         // On error, release the rate limit immediately so the player can retry
-        rateLimitMap.delete(gameId);
+        if (gameId) rateLimitMap.delete(gameId);
         console.error('Execution error:', err);
         return json({ error: String(err) }, { status: 500 });
       }

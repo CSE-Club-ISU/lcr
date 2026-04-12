@@ -223,12 +223,9 @@ export const set_profile = spacetimedb.reducer(
 // Room reducers
 // ---------------------------------------------------------------------------
 
-const sid = (id: { toHexString(): string }) => id.toHexString().slice(0, 8);
-
 export const create_room = spacetimedb.reducer(
   { code: t.string(), settings: t.string() },
   (ctx, { code, settings }) => {
-    console.log(`[CREATE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     ctx.db.room.insert({
       code,
       host_identity:  ctx.sender,
@@ -238,59 +235,37 @@ export const create_room = spacetimedb.reducer(
       status:         'waiting',
       settings,
     });
-    console.log(`[CREATE_ROOM] ✓ room ${code} created by ${sid(ctx.sender)}`);
   }
 );
 
 export const join_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    console.log(`[JOIN_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
-    if (!room) {
-      console.log(`[JOIN_ROOM] ✗ room ${code} not found — existing rooms: ${[...ctx.db.room.iter()].map(r => r.code).join(',') || '(none)'}`);
-      throw new SenderError('Room not found');
-    }
-    console.log(`[JOIN_ROOM] room found: host=${sid(room.host_identity)} guest=${room.guest_identity ? sid(room.guest_identity) : 'none'} status=${room.status}`);
+    if (!room) throw new SenderError('Room not found');
     // Already the host — no-op (host navigated to their own room page)
-    if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
-      console.log(`[JOIN_ROOM] sender is already host, skipping`);
-      return;
-    }
+    if (ctx.sender.toHexString() === room.host_identity.toHexString()) return;
     // Already the guest — no-op (duplicate join)
-    if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
-      console.log(`[JOIN_ROOM] sender is already guest, skipping`);
-      return;
-    }
+    if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) return;
     if (room.status !== 'waiting') throw new SenderError('Room is not open');
-    if (room.guest_identity) {
-      console.log(`[JOIN_ROOM] ✗ room full, guest is ${sid(room.guest_identity)}`);
-      throw new SenderError('Room is full');
-    }
+    if (room.guest_identity) throw new SenderError('Room is full');
     ctx.db.room.code.update({ ...room, guest_identity: ctx.sender });
-    console.log(`[JOIN_ROOM] ✓ ${sid(ctx.sender)} joined room ${code}`);
   }
 );
 
 export const leave_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    console.log(`[LEAVE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
     if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       if (room.guest_identity) {
-        console.log(`[LEAVE_ROOM] host left, promoting guest ${sid(room.guest_identity)} to host`);
         ctx.db.room.code.update({ ...room, host_identity: room.guest_identity, guest_identity: undefined, host_ready: false, guest_ready: false });
       } else {
-        console.log(`[LEAVE_ROOM] last player left, deleting room ${code}`);
         ctx.db.room.code.delete(code);
       }
     } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
-      console.log(`[LEAVE_ROOM] guest ${sid(ctx.sender)} left room ${code}`);
       ctx.db.room.code.update({ ...room, guest_identity: undefined, guest_ready: false });
-    } else {
-      console.log(`[LEAVE_ROOM] sender ${sid(ctx.sender)} is neither host nor guest, ignoring`);
     }
   }
 );
@@ -298,17 +273,12 @@ export const leave_room = spacetimedb.reducer(
 export const set_ready = spacetimedb.reducer(
   { code: t.string(), ready: t.bool() },
   (ctx, { code, ready }) => {
-    console.log(`[SET_READY] sender=${sid(ctx.sender)} code=${code} ready=${ready}`);
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
     if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, host_ready: ready });
-      console.log(`[SET_READY] ✓ host ready=${ready}`);
     } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, guest_ready: ready });
-      console.log(`[SET_READY] ✓ guest ready=${ready}`);
-    } else {
-      console.log(`[SET_READY] ✗ sender ${sid(ctx.sender)} is neither host nor guest`);
     }
   }
 );
@@ -323,6 +293,7 @@ export const start_game = spacetimedb.reducer(
   (ctx, { code }) => {
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
+    if (ctx.sender.toHexString() !== room.host_identity.toHexString()) throw new SenderError('Only the host can start the game');
     if (!room.host_ready || !room.guest_ready) throw new SenderError('Not both ready');
     if (!room.guest_identity) throw new SenderError('No guest in room');
     if (room.status === 'in_game') return; // already started
@@ -348,8 +319,14 @@ export const start_game = spacetimedb.reducer(
 
     // Select problemCount distinct problems using the seed
     const selected: typeof approved = [];
-    for (let i = 0; i < problemCount; i++) {
-      selected.push(approved[(seed + i * 7) % approved.length]);
+    const usedIndices = new Set<number>();
+    for (let i = 0; selected.length < problemCount; i++) {
+      const idx = (seed + i * 7) % approved.length;
+      if (!usedIndices.has(idx)) {
+        usedIndices.add(idx);
+        selected.push(approved[idx]);
+      }
+      if (i >= approved.length * 2) break; // safety — shouldn't happen given count ≤ approved.length
     }
 
     const starting_hp = Number(settings.starting_hp ?? 100);
@@ -382,6 +359,12 @@ export const start_game = spacetimedb.reducer(
 export const send_chat = spacetimedb.reducer(
   { game_id: t.string(), text: t.string() },
   (ctx, { game_id, text }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not found or not in progress');
+    const senderHex = ctx.sender.toHexString();
+    if (senderHex !== game.player1_identity.toHexString() && senderHex !== game.player2_identity.toHexString()) {
+      throw new SenderError('Not a participant in this game');
+    }
     ctx.db.chat_message.insert({
       id:              0n,
       game_id,
@@ -498,26 +481,31 @@ export const forfeit = spacetimedb.reducer(
 // Called by the executor service after running submitted code
 export const submit_result = spacetimedb.reducer(
   {
-    game_id:    t.string(),
-    passed:     t.u32(),
-    total:      t.u32(),
-    solve_time: t.u32(),    // seconds
-    language:   t.string(),
+    game_id:         t.string(),
+    player_identity: t.string(),   // hex identity of the player who submitted
+    passed:          t.u32(),
+    total:           t.u32(),
+    solve_time:      t.u32(),    // seconds
+    language:        t.string(),
   },
-  (ctx, { game_id, passed, total, solve_time, language }) => {
+  (ctx, { game_id, player_identity: playerIdentityHex, passed, total, solve_time, language }) => {
+    // Only the registered executor service may submit results — never a player client
+    const executorConfig = ctx.db.executor_config.id.find(0);
+    if (!executorConfig) throw new SenderError('Executor not configured');
+    if (ctx.sender.toHexString() !== executorConfig.executor_identity.toHexString()) {
+      throw new SenderError('Only the executor may submit results');
+    }
+
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') return;
 
-    // Use ctx.sender — don't trust client-supplied player_identity
-    const senderHex = ctx.sender.toHexString();
-    if (senderHex !== game.player1_identity.toHexString() &&
-        senderHex !== game.player2_identity.toHexString()) {
-      throw new SenderError('Not a participant in this game');
-    }
+    // Validate that the supplied player_identity is actually a participant
+    const isP1 = game.player1_identity.toHexString() === playerIdentityHex;
+    const isP2 = game.player2_identity.toHexString() === playerIdentityHex;
+    if (!isP1 && !isP2) throw new SenderError('player_identity is not a participant in this game');
 
-    const accepted = passed === total && total > 0;
-    const isP1 = game.player1_identity.toHexString() === senderHex;
     const player_identity = isP1 ? game.player1_identity : game.player2_identity;
+    const accepted = passed === total && total > 0;
 
     // Determine current problem for this player
     const problemIds = JSON.parse(game.problem_ids) as string[];
@@ -677,9 +665,10 @@ export const join_queue = spacetimedb.reducer(
     const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
     const selected: typeof approvedProblems = [];
-    for (let i = 0; i < approvedProblems.length; i++) {
-      selected.push(approvedProblems[(seed + i * 7) % approvedProblems.length]);
-      if (selected.length >= 1) break; // just 1 problem for now
+    for (let i = 0; selected.length < 1; i++) {
+      const idx = (seed + i * 7) % approvedProblems.length;
+      selected.push(approvedProblems[idx]);
+      if (i >= approvedProblems.length * 2) break; // safety
     }
     const starting_hp = 100;
 
