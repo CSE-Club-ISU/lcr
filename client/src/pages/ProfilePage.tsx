@@ -4,7 +4,7 @@ import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { User, MatchHistory } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
-import { identityEq } from '../utils/identity';
+import { identityEq, resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
 import Avatar from '../components/ui/Avatar';
 import StatCard from '../components/ui/StatCard';
@@ -146,8 +146,8 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
     setEditingUsername(false);
   };
 
-  const resolveUser = (id: { toHexString(): string }) =>
-    allUsers.find(u => identityEq(u.identity, id));
+  const resolveUserById = (id: { toHexString(): string } | null | undefined) =>
+    resolveUser(allUsers, id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -240,7 +240,7 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
             {myMatches.slice(0, 10).map((m, i) => {
               const isP1 = identityEq(m.player1Identity, user.identity);
               const won = identityEq(m.winnerIdentity, user.identity);
-              const oppUser = resolveUser(isP1 ? m.player2Identity : m.player1Identity);
+              const oppUser = resolveUserById(isP1 ? m.player2Identity : m.player1Identity);
               const oppName = oppUser?.username ?? 'Unknown';
               const myTime = isP1 ? m.player1SolveTime : m.player2SolveTime;
 

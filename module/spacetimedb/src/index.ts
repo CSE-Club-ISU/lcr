@@ -220,15 +220,65 @@ export const set_profile = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
-// Room reducers
+// Shared game helpers
 // ---------------------------------------------------------------------------
 
-const sid = (id: { toHexString(): string }) => id.toHexString().slice(0, 8);
+type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
+type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
+
+/** Select `count` distinct approved problems from `pool` using a numeric seed. */
+function selectProblems(pool: ProblemRow[], seed: number, count: number): ProblemRow[] {
+  const selected: ProblemRow[] = [];
+  const usedIndices = new Set<number>();
+  for (let i = 0; selected.length < count; i++) {
+    const idx = (seed + i * 7) % pool.length;
+    if (!usedIndices.has(idx)) {
+      usedIndices.add(idx);
+      selected.push(pool[idx]);
+    }
+    if (i >= pool.length * 2) break; // safety — shouldn't happen given count ≤ pool.length
+  }
+  return selected;
+}
+
+/** Insert a game_state row and update the room to 'in_game'. */
+function startGameState(
+  ctx: DbCtx,
+  roomCode: string,
+  p1Identity: ProblemRow['id'] extends bigint ? any : any,   // IdentityLike
+  p2Identity: typeof p1Identity,
+  selectedProblems: ProblemRow[],
+  startingHp: number,
+): void {
+  ctx.db.game_state.insert({
+    id:                    roomCode,
+    room_code:             roomCode,
+    player1_identity:      p1Identity,
+    player2_identity:      p2Identity,
+    player1_hp:            startingHp,
+    player2_hp:            startingHp,
+    player1_sp:            0,
+    player2_sp:            0,
+    player1_mp:            0,
+    player2_mp:            0,
+    player1_problem_index: 0,
+    player2_problem_index: 0,
+    player1_abilities:     '[]',
+    player2_abilities:     '[]',
+    problem_ids:           JSON.stringify(selectedProblems.map(p => p.id.toString())),
+    status:                'in_progress',
+    start_time:            ctx.timestamp,
+    winner_identity:       undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Room reducers
+// ---------------------------------------------------------------------------
 
 export const create_room = spacetimedb.reducer(
   { code: t.string(), settings: t.string() },
   (ctx, { code, settings }) => {
-    console.log(`[CREATE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     ctx.db.room.insert({
       code,
       host_identity:  ctx.sender,
@@ -238,59 +288,37 @@ export const create_room = spacetimedb.reducer(
       status:         'waiting',
       settings,
     });
-    console.log(`[CREATE_ROOM] ✓ room ${code} created by ${sid(ctx.sender)}`);
   }
 );
 
 export const join_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    console.log(`[JOIN_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
-    if (!room) {
-      console.log(`[JOIN_ROOM] ✗ room ${code} not found — existing rooms: ${[...ctx.db.room.iter()].map(r => r.code).join(',') || '(none)'}`);
-      throw new SenderError('Room not found');
-    }
-    console.log(`[JOIN_ROOM] room found: host=${sid(room.host_identity)} guest=${room.guest_identity ? sid(room.guest_identity) : 'none'} status=${room.status}`);
+    if (!room) throw new SenderError('Room not found');
     // Already the host — no-op (host navigated to their own room page)
-    if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
-      console.log(`[JOIN_ROOM] sender is already host, skipping`);
-      return;
-    }
+    if (ctx.sender.toHexString() === room.host_identity.toHexString()) return;
     // Already the guest — no-op (duplicate join)
-    if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
-      console.log(`[JOIN_ROOM] sender is already guest, skipping`);
-      return;
-    }
+    if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) return;
     if (room.status !== 'waiting') throw new SenderError('Room is not open');
-    if (room.guest_identity) {
-      console.log(`[JOIN_ROOM] ✗ room full, guest is ${sid(room.guest_identity)}`);
-      throw new SenderError('Room is full');
-    }
+    if (room.guest_identity) throw new SenderError('Room is full');
     ctx.db.room.code.update({ ...room, guest_identity: ctx.sender });
-    console.log(`[JOIN_ROOM] ✓ ${sid(ctx.sender)} joined room ${code}`);
   }
 );
 
 export const leave_room = spacetimedb.reducer(
   { code: t.string() },
   (ctx, { code }) => {
-    console.log(`[LEAVE_ROOM] sender=${sid(ctx.sender)} code=${code}`);
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
     if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       if (room.guest_identity) {
-        console.log(`[LEAVE_ROOM] host left, promoting guest ${sid(room.guest_identity)} to host`);
         ctx.db.room.code.update({ ...room, host_identity: room.guest_identity, guest_identity: undefined, host_ready: false, guest_ready: false });
       } else {
-        console.log(`[LEAVE_ROOM] last player left, deleting room ${code}`);
         ctx.db.room.code.delete(code);
       }
     } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
-      console.log(`[LEAVE_ROOM] guest ${sid(ctx.sender)} left room ${code}`);
       ctx.db.room.code.update({ ...room, guest_identity: undefined, guest_ready: false });
-    } else {
-      console.log(`[LEAVE_ROOM] sender ${sid(ctx.sender)} is neither host nor guest, ignoring`);
     }
   }
 );
@@ -298,17 +326,12 @@ export const leave_room = spacetimedb.reducer(
 export const set_ready = spacetimedb.reducer(
   { code: t.string(), ready: t.bool() },
   (ctx, { code, ready }) => {
-    console.log(`[SET_READY] sender=${sid(ctx.sender)} code=${code} ready=${ready}`);
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
     if (ctx.sender.toHexString() === room.host_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, host_ready: ready });
-      console.log(`[SET_READY] ✓ host ready=${ready}`);
     } else if (room.guest_identity && ctx.sender.toHexString() === room.guest_identity.toHexString()) {
       ctx.db.room.code.update({ ...room, guest_ready: ready });
-      console.log(`[SET_READY] ✓ guest ready=${ready}`);
-    } else {
-      console.log(`[SET_READY] ✗ sender ${sid(ctx.sender)} is neither host nor guest`);
     }
   }
 );
@@ -323,6 +346,7 @@ export const start_game = spacetimedb.reducer(
   (ctx, { code }) => {
     const room = ctx.db.room.code.find(code);
     if (!room) throw new SenderError('Room not found');
+    if (ctx.sender.toHexString() !== room.host_identity.toHexString()) throw new SenderError('Only the host can start the game');
     if (!room.host_ready || !room.guest_ready) throw new SenderError('Not both ready');
     if (!room.guest_identity) throw new SenderError('No guest in room');
     if (room.status === 'in_game') return; // already started
@@ -346,35 +370,10 @@ export const start_game = spacetimedb.reducer(
       approved.length
     );
 
-    // Select problemCount distinct problems using the seed
-    const selected: typeof approved = [];
-    for (let i = 0; i < problemCount; i++) {
-      selected.push(approved[(seed + i * 7) % approved.length]);
-    }
-
+    const selected = selectProblems(approved, seed, problemCount);
     const starting_hp = Number(settings.starting_hp ?? 100);
 
-    ctx.db.game_state.insert({
-      id:                    room.code,
-      room_code:             room.code,
-      player1_identity:      room.host_identity,
-      player2_identity:      room.guest_identity,
-      player1_hp:            starting_hp,
-      player2_hp:            starting_hp,
-      player1_sp:            0,
-      player2_sp:            0,
-      player1_mp:            0,
-      player2_mp:            0,
-      player1_problem_index: 0,
-      player2_problem_index: 0,
-      player1_abilities:     '[]',
-      player2_abilities:     '[]',
-      problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
-      status:                'in_progress',
-      start_time:            ctx.timestamp,
-      winner_identity:       undefined,
-    });
-
+    startGameState(ctx, room.code, room.host_identity, room.guest_identity, selected, starting_hp);
     ctx.db.room.code.update({ ...room, status: 'in_game' });
   }
 );
@@ -382,6 +381,12 @@ export const start_game = spacetimedb.reducer(
 export const send_chat = spacetimedb.reducer(
   { game_id: t.string(), text: t.string() },
   (ctx, { game_id, text }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not found or not in progress');
+    const senderHex = ctx.sender.toHexString();
+    if (senderHex !== game.player1_identity.toHexString() && senderHex !== game.player2_identity.toHexString()) {
+      throw new SenderError('Not a participant in this game');
+    }
     ctx.db.chat_message.insert({
       id:              0n,
       game_id,
@@ -396,7 +401,6 @@ export const send_chat = spacetimedb.reducer(
 // endGame helper — called by submit_result and forfeit
 // ---------------------------------------------------------------------------
 
-type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
 type IdentityLike = { toHexString(): string };
 
@@ -498,26 +502,31 @@ export const forfeit = spacetimedb.reducer(
 // Called by the executor service after running submitted code
 export const submit_result = spacetimedb.reducer(
   {
-    game_id:    t.string(),
-    passed:     t.u32(),
-    total:      t.u32(),
-    solve_time: t.u32(),    // seconds
-    language:   t.string(),
+    game_id:         t.string(),
+    player_identity: t.string(),   // hex identity of the player who submitted
+    passed:          t.u32(),
+    total:           t.u32(),
+    solve_time:      t.u32(),    // seconds
+    language:        t.string(),
   },
-  (ctx, { game_id, passed, total, solve_time, language }) => {
+  (ctx, { game_id, player_identity: playerIdentityHex, passed, total, solve_time, language }) => {
+    // Only the registered executor service may submit results — never a player client
+    const executorConfig = ctx.db.executor_config.id.find(0);
+    if (!executorConfig) throw new SenderError('Executor not configured');
+    if (ctx.sender.toHexString() !== executorConfig.executor_identity.toHexString()) {
+      throw new SenderError('Only the executor may submit results');
+    }
+
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') return;
 
-    // Use ctx.sender — don't trust client-supplied player_identity
-    const senderHex = ctx.sender.toHexString();
-    if (senderHex !== game.player1_identity.toHexString() &&
-        senderHex !== game.player2_identity.toHexString()) {
-      throw new SenderError('Not a participant in this game');
-    }
+    // Validate that the supplied player_identity is actually a participant
+    const isP1 = game.player1_identity.toHexString() === playerIdentityHex;
+    const isP2 = game.player2_identity.toHexString() === playerIdentityHex;
+    if (!isP1 && !isP2) throw new SenderError('player_identity is not a participant in this game');
 
-    const accepted = passed === total && total > 0;
-    const isP1 = game.player1_identity.toHexString() === senderHex;
     const player_identity = isP1 ? game.player1_identity : game.player2_identity;
+    const accepted = passed === total && total > 0;
 
     // Determine current problem for this player
     const problemIds = JSON.parse(game.problem_ids) as string[];
@@ -666,9 +675,8 @@ export const join_queue = spacetimedb.reducer(
       settings,
     });
 
-    const room = ctx.db.room.code.find(code)!;
-    // Note: don't call start_game — just start immediately via helper logic
-    // This avoids readiness checks since both are auto-ready in queue matches
+    // Note: don't call start_game — just start immediately via helper logic.
+    // This avoids readiness checks since both are auto-ready in queue matches.
     const approvedProblems = [...ctx.db.problem.iter()].filter(
       p => p.is_approved && p.difficulty === difficulty
     );
@@ -676,34 +684,10 @@ export const join_queue = spacetimedb.reducer(
 
     const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
-    const selected: typeof approvedProblems = [];
-    for (let i = 0; i < approvedProblems.length; i++) {
-      selected.push(approvedProblems[(seed + i * 7) % approvedProblems.length]);
-      if (selected.length >= 1) break; // just 1 problem for now
-    }
-    const starting_hp = 100;
+    const selected = selectProblems(approvedProblems, seed, 1);
 
-    ctx.db.game_state.insert({
-      id:                    code,
-      room_code:             code,
-      player1_identity:      opponent.identity,
-      player2_identity:      ctx.sender,
-      player1_hp:            starting_hp,
-      player2_hp:            starting_hp,
-      player1_sp:            0,
-      player2_sp:            0,
-      player1_mp:            0,
-      player2_mp:            0,
-      player1_problem_index: 0,
-      player2_problem_index: 0,
-      player1_abilities:     '[]',
-      player2_abilities:     '[]',
-      problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
-      status:                'in_progress',
-      start_time:            ctx.timestamp,
-      winner_identity:       undefined,
-    });
-
+    startGameState(ctx, code, opponent.identity, ctx.sender, selected, 100);
+    const room = ctx.db.room.code.find(code)!;
     ctx.db.room.code.update({ ...room, status: 'in_game' });
   }
 );

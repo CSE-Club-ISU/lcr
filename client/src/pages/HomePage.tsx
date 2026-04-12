@@ -28,11 +28,7 @@ export default function HomePage() {
 
     if (!myUser) return; // still loading
 
-    if (!myUser.username) {
-      navigate('/profile');
-    } else {
-      navigate('/profile');
-    }
+    navigate('/profile');
   }, [ctx.isActive, ctx.identity, users, navigate]);
 
   return (

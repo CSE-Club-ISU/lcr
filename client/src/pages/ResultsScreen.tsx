@@ -4,7 +4,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { MatchHistory, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
-import { identityEq } from '../utils/identity';
+import { identityEq, resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
 import Pill from '../components/ui/Pill';
 
@@ -31,8 +31,8 @@ export default function ResultsScreen() {
     return () => clearTimeout(t);
   }, [match]);
 
-  const resolveUser = (id: { toHexString(): string } | undefined) =>
-    id ? users.find(u => identityEq(u.identity, id)) : undefined;
+  const resolveUserById = (id: { toHexString(): string } | undefined) =>
+    resolveUser(users, id);
 
   if (!match) {
     return (
@@ -56,9 +56,9 @@ export default function ResultsScreen() {
     );
   }
 
-  const p1 = resolveUser(match.player1Identity);
-  const p2 = resolveUser(match.player2Identity);
-  const winner = resolveUser(match.winnerIdentity);
+  const p1 = resolveUserById(match.player1Identity);
+  const p2 = resolveUserById(match.player2Identity);
+  const winner = resolveUserById(match.winnerIdentity);
 
   const iWon = identityEq(match.winnerIdentity, ctx.identity);
   const myIsP1 = identityEq(match.player1Identity, ctx.identity);
@@ -99,7 +99,7 @@ export default function ResultsScreen() {
         className="rounded-2xl px-8 py-7 flex items-center justify-between text-white"
         style={{
           background: iWon
-            ? 'linear-gradient(135deg, #C0272D 0%, #1A0A0A 100%)'
+            ? 'linear-gradient(135deg, #166534 0%, #0a1a0a 100%)'
             : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
         }}
       >
@@ -111,7 +111,7 @@ export default function ResultsScreen() {
           {timeDelta !== null && (
             <div className="text-sm opacity-80 mt-1.5">
               {iWon
-                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUser(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
+                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUserById(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
                 : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
             </div>
           )}

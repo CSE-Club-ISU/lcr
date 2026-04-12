@@ -47,6 +47,7 @@ export default function LoginPage() {
       navigate('/');
     } catch (err) {
       setGuestError(String(err instanceof Error ? err.message : err));
+    } finally {
       setGuestLoading(false);
     }
   };

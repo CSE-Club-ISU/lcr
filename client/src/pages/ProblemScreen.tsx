@@ -6,35 +6,20 @@ import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
 import { useSettings } from '../hooks/useSettings';
+import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
+const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
 
-interface TestResult {
-  passed: boolean;
-  input: string;
-  expected: string;
-  actual: string;
-  error?: string;
-}
-
-interface ExecuteResponse {
-  success: boolean;
-  passed: number;
-  total: number;
-  results: TestResult[];
-  compile_error?: string;
-  runtime_error?: string;
-}
 
 export default function ProblemScreen() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
-  const submitResult = useReducer(reducers.submitResult);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -78,6 +63,7 @@ export default function ProblemScreen() {
 
   // Editor state
   const [code, setCode] = useState('');
+  const [resetCount, setResetCount] = useState(0);
   useEffect(() => {
     if (problem?.boilerplatePython) setCode(problem.boilerplatePython);
   }, [problem?.id]);
@@ -87,6 +73,15 @@ export default function ProblemScreen() {
   const [runSummary, setRunSummary] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function resetCode() {
+    if (!problem) return;
+    setCode(problem.boilerplatePython ?? '');
+    setResetCount(c => c + 1);
+    setTestResults(null);
+    setRunSummary(null);
+    setError(null);
+  }
 
   // Timer
   const [seconds, setSeconds] = useState<number>(20 * 60);
@@ -170,7 +165,10 @@ export default function ProblemScreen() {
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
+        },
         body: JSON.stringify({
           game_id: gameId,
           player_identity: ctx.identity?.toHexString() ?? '',
@@ -194,14 +192,7 @@ export default function ProblemScreen() {
       } else {
         setTestResults(data.results);
         setRunSummary(`${data.passed} / ${data.total} tests passed`);
-        // Call submit_result reducer so the server applies HP damage
-        submitResult({
-          gameId,
-          passed: data.passed,
-          total: data.total,
-          solveTime: solveTimeSec,
-          language: 'python',
-        });
+        // submit_result reducer is now called by the executor service directly.
         // Navigation is handled by the useEffect watching game.status
       }
     } catch (e) {
@@ -286,7 +277,7 @@ export default function ProblemScreen() {
       <div className="flex gap-3 flex-1 min-h-0">
         <ProblemPanel problem={problem} />
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          <CodeEditor initialCode={code} onChange={setCode} vimMode={settings.vimMode} />
+          <CodeEditor key={`${String(problem?.id)}-${resetCount}`} initialCode={code} onChange={setCode} vimMode={settings.vimMode} />
 
           {/* Test results */}
           {(testResults || error || runSummary) && (
@@ -311,6 +302,13 @@ export default function ProblemScreen() {
           )}
 
           <div className="flex gap-2.5 shrink-0">
+            <button
+              onClick={resetCode}
+              disabled={!problem}
+              className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
+            >
+              ↺ Reset
+            </button>
             <button
               onClick={runTests}
               className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt"

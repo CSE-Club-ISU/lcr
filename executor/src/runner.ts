@@ -14,7 +14,6 @@ export interface ProblemData {
   method_name: string;
   test_cases: string[];        // JSON strings (sample or hidden based on mode)
   test_results: string[];      // Expected outputs
-  compare_func: string;        // Language-specific comparison logic
 }
 
 export async function executeCode(
@@ -78,13 +77,16 @@ async function runInDocker(opts: DockerRunOptions): Promise<{ stdout: string; st
     stdin: new TextEncoder().encode(code),
   });
 
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Time limit exceeded')), timeLimit)
-  );
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error('Time limit exceeded')), timeLimit);
+  });
 
   try {
     await Promise.race([proc.exited, timeout]);
+    clearTimeout(timeoutHandle!);
   } catch (err) {
+    clearTimeout(timeoutHandle!);
     proc.kill();
     return { stdout: '', stderr: String(err), exitCode: 1 };
   }

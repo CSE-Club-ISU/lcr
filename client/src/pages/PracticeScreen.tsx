@@ -4,28 +4,14 @@ import { tables } from '../module_bindings';
 import type { Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { useSettings } from '../hooks/useSettings';
+import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
+const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
 
-interface TestResult {
-  passed: boolean;
-  input: string;
-  expected: string;
-  actual: string;
-  error?: string;
-}
-
-interface ExecuteResponse {
-  success: boolean;
-  passed: number;
-  total: number;
-  results: TestResult[];
-  compile_error?: string;
-  runtime_error?: string;
-}
 
 function difficultyColor(d: string): 'green' | 'yellow' | 'red' {
   return d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
@@ -244,7 +230,10 @@ export default function PracticeScreen() {
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
+        },
         body: JSON.stringify({
           game_id: '',
           player_identity: ctx.identity?.toHexString() ?? '',

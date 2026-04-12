@@ -4,7 +4,7 @@ import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
-import { identityEq } from '../utils/identity';
+import { identityEq, resolveUser } from '../utils/identity';
 import PlayerSlot from '../components/room/PlayerSlot';
 
 export default function RoomPage() {
@@ -50,11 +50,8 @@ export default function RoomPage() {
     // re-runs and one of the branches above will fire.
   }, [ctx.isActive, myIdentity?.toHexString(), code, room, isHost, isGuest, inRoom, joinRoom]);
 
-  const resolve = (id: { toHexString(): string } | null | undefined): User | undefined =>
-    id ? users.find(u => identityEq(u.identity, id)) : undefined;
-
-  const host  = resolve(room?.hostIdentity);
-  const guest = resolve(room?.guestIdentity);
+  const host  = resolveUser(users, room?.hostIdentity);
+  const guest = resolveUser(users, room?.guestIdentity);
 
   const myReady   = isHost ? room?.hostReady : isGuest ? room?.guestReady : false;
   const bothReady = room?.hostReady && room?.guestReady && !!room?.guestIdentity;
