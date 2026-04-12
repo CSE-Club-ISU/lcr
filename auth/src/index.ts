@@ -15,7 +15,7 @@ app.use('*', async (c, next) => {
   c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
 });
 
-app.options('*', (c) => c.text('', 204));
+app.options('*', (c) => c.body(null, 204));
 
 const GITHUB_CLIENT_ID     = process.env.GITHUB_CLIENT_ID!;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
