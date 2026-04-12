@@ -160,9 +160,6 @@ const draft_code = table(
   {
     name: 'draft_code',
     public: false,
-    indexes: [
-      { accessor: 'draft_code_game_player', algorithm: 'btree', columns: ['game_id', 'player_identity'] },
-    ],
   },
   {
     id:              t.u64().primaryKey().autoInc(),
@@ -653,14 +650,20 @@ export const save_draft = spacetimedb.reducer(
       throw new SenderError('Not a participant in this game');
     }
 
-    // Upsert: find existing draft for this player+game+problem
-    let found: { id: bigint } | undefined;
-    for (const row of ctx.db.draft_code.draft_code_game_player.filter([game_id, ctx.sender] as any)) {
-      if ((row as any).problem_id === problem_id) { found = row as any; break; }
+    // Upsert: find existing draft for this player+game+problem (small table — iter is fine)
+    const senderHexForDraft = ctx.sender.toHexString();
+    let found: any;
+    for (const row of ctx.db.draft_code.iter()) {
+      if (row.game_id === game_id &&
+          row.player_identity.toHexString() === senderHexForDraft &&
+          row.problem_id === problem_id) {
+        found = row;
+        break;
+      }
     }
 
     if (found) {
-      ctx.db.draft_code.id.update({ ...(found as any), code, updated_at: ctx.timestamp });
+      ctx.db.draft_code.id.update({ ...found, code, updated_at: ctx.timestamp });
     } else {
       ctx.db.draft_code.insert({
         id:              0n,
