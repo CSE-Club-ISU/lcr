@@ -57,19 +57,19 @@ const server = Bun.serve({
       }
 
       const gameId = typeof body.game_id === 'string' ? body.game_id : '';
-      if (!gameId) {
-        return json({ error: 'game_id is required' }, { status: 400 });
-      }
 
-      const { allowed, retryAfterMs } = checkRateLimit(gameId);
-      if (!allowed) {
-        return json(
-          { error: 'rate limit: one submission per game per 5 seconds' },
-          {
-            status: 429,
-            headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
-          }
-        );
+      // Practice mode sends an empty game_id — skip rate limiting in that case
+      if (gameId) {
+        const { allowed, retryAfterMs } = checkRateLimit(gameId);
+        if (!allowed) {
+          return json(
+            { error: 'rate limit: one submission per game per 5 seconds' },
+            {
+              status: 429,
+              headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+            }
+          );
+        }
       }
 
       try {

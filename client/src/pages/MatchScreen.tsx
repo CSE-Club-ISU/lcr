@@ -12,7 +12,7 @@ function randomCode(): string {
 
 const DIFFICULTIES = [
   { value: "easy",   label: "Easy",   color: "text-green" },
-  { value: "medium", label: "Medium", color: "text-orange" },
+  { value: "medium", label: "Medium", color: "text-yellow" },
   { value: "hard",   label: "Hard",   color: "text-red" },
 ] as const;
 
