@@ -178,6 +178,8 @@ export default function PracticeScreen() {
   const [elapsedSec, setElapsedSec] = useState<number>(stored?.elapsedSec ?? 0);
   // Restored code — only valid for the stored problemId; cleared on problem switch
   const [restoredCode] = useState<string>(stored?.code ?? '');
+  const [code, setCode] = useState('');
+  const [resetCount, setResetCount] = useState(0);
   const baseRef = useRef<number>(stored?.elapsedSec ?? 0);
 
   // Auto-select first problem if nothing stored or stored id is gone
@@ -252,9 +254,6 @@ export default function PracticeScreen() {
 
   // ── Editor ───────────────────────────────────────────────────────────────────
 
-  // resetCount bumps the key to force a remount when the user hits Reset
-  const [resetCount, setResetCount] = useState(0);
-  const [code, setCode] = useState('');
 
   function resetCode() {
     if (!problem) return;
