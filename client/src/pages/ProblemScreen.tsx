@@ -13,6 +13,7 @@ import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
+import PowerupShop from '../components/powerup/PowerupShop';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -349,6 +350,11 @@ export default function ProblemScreen() {
       {/* Main split */}
       <div className="flex gap-3 flex-1 min-h-0">
         <ProblemPanel problem={viewedProblem} />
+        {game && (
+          <div className="w-48 shrink-0 overflow-y-auto">
+            <PowerupShop game={game} myIdentity={ctx.identity ?? undefined} currency={currency} />
+          </div>
+        )}
         <div className="flex-1 flex flex-col gap-3 min-h-0">
           <CodeEditor
             key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
