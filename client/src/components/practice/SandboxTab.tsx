@@ -3,7 +3,8 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import CodeEditor from '../problem/CodeEditor';
 import { type Language, loadSavedLang, saveLang } from '../../utils/languages';
 import type { SandboxResponse } from '../../utils/executor-types';
-import StatusBox, { useStatusHistory } from '../problem/StatusBox';
+import StatusBox from '../problem/StatusBox';
+import { useStatusHistory } from '../problem/useStatusHistory';
 import { useSettings } from '../../hooks/useSettings';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
