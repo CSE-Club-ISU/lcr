@@ -93,6 +93,9 @@ export const Problem = __t.object("Problem", {
   createdBy: __t.identity(),
   isApproved: __t.bool(),
   problemKind: __t.string(),
+  paramTypes: __t.string(),
+  returnType: __t.string(),
+  methodSignatures: __t.string(),
 });
 export type Problem = __Infer<typeof Problem>;
 

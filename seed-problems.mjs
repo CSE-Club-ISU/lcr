@@ -53,32 +53,20 @@ function shuffle(arr, r) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-language boilerplate helpers
-// ---------------------------------------------------------------------------
-
-// Algorithm contract:
-//   Java: public static Object <method>(Object... _args)  ← harness entry
-//         Use toInt/toLong/toStr/toIntArray/etc. helpers to extract typed args.
-//   C++:  json <method>(const json& args)                 ← harness entry
-//         Use args[i].get<T>() to extract typed values.
-//
-// Data structure contract:
-//   Java: class with public Object call(String m, Object... a) dispatch
-//         Use explicit if/else — no reflection.
-//   C++:  struct with json call(const std::string& m, const json& a) dispatch
-//         Use explicit if/else.
-
-function algoBoilerplates(method, javaBody, cppBody) {
-  return {
-    boilerplate_java: `public static Object ${method}(Object... _args) {\n${javaBody}\n}`,
-    boilerplate_cpp:  `json ${method}(const json& args) {\n${cppBody}\n}`,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Problems
 // Target distribution: ~8 easy, ~5 medium, ~2 hard
 // Style: single method / isolated step — deliberately easier than average LeetCode
+//
+// Algorithm problems use typed signatures:
+//   param_types: JSON array of TypeName strings
+//   return_type: TypeName string
+//   Java boilerplate: native typed signature, no Object... wrapper
+//   C++ boilerplate: native typed signature, no json wrapper
+//
+// Data structure problems use method_signatures:
+//   method_signatures: JSON object { methodName: { params: [...], return: "..." }, ... }
+//   Java boilerplate: plain typed methods, no call() dispatch
+//   C++ boilerplate: plain typed methods, no call() dispatch
 // ---------------------------------------------------------------------------
 
 const problems = [
@@ -102,12 +90,20 @@ const problems = [
       return `[[2,7,11,15],9]|[[3,2,4],6]|[[3,3],6]|[[-1,-2,-3,-4,-5],-8]|[[1,2,3,4,5],9]|${JSON.stringify([big, target])}`;
     })(),
     hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
-    boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'two_sum',
-      '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here\n    return new int[]{};',
-      '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here\n    return vector<int>{};',
-    ),
+    boilerplate_python: 'def two_sum(nums: list[int], target: int) -> list[int]:\n    # Your code here\n    pass',
+    boilerplate_java:
+      'public int[] two_sum(int[] nums, int target) {\n' +
+      '    // Your code here\n' +
+      '    return new int[]{};\n' +
+      '}',
+    boilerplate_cpp:
+      'vector<int> two_sum(vector<int> nums, int target) {\n' +
+      '    // Your code here\n' +
+      '    return {};\n' +
+      '}',
+    param_types: '["int[]","int"]',
+    return_type: 'int[]',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -129,11 +125,19 @@ const problems = [
       };
     })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'reverse_string',
-      '    String s = toStr(_args[0]);\n    // Your code here\n    return "";',
-      '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return "";',
-    ),
+    boilerplate_java:
+      'public String reverse_string(String s) {\n' +
+      '    // Your code here\n' +
+      '    return "";\n' +
+      '}',
+    boilerplate_cpp:
+      'string reverse_string(string s) {\n' +
+      '    // Your code here\n' +
+      '    return "";\n' +
+      '}',
+    param_types: '["string"]',
+    return_type: 'string',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -150,11 +154,19 @@ const problems = [
     hidden_test_cases: '121|-121|10|0|1221|12321|123',
     hidden_test_results: 'true|false|false|true|true|true|false',
     boilerplate_python: 'def is_palindrome(x: int) -> bool:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'is_palindrome',
-      '    long x = toLong(_args[0]);\n    // Your code here\n    return false;',
-      '    long x = args[0].get<long>();\n    // Your code here\n    return false;',
-    ),
+    boilerplate_java:
+      'public boolean is_palindrome(long x) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    boilerplate_cpp:
+      'bool is_palindrome(long long x) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    param_types: '["long"]',
+    return_type: 'bool',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -173,12 +185,20 @@ const problems = [
       return `[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]|[]|[1]|[1,2]|${JSON.stringify(uniq)}|${JSON.stringify(withDup)}`;
     })(),
     hidden_test_results: 'true|false|true|false|false|false|false|true',
-    boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'contains_duplicate',
-      '    int[] nums = toIntArray(_args[0]);\n    // Your code here\n    return false;',
-      '    vector<int> nums = args[0].get<vector<int>>();\n    // Your code here\n    return false;',
-    ),
+    boilerplate_python: 'def contains_duplicate(nums: list[int]) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java:
+      'public boolean contains_duplicate(int[] nums) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    boilerplate_cpp:
+      'bool contains_duplicate(vector<int> nums) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    param_types: '["int[]"]',
+    return_type: 'bool',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -199,12 +219,20 @@ const problems = [
         hidden_test_results: `9|-1|7|0|100|5|${max}`,
       };
     })(),
-    boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
-    ...algoBoilerplates(
-      'max_in_array',
-      '    long[] nums = toLongArray(_args[0]);\n    // Your code here (don\'t use Arrays.stream().max())\n    return 0L;',
-      '    vector<long> nums = args[0].get<vector<long>>();\n    // Your code here (don\'t use *max_element)\n    return 0;',
-    ),
+    boilerplate_python: 'def max_in_array(nums: list[int]) -> int:\n    # Your code here (don\'t use max())\n    pass',
+    boilerplate_java:
+      'public long max_in_array(long[] nums) {\n' +
+      '    // Your code here (don\'t use Arrays.stream().max())\n' +
+      '    return 0L;\n' +
+      '}',
+    boilerplate_cpp:
+      'long long max_in_array(vector<long long> nums) {\n' +
+      '    // Your code here (don\'t use *max_element)\n' +
+      '    return 0;\n' +
+      '}',
+    param_types: '["long[]"]',
+    return_type: 'long',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -222,12 +250,22 @@ const problems = [
     sample_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]',
     hidden_test_cases: '3|5|15|1|10',
     hidden_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]|["1"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz"]',
-    boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'fizz_buzz',
-      '    long n = toLong(_args[0]);\n    List<String> result = new ArrayList<>();\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
-      '    long n = args[0].get<long>();\n    vector<string> result;\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
-    ),
+    boilerplate_python: 'def fizz_buzz(n: int) -> list[str]:\n    # Your code here\n    pass',
+    boilerplate_java:
+      'public List<String> fizz_buzz(long n) {\n' +
+      '    List<String> result = new ArrayList<>();\n' +
+      '    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n' +
+      '    return result;\n' +
+      '}',
+    boilerplate_cpp:
+      'vector<string> fizz_buzz(long long n) {\n' +
+      '    vector<string> result;\n' +
+      '    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n' +
+      '    return result;\n' +
+      '}',
+    param_types: '["long"]',
+    return_type: 'string[]',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -243,11 +281,19 @@ const problems = [
     hidden_test_cases: '123|9999|0|1|100|12345|999999999',
     hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'sum_of_digits',
-      '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
-      '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
-    ),
+    boilerplate_java:
+      'public long sum_of_digits(long n) {\n' +
+      '    // Your code here\n' +
+      '    return 0L;\n' +
+      '}',
+    boilerplate_cpp:
+      'long long sum_of_digits(long long n) {\n' +
+      '    // Your code here\n' +
+      '    return 0;\n' +
+      '}',
+    param_types: '["long"]',
+    return_type: 'long',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -264,11 +310,19 @@ const problems = [
     hidden_test_cases: '0|1|2|3|6|10|15|50',
     hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
-    ...algoBoilerplates(
-      'fib',
-      '    long n = toLong(_args[0]);\n    // Your code here (iterative, no recursion)\n    return 0L;',
-      '    long n = args[0].get<long>();\n    // Your code here (iterative, no recursion)\n    return 0;',
-    ),
+    boilerplate_java:
+      'public long fib(long n) {\n' +
+      '    // Your code here (iterative, no recursion)\n' +
+      '    return 0L;\n' +
+      '}',
+    boilerplate_cpp:
+      'long long fib(long long n) {\n' +
+      '    // Your code here (iterative, no recursion)\n' +
+      '    return 0;\n' +
+      '}',
+    param_types: '["long"]',
+    return_type: 'long',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -286,11 +340,19 @@ const problems = [
     hidden_test_cases: '"()"|"()[]{}"|"(]"|"([)]"|"{[]}"|""|"((("',
     hidden_test_results: 'true|true|false|false|true|true|false',
     boilerplate_python: 'def is_valid(s: str) -> bool:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'is_valid',
-      '    String s = toStr(_args[0]);\n    // Your code here\n    return false;',
-      '    std::string s = args[0].get<std::string>();\n    // Your code here\n    return false;',
-    ),
+    boilerplate_java:
+      'public boolean is_valid(String s) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    boilerplate_cpp:
+      'bool is_valid(string s) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    param_types: '["string"]',
+    return_type: 'bool',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -331,37 +393,27 @@ const problems = [
     boilerplate_java:
       'class MinStack {\n' +
       '    // add fields here\n\n' +
-      '    private void push(long val) { }\n\n' +
-      '    private void pop() { }\n\n' +
-      '    private long top() { return 0; }\n\n' +
-      '    private long getMin() { return 0; }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    public Object call(String m, Object... a) {\n' +
-      '        if (m.equals("MinStack")) return null;\n' +
-      '        if (m.equals("push"))    { push(toLong(a[0])); return null; }\n' +
-      '        if (m.equals("pop"))     { pop(); return null; }\n' +
-      '        if (m.equals("top"))     { return top(); }\n' +
-      '        if (m.equals("get_min")) { return getMin(); }\n' +
-      '        throw new RuntimeException("unknown op: " + m);\n' +
-      '    }\n' +
+      '    public void push(long val) { }\n\n' +
+      '    public void pop() { }\n\n' +
+      '    public long top() { return 0; }\n\n' +
+      '    public long get_min() { return 0; }\n' +
       '}',
     boilerplate_cpp:
       'struct MinStack {\n' +
       '    // add fields here\n\n' +
-      '    void push(long val) { }\n\n' +
+      '    void push(long long val) { }\n\n' +
       '    void pop() { }\n\n' +
-      '    long top() { return 0; }\n\n' +
-      '    long getMin() { return 0; }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    json call(const std::string& m, const json& a) {\n' +
-      '        if (m == "MinStack") return nullptr;\n' +
-      '        if (m == "push")    { push(a[0].get<long>()); return nullptr; }\n' +
-      '        if (m == "pop")     { pop(); return nullptr; }\n' +
-      '        if (m == "top")     { return top(); }\n' +
-      '        if (m == "get_min") { return getMin(); }\n' +
-      '        throw std::runtime_error("unknown op: " + m);\n' +
-      '    }\n' +
+      '    long long top() { return 0; }\n\n' +
+      '    long long get_min() { return 0; }\n' +
       '};',
+    param_types: '',
+    return_type: '',
+    method_signatures: JSON.stringify({
+      push:    { params: ['long'], return: 'void' },
+      pop:     { params: [],       return: 'void' },
+      top:     { params: [],       return: 'long' },
+      get_min: { params: [],       return: 'long' },
+    }),
     problem_kind: 'data_structure',
   },
 
@@ -386,11 +438,19 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'is_anagram',
-      '    String s = toStr(_args[0]);\n    String t = toStr(_args[1]);\n    // Your code here\n    return false;',
-      '    std::string s = args[0].get<std::string>();\n    std::string t = args[1].get<std::string>();\n    // Your code here\n    return false;',
-    ),
+    boilerplate_java:
+      'public boolean is_anagram(String s, String t) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    boilerplate_cpp:
+      'bool is_anagram(string s, string t) {\n' +
+      '    // Your code here\n' +
+      '    return false;\n' +
+      '}',
+    param_types: '["string","string"]',
+    return_type: 'bool',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -410,12 +470,20 @@ const problems = [
       return `[[-1,0,3,5,9,12],9]|[[-1,0,3,5,9,12],2]|[[1],1]|[[1],0]|[[1,2,3,4,5],3]|[[1,2,3,4,5],5]|[${JSON.stringify(big)},${target}]`;
     })(),
     hidden_test_results: '4|-1|0|-1|2|4|4999',
-    boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
-    ...algoBoilerplates(
-      'binary_search',
-      '    int[] nums  = toIntArray(_args[0]);\n    int target  = toInt(_args[1]);\n    // Your code here (must be O(log n))\n    return -1L;',
-      '    vector<int> nums = args[0].get<vector<int>>();\n    int target       = args[1].get<int>();\n    // Your code here (must be O(log n))\n    return -1;',
-    ),
+    boilerplate_python: 'def binary_search(nums: list[int], target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
+    boilerplate_java:
+      'public int binary_search(int[] nums, int target) {\n' +
+      '    // Your code here (must be O(log n))\n' +
+      '    return -1;\n' +
+      '}',
+    boilerplate_cpp:
+      'int binary_search(vector<int> nums, int target) {\n' +
+      '    // Your code here (must be O(log n))\n' +
+      '    return -1;\n' +
+      '}',
+    param_types: '["int[]","int"]',
+    return_type: 'int',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -438,15 +506,25 @@ const problems = [
       };
     })(),
     boilerplate_python:
-      'def reverse_list(head: list) -> list:\n' +
+      'def reverse_list(head: list[int]) -> list[int]:\n' +
       '    # Treat the list as a linked list and reverse it with pointers.\n' +
       '    # Return the result as a list.\n' +
       '    pass',
-    ...algoBoilerplates(
-      'reverse_list',
-      '    int[] head = toIntArray(_args[0]);\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return new int[]{};',
-      '    vector<int> head = args[0].get<vector<int>>();\n    // Treat head as a linked list (use index-based pointers)\n    // Your code here\n    return vector<int>{};',
-    ),
+    boilerplate_java:
+      'public int[] reverse_list(int[] head) {\n' +
+      '    // Treat head as a linked list (use index-based pointers)\n' +
+      '    // Your code here\n' +
+      '    return new int[]{};\n' +
+      '}',
+    boilerplate_cpp:
+      'vector<int> reverse_list(vector<int> head) {\n' +
+      '    // Treat head as a linked list (use index-based pointers)\n' +
+      '    // Your code here\n' +
+      '    return {};\n' +
+      '}',
+    param_types: '["int[]"]',
+    return_type: 'int[]',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -463,11 +541,19 @@ const problems = [
     hidden_test_cases: '1|2|3|4|5|10|40',
     hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
-    ...algoBoilerplates(
-      'climb_stairs',
-      '    long n = toLong(_args[0]);\n    // Your code here\n    return 0L;',
-      '    long n = args[0].get<long>();\n    // Your code here\n    return 0;',
-    ),
+    boilerplate_java:
+      'public long climb_stairs(long n) {\n' +
+      '    // Your code here\n' +
+      '    return 0L;\n' +
+      '}',
+    boilerplate_cpp:
+      'long long climb_stairs(long long n) {\n' +
+      '    // Your code here\n' +
+      '    return 0;\n' +
+      '}',
+    param_types: '["long"]',
+    return_type: 'long',
+    method_signatures: '',
     problem_kind: 'algorithm',
   },
 
@@ -503,35 +589,28 @@ const problems = [
     boilerplate_java:
       'class LRUCache {\n' +
       '    // add fields here\n\n' +
-      '    private void init(long capacity) {\n' +
+      '    public LRUCache(long capacity) {\n' +
       '        // initialize with capacity\n' +
       '    }\n\n' +
-      '    private long get(long key) { return -1; }\n\n' +
-      '    private void put(long key, long value) { }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    public Object call(String m, Object... a) {\n' +
-      '        if (m.equals("LRUCache")) { init(toLong(a[0])); return null; }\n' +
-      '        if (m.equals("get"))      { return get(toLong(a[0])); }\n' +
-      '        if (m.equals("put"))      { put(toLong(a[0]), toLong(a[1])); return null; }\n' +
-      '        throw new RuntimeException("unknown op: " + m);\n' +
-      '    }\n' +
+      '    public long get(long key) { return -1; }\n\n' +
+      '    public void put(long key, long value) { }\n' +
       '}',
     boilerplate_cpp:
       'struct LRUCache {\n' +
       '    // add fields here\n\n' +
-      '    void init(long capacity) {\n' +
+      '    LRUCache(long long capacity) {\n' +
       '        // initialize with capacity\n' +
       '    }\n\n' +
-      '    long get(long key) { return -1; }\n\n' +
-      '    void put(long key, long value) { }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    json call(const std::string& m, const json& a) {\n' +
-      '        if (m == "LRUCache") { init(a[0].get<long>()); return nullptr; }\n' +
-      '        if (m == "get")      { return get(a[0].get<long>()); }\n' +
-      '        if (m == "put")      { put(a[0].get<long>(), a[1].get<long>()); return nullptr; }\n' +
-      '        throw std::runtime_error("unknown op: " + m);\n' +
-      '    }\n' +
+      '    long long get(long long key) { return -1; }\n\n' +
+      '    void put(long long key, long long value) { }\n' +
       '};',
+    param_types: '',
+    return_type: '',
+    method_signatures: JSON.stringify({
+      LRUCache: { params: ['long'],         return: 'void' },
+      get:      { params: ['long'],         return: 'long' },
+      put:      { params: ['long', 'long'], return: 'void' },
+    }),
     problem_kind: 'data_structure',
   },
 
@@ -566,33 +645,24 @@ const problems = [
     boilerplate_java:
       'class Trie {\n' +
       '    // add fields here\n\n' +
-      '    private void insert(String word) { }\n\n' +
-      '    private boolean search(String word) { return false; }\n\n' +
-      '    private boolean startsWith(String prefix) { return false; }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    public Object call(String m, Object... a) {\n' +
-      '        if (m.equals("Trie"))        return null;\n' +
-      '        if (m.equals("insert"))      { insert(toStr(a[0])); return null; }\n' +
-      '        if (m.equals("search"))      { return search(toStr(a[0])); }\n' +
-      '        if (m.equals("starts_with")) { return startsWith(toStr(a[0])); }\n' +
-      '        throw new RuntimeException("unknown op: " + m);\n' +
-      '    }\n' +
+      '    public void insert(String word) { }\n\n' +
+      '    public boolean search(String word) { return false; }\n\n' +
+      '    public boolean starts_with(String prefix) { return false; }\n' +
       '}',
     boilerplate_cpp:
       'struct Trie {\n' +
       '    // add fields here\n\n' +
-      '    void insert(const std::string& word) { }\n\n' +
-      '    bool search(const std::string& word) { return false; }\n\n' +
-      '    bool startsWith(const std::string& prefix) { return false; }\n\n' +
-      '    // harness dispatch — do not modify\n' +
-      '    json call(const std::string& m, const json& a) {\n' +
-      '        if (m == "Trie")        return nullptr;\n' +
-      '        if (m == "insert")      { insert(a[0].get<std::string>()); return nullptr; }\n' +
-      '        if (m == "search")      { return search(a[0].get<std::string>()); }\n' +
-      '        if (m == "starts_with") { return startsWith(a[0].get<std::string>()); }\n' +
-      '        throw std::runtime_error("unknown op: " + m);\n' +
-      '    }\n' +
+      '    void insert(const string& word) { }\n\n' +
+      '    bool search(const string& word) { return false; }\n\n' +
+      '    bool starts_with(const string& prefix) { return false; }\n' +
       '};',
+    param_types: '',
+    return_type: '',
+    method_signatures: JSON.stringify({
+      insert:     { params: ['string'], return: 'void' },
+      search:     { params: ['string'], return: 'bool' },
+      starts_with:{ params: ['string'], return: 'bool' },
+    }),
     problem_kind: 'data_structure',
   },
 

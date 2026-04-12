@@ -23,4 +23,7 @@ export default {
   boilerplateJava: __t.string(),
   boilerplateCpp: __t.string(),
   problemKind: __t.string(),
+  paramTypes: __t.string(),
+  returnType: __t.string(),
+  methodSignatures: __t.string(),
 };

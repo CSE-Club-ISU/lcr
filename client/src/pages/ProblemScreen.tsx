@@ -138,6 +138,7 @@ export default function ProblemScreen() {
   // Execution state
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
   const [runSummary, setRunSummary] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -225,7 +226,15 @@ export default function ProblemScreen() {
     }
   }
 
-  async function runTests() { await callExecutor('run'); }
+  async function runTests() {
+    if (running) return;
+    setRunning(true);
+    try {
+      await callExecutor('run');
+    } finally {
+      setRunning(false);
+    }
+  }
 
   async function submit() {
     if (!viewedProblem || !game || submitting || isSolved) return;
@@ -373,10 +382,10 @@ export default function ProblemScreen() {
             </button>
             <button
               onClick={runTests}
-              disabled={!viewedProblem}
+              disabled={!viewedProblem || running}
               className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
             >
-              &#9655; Run Tests
+              {running ? 'Running…' : '▷ Run Tests'}
             </button>
             <button
               onClick={submit}

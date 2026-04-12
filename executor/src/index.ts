@@ -140,6 +140,9 @@ const server = Bun.serve({
           method_name: problem.methodName,
           test_cases: testCases,
           test_results: testResults,
+          param_types:       (problem as any).paramTypes       ?? '',
+          return_type:       (problem as any).returnType       ?? '',
+          method_signatures: (problem as any).methodSignatures ?? '',
         };
 
         const result = await executeCode(execReq, problemData);
