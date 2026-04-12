@@ -180,6 +180,9 @@ export default function PracticeScreen() {
   const [restoredCode] = useState<string>(stored?.code ?? '');
   const [code, setCode] = useState('');
   const [resetCount, setResetCount] = useState(0);
+  // Counts onChange calls for the current editor mount. CodeMirror fires once on mount with
+  // the initial value, so we only persist from the second call onward (actual user edits).
+  const editorChangeCountRef = useRef(0);
   const baseRef = useRef<number>(stored?.elapsedSec ?? 0);
 
   // Auto-select first problem if nothing stored or stored id is gone
@@ -197,6 +200,7 @@ export default function PracticeScreen() {
   );
 
   function selectProblem(p: Problem) {
+    editorChangeCountRef.current = 0;
     setProblemIdRaw(p.id);
     setCode('');
     setTestResults(null);
@@ -204,12 +208,19 @@ export default function PracticeScreen() {
     setError(null);
   }
 
-  // Persist problemId, current code, and elapsedSec.
-  // Skip when code is empty — the editor hasn't mounted yet and we don't want to overwrite saved code.
+  // Persist code only after the user has actually typed (skip CodeMirror's initial onChange).
   useEffect(() => {
-    if (problemId === undefined || !code) return;
+    if (problemId === undefined) return;
+    if (editorChangeCountRef.current < 2) return;
     saveStored({ problemId: String(problemId), code, elapsedSec });
-  }, [problemId, code, elapsedSec]);
+  }, [code]);
+
+  // Always persist problemId and elapsedSec changes.
+  useEffect(() => {
+    if (problemId === undefined) return;
+    const stored = loadStored();
+    saveStored({ problemId: String(problemId), code: stored?.code ?? '', elapsedSec });
+  }, [problemId, elapsedSec]);
 
   // ── Execution state ──────────────────────────────────────────────────────────
 
@@ -258,10 +269,16 @@ export default function PracticeScreen() {
 
   function resetCode() {
     if (!problem) return;
+    editorChangeCountRef.current = 0;
     setResetCount(c => c + 1);
     setTestResults(null);
     setRunSummary(null);
     setError(null);
+  }
+
+  function handleCodeChange(c: string) {
+    editorChangeCountRef.current += 1;
+    setCode(c);
   }
 
   // ── Execute ──────────────────────────────────────────────────────────────────
@@ -358,7 +375,7 @@ export default function PracticeScreen() {
                   ? restoredCode
                   : problem.boilerplatePython ?? ''
               }
-              onChange={setCode}
+              onChange={handleCodeChange}
               vimMode={settings.vimMode}
             />
           )}
