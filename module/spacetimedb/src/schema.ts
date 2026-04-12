@@ -120,6 +120,7 @@ export const quiz_question = table(
     prompt:         t.string(),
     options:        t.string(),   // JSON array for MCQ, "[]" otherwise
     answer:         t.string(),   // canonical correct answer
+    explanation:    t.string(),   // why the answer is correct
   }
 );
 
