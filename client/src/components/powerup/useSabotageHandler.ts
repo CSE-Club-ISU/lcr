@@ -8,14 +8,16 @@ import type { Identity } from 'spacetimedb';
 
 export interface SabotageEffectState {
   frozen: boolean;         // editor readonly
-  fontSize: number;        // px override; 0 = default
+  fontSize: number;        // px override; 0 = default (unused visually, kept for notification)
   blurred: boolean;        // visual blur on editor
+  flash: { message: string; at: number } | null;  // one-shot notice (e.g. "a line was deleted")
 }
 
 export const DEFAULT_SABOTAGE_STATE: SabotageEffectState = {
   frozen: false,
   fontSize: 0,
   blurred: false,
+  flash: null,
 };
 
 export interface SabotageHandlerApi {
@@ -57,6 +59,7 @@ export function useSabotageHandler(
       switch (ev.effectType) {
         case 'delete_line':
           onDeleteLine();
+          setEffects(s => ({ ...s, flash: { message: 'A line of your code was deleted!', at: Date.now() } }));
           break;
         case 'font_size_up':
           setEffects(s => ({ ...s, fontSize: 28 }));

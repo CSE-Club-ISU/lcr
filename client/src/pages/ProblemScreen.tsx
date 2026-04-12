@@ -266,45 +266,54 @@ export default function ProblemScreen() {
     return 'bg-red';
   }
 
+  const problemHeader = (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {problemIds.map((pid, idx) => {
+          const prob = problems.find(p => p.id === BigInt(pid));
+          const solved = mySolvedIds.has(pid);
+          const oppSolved = oppSolvedIds.has(pid);
+          const active = idx === viewIndex;
+          return (
+            <button
+              key={pid}
+              onClick={() => setViewIndex(idx)}
+              className={[
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
+                active
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
+              ].join(' ')}
+              title={prob?.title ?? `Problem ${idx + 1}`}
+            >
+              <span>{idx + 1}</span>
+              {solved && <span className="text-green text-xs">&#10003;</span>}
+              {oppSolved && !solved && <span className="text-orange text-xs">&#9679;</span>}
+            </button>
+          );
+        })}
+      </div>
+      {viewedProblem ? (
+        <div className="flex items-center gap-2 min-w-0">
+          <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
+          <span className="font-bold text-[15px] text-text truncate">{viewedProblem.title}</span>
+          {isSolved && <span className="text-green text-xs font-semibold">Solved</span>}
+        </div>
+      ) : (
+        <span className="text-text-muted text-sm">Loading…</span>
+      )}
+    </div>
+  );
+
+  const activeEffectLabels: string[] = [];
+  if (sabotageEffects.frozen)   activeEffectLabels.push('Editor frozen');
+  if (sabotageEffects.blurred)  activeEffectLabels.push('Editor blurred');
+  if (sabotageEffects.fontSize) activeEffectLabels.push('Font size changed');
+
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
       {/* Top bar */}
-      <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
-        {/* Problem selector */}
-        <div className="flex items-center gap-2 min-w-0">
-          {problemIds.map((pid, idx) => {
-            const prob = problems.find(p => p.id === BigInt(pid));
-            const solved = mySolvedIds.has(pid);
-            const oppSolved = oppSolvedIds.has(pid);
-            const active = idx === viewIndex;
-            return (
-              <button
-                key={pid}
-                onClick={() => setViewIndex(idx)}
-                className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
-                  active
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
-                ].join(' ')}
-                title={prob?.title ?? `Problem ${idx + 1}`}
-              >
-                <span>{idx + 1}</span>
-                {solved && <span className="text-green text-xs">&#10003;</span>}
-                {oppSolved && !solved && <span className="text-orange text-xs">&#9679;</span>}
-              </button>
-            );
-          })}
-          {viewedProblem && (
-            <div className="flex items-center gap-2 ml-2 min-w-0">
-              <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
-              <span className="font-bold text-[15px] text-text truncate">{viewedProblem.title}</span>
-              {isSolved && <span className="text-green text-xs font-semibold">Solved</span>}
-            </div>
-          )}
-          {!viewedProblem && <span className="text-text-muted text-sm">Loading…</span>}
-        </div>
-
+      <div className="card px-5 py-3 mb-3 flex items-center justify-end gap-4">
         {/* HP bars */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col gap-1 w-28">
@@ -370,13 +379,16 @@ export default function ProblemScreen() {
 
       {/* Main split */}
       <div className="flex gap-3 flex-1 min-h-0">
-        <ProblemPanel problem={viewedProblem} />
-        {game && (
-          <div className="w-48 shrink-0 overflow-y-auto">
-            <PowerupShop game={game} myIdentity={ctx.identity ?? undefined} currency={currency} />
-          </div>
-        )}
+        <ProblemPanel problem={viewedProblem} header={problemHeader} />
         <div className="flex-1 flex flex-col gap-3 min-h-0">
+          {game && (
+            <PowerupShop
+              game={game}
+              myIdentity={ctx.identity ?? undefined}
+              currency={currency}
+              layout="horizontal"
+            />
+          )}
           <CodeEditor
             ref={editorRef}
             key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
@@ -390,12 +402,21 @@ export default function ProblemScreen() {
               filter: sabotageEffects.blurred ? 'blur(3px)' : undefined,
               transition: 'filter 0.2s ease',
             }}
-            editorStyle={sabotageEffects.fontSize ? { fontSize: `${sabotageEffects.fontSize}px` } : undefined}
           />
 
-          {/* Test results */}
-          {(testResults || error || runSummary) && (
+          {/* Sabotage / test results / errors */}
+          {(activeEffectLabels.length > 0 || sabotageEffects.flash || testResults || error || runSummary) && (
             <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
+              {activeEffectLabels.length > 0 && (
+                <div className="text-orange text-xs font-semibold mb-1">
+                  Sabotage active: {activeEffectLabels.join(', ')}
+                </div>
+              )}
+              {sabotageEffects.flash && (
+                <div key={sabotageEffects.flash.at} className="text-orange text-xs font-semibold mb-1">
+                  {sabotageEffects.flash.message}
+                </div>
+              )}
               {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
               {runSummary && (
                 <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-orange'}`}>

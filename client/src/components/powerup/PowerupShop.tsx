@@ -16,9 +16,10 @@ interface Props {
   game: GameState;
   myIdentity: Identity | undefined;
   currency: number;
+  layout?: 'vertical' | 'horizontal';
 }
 
-export default function PowerupShop({ game, myIdentity, currency }: Props) {
+export default function PowerupShop({ game, myIdentity, currency, layout = 'vertical' }: Props) {
   const [powerups]  = useTypedTable<Powerup>(tables.powerup);
   const [loadouts]  = useTypedTable<PowerupLoadout>(tables.powerup_loadout);
   const usePowerup  = useReducer(reducers.usePowerup);
@@ -48,10 +49,12 @@ export default function PowerupShop({ game, myIdentity, currency }: Props) {
     );
   }
 
+  const isHorizontal = layout === 'horizontal';
+
   return (
-    <div className="card p-3 flex flex-col gap-2">
+    <div className={`card p-3 flex flex-col gap-2 ${isHorizontal ? 'w-full' : ''}`}>
       <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Powerups</div>
-      <div className="flex flex-col gap-1.5">
+      <div className={isHorizontal ? 'flex flex-row gap-1.5 flex-wrap' : 'flex flex-col gap-1.5'}>
         {available.map(p => {
           const canAfford = currency >= p.cost;
           return (
@@ -61,7 +64,8 @@ export default function PowerupShop({ game, myIdentity, currency }: Props) {
               onClick={() => usePowerup({ gameId: game.id, powerupId: p.id })}
               title={p.description}
               className={[
-                'flex items-center justify-between px-3 py-2 rounded-md border text-left transition-all',
+                'flex items-center gap-2 px-3 py-2 rounded-md border text-left transition-all',
+                isHorizontal ? 'justify-between shrink-0' : 'justify-between',
                 canAfford
                   ? 'border-border bg-surface hover:border-accent cursor-pointer'
                   : 'border-border bg-surface opacity-40 cursor-not-allowed',

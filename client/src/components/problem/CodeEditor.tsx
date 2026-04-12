@@ -18,7 +18,6 @@ interface Props {
   readOnly?: boolean;
   containerClassName?: string;
   extraStyle?: React.CSSProperties;
-  editorStyle?: React.CSSProperties;
 }
 
 export interface CodeEditorHandle {
@@ -34,7 +33,7 @@ function langExtension(lang: Language) {
 }
 
 const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEditor(
-  { initialCode, onChange, language, onLanguageChange, vimMode, readOnly, containerClassName, extraStyle, editorStyle },
+  { initialCode, onChange, language, onLanguageChange, vimMode, readOnly, containerClassName, extraStyle },
   ref,
 ) {
   const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -86,7 +85,7 @@ const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEditor(
             theme={oneDark}
             onChange={onChange}
             editable={!readOnly}
-            style={{ height: '100%', fontSize: '13px', ...editorStyle }}
+            style={{ height: '100%', fontSize: '13px' }}
             basicSetup={{ lineNumbers: true, bracketMatching: true, autocompletion: true }}
           />
         </div>
