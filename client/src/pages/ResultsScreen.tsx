@@ -4,7 +4,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { MatchHistory, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
-import { identityEq } from '../utils/identity';
+import { resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
 import Pill from '../components/ui/Pill';
 
@@ -31,8 +31,8 @@ export default function ResultsScreen() {
     return () => clearTimeout(t);
   }, [match]);
 
-  const resolveUser = (id: { toHexString(): string } | undefined) =>
-    id ? users.find(u => identityEq(u.identity, id)) : undefined;
+  const resolveUserById = (id: { toHexString(): string } | undefined) =>
+    resolveUser(users, id);
 
   if (!match) {
     return (
@@ -56,9 +56,9 @@ export default function ResultsScreen() {
     );
   }
 
-  const p1 = resolveUser(match.player1Identity);
-  const p2 = resolveUser(match.player2Identity);
-  const winner = resolveUser(match.winnerIdentity);
+  const p1 = resolveUserById(match.player1Identity);
+  const p2 = resolveUserById(match.player2Identity);
+  const winner = resolveUserById(match.winnerIdentity);
 
   const iWon = identityEq(match.winnerIdentity, ctx.identity);
   const myIsP1 = identityEq(match.player1Identity, ctx.identity);

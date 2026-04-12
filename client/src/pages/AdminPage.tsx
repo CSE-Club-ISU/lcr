@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { Problem, User } from '../module_bindings/types';
@@ -125,6 +125,64 @@ function ProblemsTab() {
 // Create tab
 // ---------------------------------------------------------------------------
 
+const SCHEMA_EXAMPLE = `{
+  "title": "Min Stack",
+  "kind": "data_structure",
+  "difficulty": "medium",
+  "description": "Design a stack with O(1) getMin.",
+  "method_name": "MinStack",
+  "boilerplate_python": "class MinStack:\\n    def __init__(self): pass\\n    def push(self, val): pass\\n    def pop(self): pass\\n    def top(self): pass\\n    def getMin(self): pass",
+  "sample_test_cases": [
+    [["MinStack"],["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
+  ],
+  "sample_test_results": [-3],
+  "hidden_test_cases": [
+    [["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
+  ],
+  "hidden_test_results": [0]
+}`;
+
+const LLM_PROMPT = `Generate a coding problem in the following JSON format for a competitive programming app. Output only valid JSON (or a JSON array for multiple problems), no extra text.
+
+Schema:
+{
+  "title": string,                  // problem name
+  "kind": "algorithm" | "data_structure",
+  "difficulty": "easy" | "medium" | "hard",
+  "description": string,            // full problem statement
+  "method_name": string,            // Python function name (algorithm) or class name (data_structure)
+  "boilerplate_python": string,     // starter code shown to the player (use \\n for newlines)
+  "compare_func_python": string,    // optional — Python function: def compare(expected, actual): return bool
+                                    // omit for strict equality; use sorted() for order-independent results
+  "sample_test_cases": array[],     // algorithm: list of arg arrays e.g. [[2,7,11,15], 9]
+                                    // data_structure: list of op sequences e.g. [["push",1],["pop"]]
+  "sample_test_results": array,     // one expected result per test case
+                                    // data_structure: return value of the LAST op in each sequence
+  "hidden_test_cases": array[],     // same format, used for final grading (not shown to player)
+  "hidden_test_results": array
+}
+
+Algorithm example:
+{
+  "title": "Two Sum",
+  "kind": "algorithm",
+  "difficulty": "easy",
+  "description": "Given an array of integers and a target, return indices of the two numbers that add up to the target.",
+  "method_name": "two_sum",
+  "boilerplate_python": "def two_sum(nums: list, target: int) -> list:\\n    pass",
+  "compare_func_python": "def compare(expected, actual): return sorted(expected) == sorted(actual)",
+  "sample_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6]],
+  "sample_test_results": [[0,1], [1,2]],
+  "hidden_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6], [[-1,-2,-3,-4,-5], -8]],
+  "hidden_test_results": [[0,1], [1,2], [2,4]],
+  "auto_approve": true
+}
+
+Data structure example:
+${SCHEMA_EXAMPLE}
+
+Now generate: `;
+
 function CreateTab() {
   const insertProblem = useReducer(reducers.insertProblem);
   const [raw, setRaw] = useState('');
@@ -186,73 +244,16 @@ function CreateTab() {
     setParsed(null);
   }
 
-  const SCHEMA_EXAMPLE = `{
-  "title": "Min Stack",
-  "kind": "data_structure",
-  "difficulty": "medium",
-  "description": "Design a stack with O(1) getMin.",
-  "method_name": "MinStack",
-  "boilerplate_python": "class MinStack:\\n    def __init__(self): pass",
-  "compare_func_python": "def compare(expected, actual): return expected == actual",
-  "sample_test_cases": [
-    [["push",-2],["push",0],["push",-3],["getMin"]]
-  ],
-  "sample_test_results": [-3],
-  "hidden_test_cases": [
-    [["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
-  ],
-  "hidden_test_results": [0]
-}`;
-
-  const LLM_PROMPT = `Generate a coding problem in the following JSON format for a competitive programming app. Output only valid JSON (or a JSON array for multiple problems), no extra text.
-
-Schema:
-{
-  "title": string,                  // problem name
-  "kind": "algorithm" | "data_structure",
-  "difficulty": "easy" | "medium" | "hard",
-  "description": string,            // full problem statement
-  "method_name": string,            // Python function name (algorithm) or class name (data_structure)
-  "boilerplate_python": string,     // starter code shown to the player (use \\n for newlines)
-  "compare_func_python": string,    // optional — Python function: def compare(expected, actual): return bool
-                                    // omit for strict equality; use sorted() for order-independent results
-  "sample_test_cases": array[],     // algorithm: list of arg arrays e.g. [[2,7,11,15], 9]
-                                    // data_structure: list of op sequences e.g. [["push",1],["pop"]]
-  "sample_test_results": array,     // one expected result per test case
-                                    // data_structure: return value of the LAST op in each sequence
-  "hidden_test_cases": array[],     // same format, used for final grading (not shown to player)
-  "hidden_test_results": array
-}
-
-Algorithm example:
-{
-  "title": "Two Sum",
-  "kind": "algorithm",
-  "difficulty": "easy",
-  "description": "Given an array of integers and a target, return indices of the two numbers that add up to the target.",
-  "method_name": "two_sum",
-  "boilerplate_python": "def two_sum(nums: list, target: int) -> list:\\n    pass",
-  "compare_func_python": "def compare(expected, actual): return sorted(expected) == sorted(actual)",
-  "sample_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6]],
-  "sample_test_results": [[0,1], [1,2]],
-  "hidden_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6], [[-1,-2,-3,-4,-5], -8]],
-  "hidden_test_results": [[0,1], [1,2], [2,4]],
-  "auto_approve": true
-}
-
-Data structure example:
-${SCHEMA_EXAMPLE}
-
-Now generate: `;
-
   const [schemaCopied, setSchemaCopied] = useState(false);
 
-  const handleCopyPrompt = useCallback(() => {
-    navigator.clipboard.writeText(LLM_PROMPT).then(() => {
-      setSchemaCopied(true);
-      setTimeout(() => setSchemaCopied(false), 2000);
-    });
-  }, [LLM_PROMPT]);
+  function handleCopyPrompt() {
+    navigator.clipboard.writeText(LLM_PROMPT)
+      .then(() => {
+        setSchemaCopied(true);
+        setTimeout(() => setSchemaCopied(false), 2000);
+      })
+      .catch(err => console.error('Clipboard write failed:', err));
+  }
 
   return (
     <div className="flex flex-col gap-5 max-w-[720px]">

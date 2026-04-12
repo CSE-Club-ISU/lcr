@@ -220,6 +220,59 @@ export const set_profile = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
+// Shared game helpers
+// ---------------------------------------------------------------------------
+
+type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
+type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
+
+/** Select `count` distinct approved problems from `pool` using a numeric seed. */
+function selectProblems(pool: ProblemRow[], seed: number, count: number): ProblemRow[] {
+  const selected: ProblemRow[] = [];
+  const usedIndices = new Set<number>();
+  for (let i = 0; selected.length < count; i++) {
+    const idx = (seed + i * 7) % pool.length;
+    if (!usedIndices.has(idx)) {
+      usedIndices.add(idx);
+      selected.push(pool[idx]);
+    }
+    if (i >= pool.length * 2) break; // safety — shouldn't happen given count ≤ pool.length
+  }
+  return selected;
+}
+
+/** Insert a game_state row and update the room to 'in_game'. */
+function startGameState(
+  ctx: DbCtx,
+  roomCode: string,
+  p1Identity: ProblemRow['id'] extends bigint ? any : any,   // IdentityLike
+  p2Identity: typeof p1Identity,
+  selectedProblems: ProblemRow[],
+  startingHp: number,
+): void {
+  ctx.db.game_state.insert({
+    id:                    roomCode,
+    room_code:             roomCode,
+    player1_identity:      p1Identity,
+    player2_identity:      p2Identity,
+    player1_hp:            startingHp,
+    player2_hp:            startingHp,
+    player1_sp:            0,
+    player2_sp:            0,
+    player1_mp:            0,
+    player2_mp:            0,
+    player1_problem_index: 0,
+    player2_problem_index: 0,
+    player1_abilities:     '[]',
+    player2_abilities:     '[]',
+    problem_ids:           JSON.stringify(selectedProblems.map(p => p.id.toString())),
+    status:                'in_progress',
+    start_time:            ctx.timestamp,
+    winner_identity:       undefined,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Room reducers
 // ---------------------------------------------------------------------------
 
@@ -317,41 +370,10 @@ export const start_game = spacetimedb.reducer(
       approved.length
     );
 
-    // Select problemCount distinct problems using the seed
-    const selected: typeof approved = [];
-    const usedIndices = new Set<number>();
-    for (let i = 0; selected.length < problemCount; i++) {
-      const idx = (seed + i * 7) % approved.length;
-      if (!usedIndices.has(idx)) {
-        usedIndices.add(idx);
-        selected.push(approved[idx]);
-      }
-      if (i >= approved.length * 2) break; // safety — shouldn't happen given count ≤ approved.length
-    }
-
+    const selected = selectProblems(approved, seed, problemCount);
     const starting_hp = Number(settings.starting_hp ?? 100);
 
-    ctx.db.game_state.insert({
-      id:                    room.code,
-      room_code:             room.code,
-      player1_identity:      room.host_identity,
-      player2_identity:      room.guest_identity,
-      player1_hp:            starting_hp,
-      player2_hp:            starting_hp,
-      player1_sp:            0,
-      player2_sp:            0,
-      player1_mp:            0,
-      player2_mp:            0,
-      player1_problem_index: 0,
-      player2_problem_index: 0,
-      player1_abilities:     '[]',
-      player2_abilities:     '[]',
-      problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
-      status:                'in_progress',
-      start_time:            ctx.timestamp,
-      winner_identity:       undefined,
-    });
-
+    startGameState(ctx, room.code, room.host_identity, room.guest_identity, selected, starting_hp);
     ctx.db.room.code.update({ ...room, status: 'in_game' });
   }
 );
@@ -379,7 +401,6 @@ export const send_chat = spacetimedb.reducer(
 // endGame helper — called by submit_result and forfeit
 // ---------------------------------------------------------------------------
 
-type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
 type IdentityLike = { toHexString(): string };
 
@@ -654,9 +675,8 @@ export const join_queue = spacetimedb.reducer(
       settings,
     });
 
-    const room = ctx.db.room.code.find(code)!;
-    // Note: don't call start_game — just start immediately via helper logic
-    // This avoids readiness checks since both are auto-ready in queue matches
+    // Note: don't call start_game — just start immediately via helper logic.
+    // This avoids readiness checks since both are auto-ready in queue matches.
     const approvedProblems = [...ctx.db.problem.iter()].filter(
       p => p.is_approved && p.difficulty === difficulty
     );
@@ -664,35 +684,10 @@ export const join_queue = spacetimedb.reducer(
 
     const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
-    const selected: typeof approvedProblems = [];
-    for (let i = 0; selected.length < 1; i++) {
-      const idx = (seed + i * 7) % approvedProblems.length;
-      selected.push(approvedProblems[idx]);
-      if (i >= approvedProblems.length * 2) break; // safety
-    }
-    const starting_hp = 100;
+    const selected = selectProblems(approvedProblems, seed, 1);
 
-    ctx.db.game_state.insert({
-      id:                    code,
-      room_code:             code,
-      player1_identity:      opponent.identity,
-      player2_identity:      ctx.sender,
-      player1_hp:            starting_hp,
-      player2_hp:            starting_hp,
-      player1_sp:            0,
-      player2_sp:            0,
-      player1_mp:            0,
-      player2_mp:            0,
-      player1_problem_index: 0,
-      player2_problem_index: 0,
-      player1_abilities:     '[]',
-      player2_abilities:     '[]',
-      problem_ids:           JSON.stringify(selected.map(p => p.id.toString())),
-      status:                'in_progress',
-      start_time:            ctx.timestamp,
-      winner_identity:       undefined,
-    });
-
+    startGameState(ctx, code, opponent.identity, ctx.sender, selected, 100);
+    const room = ctx.db.room.code.find(code)!;
     ctx.db.room.code.update({ ...room, status: 'in_game' });
   }
 );
