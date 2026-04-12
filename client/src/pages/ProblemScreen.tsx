@@ -165,17 +165,20 @@ export default function ProblemScreen() {
 
   // Timer
   const [seconds, setSeconds] = useState<number>(20 * 60);
-  const expireCalledRef = useRef(false);
+  const lastExpireAttemptRef = useRef(0);
   useEffect(() => {
     if (!game) return;
     const startMs = Number(game.startTime.microsSinceUnixEpoch / 1000n);
     const maxSeconds = 20 * 60;
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - startMs) / 1000);
+      const now = Date.now();
+      const elapsed = Math.floor((now - startMs) / 1000);
       const remaining = Math.max(0, maxSeconds - elapsed);
       setSeconds(remaining);
-      if (remaining === 0 && game.status === 'in_progress' && !expireCalledRef.current) {
-        expireCalledRef.current = true;
+      // Once the clock hits 0, nudge the server to resolve. Retry every 10s in
+      // case the server's elapsed check rejects us due to clock skew.
+      if (remaining === 0 && game.status === 'in_progress' && now - lastExpireAttemptRef.current > 10_000) {
+        lastExpireAttemptRef.current = now;
         expireGame({ gameId });
       }
     };

@@ -239,10 +239,13 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
           <div className="flex flex-col">
             {myMatches.slice(0, 10).map((m, i) => {
               const isP1 = identityEq(m.player1Identity, user.identity);
-              const won = identityEq(m.winnerIdentity, user.identity);
+              const isDraw = !m.winnerIdentity;
+              const won = !isDraw && identityEq(m.winnerIdentity, user.identity);
               const oppUser = resolveUserById(isP1 ? m.player2Identity : m.player1Identity);
               const oppName = oppUser?.username ?? 'Unknown';
               const myTime = isP1 ? m.player1SolveTime : m.player2SolveTime;
+              const dotColor = isDraw ? '#71717A' : won ? '#22C55E' : '#EF4444';
+              const label = isDraw ? 'Draw' : won ? 'Win' : 'Loss';
 
               return (
                 <div
@@ -252,7 +255,7 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
                   <div className="flex items-center gap-3">
                     <div
                       className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: won ? '#22C55E' : '#EF4444' }}
+                      style={{ background: dotColor }}
                     />
                     <div>
                       <span className="font-semibold text-sm text-text">vs {oppName}</span>
@@ -264,9 +267,9 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
                     <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
                     <span
                       className="text-[13px] font-bold w-12 text-right"
-                      style={{ color: won ? '#22C55E' : '#EF4444' }}
+                      style={{ color: dotColor }}
                     >
-                      {won ? 'Win' : 'Loss'}
+                      {label}
                     </span>
                   </div>
                 </div>

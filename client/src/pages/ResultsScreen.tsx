@@ -109,7 +109,7 @@ export default function ResultsScreen() {
         <div>
           <div className="text-xs font-semibold opacity-80 tracking-widest mb-1">MATCH RESULT</div>
           <div className="text-4xl font-black tracking-tight leading-none">
-            {isDraw ? 'Draw' : iWon ? 'Victory!' : 'Defeat'}
+            {isDraw ? 'Draw' : iWon ? 'Win' : 'Loss'}
           </div>
           {isDraw && (
             <div className="text-sm opacity-80 mt-1.5">Time expired with the match tied.</div>
