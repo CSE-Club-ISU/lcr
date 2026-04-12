@@ -6,6 +6,7 @@ import ProfilePage      from './pages/ProfilePage';
 import MatchScreen      from './pages/MatchScreen';
 import RoomPage         from './pages/RoomPage';
 import ProblemScreen    from './pages/ProblemScreen';
+import PracticeScreen   from './pages/PracticeScreen';
 import ResultsScreen    from './pages/ResultsScreen';
 import LeaderboardScreen from './pages/LeaderboardScreen';
 import AdminPage         from './pages/AdminPage';
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/play"          element={<MatchScreen />} />
           <Route path="/play/room/:code" element={<RoomPage />} />
           <Route path="/play/match"    element={<ProblemScreen />} />
+          <Route path="/practice"     element={<PracticeScreen />} />
           <Route path="/results"     element={<ResultsScreen />} />
           <Route path="/leaderboard" element={<LeaderboardScreen />} />
           <Route path="/admin"       element={<AdminPage />} />

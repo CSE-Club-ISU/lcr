@@ -10,6 +10,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "play", label: "Play", icon: "▶", path: "/play" },
+  { id: "practice", label: "Practice", icon: "✎", path: "/practice" },
 ];
 
 interface Props {
