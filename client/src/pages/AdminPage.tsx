@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
 import type { Problem, User } from '../module_bindings/types';
@@ -201,7 +201,7 @@ function CreateTab() {
     setParsed(null);
   }
 
-  const SCHEMA_HINT = `{
+  const SCHEMA_EXAMPLE = `{
   "title": "Min Stack",
   "kind": "data_structure",
   "difficulty": "medium",
@@ -220,6 +220,57 @@ function CreateTab() {
   "auto_approve": false
 }`;
 
+  const LLM_PROMPT = `Generate a coding problem in the following JSON format for a competitive programming app. Output only valid JSON (or a JSON array for multiple problems), no extra text.
+
+Schema:
+{
+  "title": string,                  // problem name
+  "kind": "algorithm" | "data_structure",
+  "difficulty": "easy" | "medium" | "hard",
+  "description": string,            // full problem statement
+  "method_name": string,            // Python function name (algorithm) or class name (data_structure)
+  "boilerplate_python": string,     // starter code shown to the player (use \\n for newlines)
+  "compare_func_python": string,    // optional — Python function: def compare(expected, actual): return bool
+                                    // omit for strict equality; use sorted() for order-independent results
+  "sample_test_cases": array[],     // algorithm: list of arg arrays e.g. [[2,7,11,15], 9]
+                                    // data_structure: list of op sequences e.g. [["push",1],["pop"]]
+  "sample_test_results": array,     // one expected result per test case
+                                    // data_structure: return value of the LAST op in each sequence
+  "hidden_test_cases": array[],     // same format, used for final grading (not shown to player)
+  "hidden_test_results": array,
+  "auto_approve": boolean           // true = goes live immediately
+}
+
+Algorithm example:
+{
+  "title": "Two Sum",
+  "kind": "algorithm",
+  "difficulty": "easy",
+  "description": "Given an array of integers and a target, return indices of the two numbers that add up to the target.",
+  "method_name": "two_sum",
+  "boilerplate_python": "def two_sum(nums: list, target: int) -> list:\\n    pass",
+  "compare_func_python": "def compare(expected, actual): return sorted(expected) == sorted(actual)",
+  "sample_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6]],
+  "sample_test_results": [[0,1], [1,2]],
+  "hidden_test_cases": [[[2,7,11,15], 9], [[3,2,4], 6], [[-1,-2,-3,-4,-5], -8]],
+  "hidden_test_results": [[0,1], [1,2], [2,4]],
+  "auto_approve": true
+}
+
+Data structure example:
+${SCHEMA_EXAMPLE}
+
+Now generate: `;
+
+  const [schemaCopied, setSchemaCopied] = useState(false);
+
+  const handleCopyPrompt = useCallback(() => {
+    navigator.clipboard.writeText(LLM_PROMPT).then(() => {
+      setSchemaCopied(true);
+      setTimeout(() => setSchemaCopied(false), 2000);
+    });
+  }, [LLM_PROMPT]);
+
   return (
     <div className="flex flex-col gap-5 max-w-[720px]">
       <div className="flex flex-col gap-1.5">
@@ -229,32 +280,25 @@ function CreateTab() {
         </p>
       </div>
 
-      {/* Schema reference */}
+      {/* Schema reference + copy prompt */}
       <details className="text-sm">
         <summary className="cursor-pointer text-text-muted hover:text-text select-none">
           Show JSON schema reference
         </summary>
-        <pre className="mt-2 p-4 bg-surface-alt rounded-[10px] text-[12px] font-mono text-text overflow-x-auto whitespace-pre-wrap border border-border">
-{`// One problem or an array of problems.
-// Fields:
-//   title              string   required
-//   kind               "algorithm" | "data_structure"   required
-//   difficulty         "easy" | "medium" | "hard"       required
-//   description        string   required
-//   method_name        string   required  (function name or class name)
-//   boilerplate_python string   required
-//   compare_func_python string  optional  (defaults to strict equality)
-//   sample_test_cases  array[]  required  (algorithm: arg arrays; data_structure: op sequences)
-//   sample_test_results array   required  (one result per test case)
-//   hidden_test_cases  array[]  required
-//   hidden_test_results array   required
-//   auto_approve       boolean  optional  (default false — set true to go live immediately)
-//
-// Algorithm example test case:  [[2,7,11,15], 9]  →  [0,1]
-// Data structure op sequence:   [["push",-2],["push",0],["getMin"]]  →  -2
-
-${SCHEMA_HINT}`}
-        </pre>
+        <div className="mt-2 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-text-muted">Copy a ready-made prompt to paste into any LLM, then fill in what you want at the end.</span>
+            <button
+              onClick={handleCopyPrompt}
+              className="shrink-0 px-3 py-1 rounded-[7px] border border-border bg-transparent text-[12px] font-semibold cursor-pointer hover:border-gold-bright hover:text-text text-text-muted transition-colors"
+            >
+              {schemaCopied ? '✓ Copied!' : 'Copy LLM prompt'}
+            </button>
+          </div>
+          <pre className="p-4 bg-surface-alt rounded-[10px] text-[12px] font-mono text-text overflow-x-auto whitespace-pre-wrap border border-border">
+            {LLM_PROMPT}
+          </pre>
+        </div>
       </details>
 
       {/* Paste area */}
@@ -262,7 +306,7 @@ ${SCHEMA_HINT}`}
         <label className="text-sm font-semibold text-text">Paste JSON</label>
         <textarea
           className="input-field font-mono text-[13px] resize-y min-h-[240px] leading-relaxed"
-          placeholder={SCHEMA_HINT}
+          placeholder={SCHEMA_EXAMPLE}
           value={raw}
           onChange={e => { setRaw(e.target.value); setParsed(null); setParseError(''); setSubmitted(false); }}
           spellCheck={false}
