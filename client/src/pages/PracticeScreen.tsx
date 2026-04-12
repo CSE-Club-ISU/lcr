@@ -402,7 +402,7 @@ export default function PracticeScreen() {
 
       {/* Quiz tab */}
       {activeTab === 'quiz' && (
-        <div className="card flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="card flex-1 min-h-0 overflow-hidden p-6">
           <QuizModeTab />
         </div>
       )}
