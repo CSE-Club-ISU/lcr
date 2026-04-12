@@ -9,6 +9,7 @@ import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
+import QuizModeTab from '../components/practice/QuizModeTab';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -138,6 +139,8 @@ export default function PracticeScreen() {
     () => problems.filter(p => p.isApproved),
     [problems],
   );
+
+  const [activeTab, setActiveTab] = useState<'coding' | 'quiz'>('coding');
 
   const [problemId, setProblemIdRaw] = useState<bigint | undefined>(undefined);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -280,8 +283,8 @@ export default function PracticeScreen() {
 
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
-      {/* Top bar */}
-      <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
+      {/* Top bar (coding only) */}
+      {activeTab === 'coding' && <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {problem && (
             <>
@@ -316,66 +319,93 @@ export default function PracticeScreen() {
             Reset
           </button>
         </div>
+      </div>}
+
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-3 border-b border-border shrink-0">
+        {(['coding', 'quiz'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={[
+              'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 -mb-px transition-colors cursor-pointer',
+              activeTab === tab
+                ? 'border-accent text-accent bg-accent-soft'
+                : 'border-transparent text-text-muted hover:text-text hover:bg-surface',
+            ].join(' ')}
+          >
+            {tab === 'coding' ? 'Coding' : 'Quiz Mode'}
+          </button>
+        ))}
       </div>
 
-      {/* Main split */}
-      <div className="flex gap-3 flex-1 min-h-0">
-        <ProblemPanel problem={problem} />
-        <div className="flex-1 flex flex-col gap-3 min-h-0">
-          {problem && (
-            <CodeEditor
-              key={`${String(problemId)}:${selectedLangState}-${resetCount}`}
-              initialCode={getBoilerplate(problem, selectedLangState)}
-              onChange={setCode}
-              language={selectedLangState}
-              onLanguageChange={(lang) => {
-                setSelectedLang(lang);
-                setCode(getBoilerplate(problem, lang));
-                setResetCount(c => c + 1);
-              }}
-              vimMode={settings.vimMode}
-            />
-          )}
+      {/* Coding tab */}
+      {activeTab === 'coding' && (
+        <div className="flex gap-3 flex-1 min-h-0">
+          <ProblemPanel problem={problem} />
+          <div className="flex-1 flex flex-col gap-3 min-h-0">
+            {problem && (
+              <CodeEditor
+                key={`${String(problemId)}:${selectedLangState}-${resetCount}`}
+                initialCode={getBoilerplate(problem, selectedLangState)}
+                onChange={setCode}
+                language={selectedLangState}
+                onLanguageChange={(lang) => {
+                  setSelectedLang(lang);
+                  setCode(getBoilerplate(problem, lang));
+                  setResetCount(c => c + 1);
+                }}
+                vimMode={settings.vimMode}
+              />
+            )}
 
-          {(testResults || error || runSummary) && (
-            <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
-              {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
-              {runSummary && (
-                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-yellow'}`}>
-                  {runSummary}
-                </div>
-              )}
-              {testResults && testResults.map((r, i) => (
-                <div key={i} className="flex items-start gap-2 mb-1 text-xs">
-                  <span className={r.passed ? 'text-green' : 'text-red'}>{r.passed ? '✓' : '✗'}</span>
-                  <span className="text-text-muted">
-                    in: <span className="text-text">{r.input}</span>
-                    {' → '}expected: <span className="text-text">{r.expected}</span>
-                    {' → '}got: <span className={r.passed ? 'text-text' : 'text-red'}>{r.actual || r.error}</span>
-                  </span>
-                </div>
-              ))}
+            {(testResults || error || runSummary) && (
+              <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
+                {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
+                {runSummary && (
+                  <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-yellow'}`}>
+                    {runSummary}
+                  </div>
+                )}
+                {testResults && testResults.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 mb-1 text-xs">
+                    <span className={r.passed ? 'text-green' : 'text-red'}>{r.passed ? '✓' : '✗'}</span>
+                    <span className="text-text-muted">
+                      in: <span className="text-text">{r.input}</span>
+                      {' → '}expected: <span className="text-text">{r.expected}</span>
+                      {' → '}got: <span className={r.passed ? 'text-text' : 'text-red'}>{r.actual || r.error}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2.5 shrink-0">
+              <button
+                onClick={resetCode}
+                disabled={!problem}
+                className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
+              >
+                ↺ Reset
+              </button>
+              <button
+                onClick={runTests}
+                disabled={!problem || running}
+                className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
+              >
+                {running ? 'Running…' : '▷ Run Tests'}
+              </button>
             </div>
-          )}
-
-          <div className="flex gap-2.5 shrink-0">
-            <button
-              onClick={resetCode}
-              disabled={!problem}
-              className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
-            >
-              ↺ Reset
-            </button>
-            <button
-              onClick={runTests}
-              disabled={!problem || running}
-              className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
-            >
-              {running ? 'Running…' : '▷ Run Tests'}
-            </button>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Quiz tab */}
+      {activeTab === 'quiz' && (
+        <div className="card flex-1 min-h-0 overflow-y-auto p-6">
+          <QuizModeTab />
+        </div>
+      )}
     </div>
   );
 }

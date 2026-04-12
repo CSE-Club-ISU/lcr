@@ -120,6 +120,7 @@ const quiz_question = table(
     prompt:         t.string(),
     options:        t.string(),   // JSON array for MCQ, "[]" otherwise
     answer:         t.string(),   // canonical correct answer
+    explanation:    t.string(),   // why the answer is correct
   }
 );
 
@@ -967,36 +968,36 @@ export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
   }
   for (const q of [...ctx.db.quiz_question.iter()]) ctx.db.quiz_question.id.delete(q.id);
 
-  type Q = { question_type: string; prompt: string; options: string; answer: string };
+  type Q = { question_type: string; prompt: string; options: string; answer: string; explanation: string };
   const questions: Q[] = [
     // MCQ
-    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack' },
-    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)' },
-    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort' },
-    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)' },
-    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order' },
-    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)' },
-    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue' },
-    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack' },
+    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack', explanation: 'A Stack operates LIFO: the last item pushed is the first popped. A Queue is FIFO. Heaps and Trees are non-linear structures with different semantics.' },
+    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)', explanation: 'Binary search halves the search space at each step, giving O(log n) time. It requires the array to be sorted.' },
+    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort', explanation: 'Radix sort distributes elements into buckets by digit/character — no element comparisons needed. Quicksort, Merge sort, and Heapsort all compare elements.' },
+    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)', explanation: 'A hash table computes the bucket index directly from the key, giving O(1) average-case lookup. Worst case (all collisions) is O(n).' },
+    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order', explanation: 'Pre-order visits: root → left → right. In-order is left → root → right (gives sorted output for BST). Post-order is left → right → root.' },
+    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)', explanation: "Quicksort's worst case occurs when the pivot is always the min or max (e.g., a sorted array with a naive first-element pivot). Average case is O(n log n)." },
+    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue', explanation: "BFS explores nodes level-by-level. A Queue's FIFO property ensures nodes are processed in the order they were discovered." },
+    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack', explanation: 'DFS uses a Stack (or recursion, which uses the call stack implicitly). LIFO lets you backtrack to the previous path when you hit a dead end.' },
 
     // True/False
-    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'A min-heap\'s root is the smallest element.',             options: '[]', answer: 'true' },
-    { question_type: 'tf', prompt: 'Dijkstra\'s algorithm works with negative edge weights.', options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true' },
-    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false', explanation: 'A linked list requires traversing from the head to reach an element, giving O(n) access. Only arrays support O(1) random access by index.' },
+    { question_type: 'tf', prompt: "A min-heap's root is the smallest element.",              options: '[]', answer: 'true',  explanation: 'By definition, every parent in a min-heap is ≤ its children, so the root is always the minimum element.' },
+    { question_type: 'tf', prompt: "Dijkstra's algorithm works with negative edge weights.",  options: '[]', answer: 'false', explanation: "Dijkstra's requires non-negative edge weights. With negative weights it can give wrong answers. Use Bellman-Ford for graphs with negative edges." },
+    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true',  explanation: 'Merge sort preserves the relative order of equal elements during the merge step. Quicksort and Heapsort are generally not stable.' },
+    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false', explanation: 'A BST requires left < node < right for all nodes. A plain binary tree only requires at most two children — no ordering constraint.' },
+    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true',  explanation: 'By the pigeonhole principle, if more keys exist than buckets, at least one collision must occur. Good hash functions minimize but cannot eliminate collisions.' },
 
     // Code fill-in — answer is the single token/value the user must type
-    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append' },
-    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final' },
-    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque' },
-    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len' },
-    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n' },
-    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue' },
+    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append', explanation: 'list.append(x) adds x to the end in O(1) amortized time. It is the idiomatic way to build a list; list.insert(len(list), x) works too but is slower.' },
+    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final',  explanation: 'The final keyword in Java makes a variable a constant — it can only be assigned once. The C++ equivalent is const.' },
+    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque',  explanation: 'std::deque (double-ended queue) supports O(1) push/pop at both ends. More flexible than std::queue but uses more memory than std::vector.' },
+    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len',    explanation: 'len() is a Python built-in that returns the number of items in any sequence or collection: list, string, tuple, dict, set, etc.' },
+    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n', explanation: 'Searching an unsorted array requires checking each element in the worst case, giving O(n). Sorting first would allow O(log n) binary search.' },
+    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue',  explanation: 'A queue enforces FIFO: the first element added is the first removed. It is used in BFS, task scheduling, and stream buffering.' },
   ];
   for (const q of questions) {
-    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer });
+    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer, explanation: q.explanation });
   }
 });
 
