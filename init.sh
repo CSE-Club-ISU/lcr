@@ -17,38 +17,39 @@ cp -r /workspace/module/spacetimedb /tmp/spacetimedb-build
 cd /tmp/spacetimedb-build
 bun install --frozen-lockfile 2>/dev/null || bun install
 
-# Log in to this SpacetimeDB instance with a persistent identity.
-# --server-issued-login gets a token directly from the local server and saves it.
-# The spacetime_config volume keeps this stable across restarts so we always
-# publish with the same identity that owns the database.
-if [ ! -f "${CONFIG_DIR}/cli.toml" ]; then
-  echo "No saved identity — logging in to SpacetimeDB..."
-  spacetime login --server-issued-login "${SERVER}"
+# Request a fresh identity from SpacetimeDB for publishing.
+# This avoids cli.toml corruption issues and ensures a valid token
+# even when the spacetime_config volume has stale data.
+echo "Requesting SpacetimeDB identity for publishing..."
+IDENTITY_RESPONSE=$(bun --eval "
+  const res = await fetch('${SERVER}/v1/identity', { method: 'POST' });
+  const data = await res.json();
+  console.log(JSON.stringify(data));
+" 2>/dev/null)
+
+PUBLISH_TOKEN=$(echo "$IDENTITY_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+
+if [ -z "$PUBLISH_TOKEN" ]; then
+  echo "[init] ERROR: Failed to get identity token from SpacetimeDB. Response: $IDENTITY_RESPONSE" >&2
+  exit 1
 fi
 
+# Write token to a temporary config file for the spacetime CLI
+TEMP_CONFIG="/tmp/spacetime-publish.toml"
+echo "spacetimedb_token = \"${PUBLISH_TOKEN}\"" > "$TEMP_CONFIG"
+
 echo "Publishing module to SpacetimeDB..."
-spacetime publish "${DB_NAME}" \
+spacetime --config-path "$TEMP_CONFIG" publish "${DB_NAME}" \
   --server "${SERVER}" \
   --module-path /tmp/spacetimedb-build \
-  --no-config \
   --delete-data=always \
   -y
 
 echo "Module published successfully!"
 
-# Extract the SpacetimeDB identity token from cli.toml using grep+sed.
-# This is fragile: it assumes the token is on its own line as:
-#   spacetimedb_token = "..."
-# If the TOML format changes or the value contains escaped quotes, this breaks.
-# A more robust alternative would use a proper TOML parser or a JSON config.
-TOKEN=$(grep -E '^spacetimedb_token\s*=' "${CONFIG_DIR}/cli.toml" 2>/dev/null | head -1 | sed 's/.*= *"//;s/".*//')
-
-if [ -z "${TOKEN}" ]; then
-  echo "[init] ERROR: Failed to extract SpacetimeDB token from cli.toml. Executor cannot start." >&2
-  exit 1
-fi
-
-echo "Token extracted: ${TOKEN:0:8}..."
+# Use the publish token for seeding — no need to extract from cli.toml
+TOKEN="${PUBLISH_TOKEN}"
+echo "Using token for seeding: ${TOKEN:0:8}..."
 
 echo "Seeding problems..."
 bun /workspace/seed-problems.mjs "${SERVER}" "${DB_NAME}" "${TOKEN}"
@@ -72,7 +73,6 @@ console.log('  ✓ quiz questions');
 "
 
 # Write the token to the shared config volume so the executor can use it
-# as a stable identity across restarts. chmod 600 for defense-in-depth.
 echo -n "${TOKEN}" > "${CONFIG_DIR}/executor_token"
 chmod 600 "${CONFIG_DIR}/executor_token"
 

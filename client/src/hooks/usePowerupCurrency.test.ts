@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePowerupCurrency, POWERUP_TICK_SEC } from './usePowerupCurrency';
+import { usePowerupCurrency } from './usePowerupCurrency';
 import type { GameState } from '../module_bindings/types';
 
 // ---------------------------------------------------------------------------

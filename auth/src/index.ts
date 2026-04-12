@@ -172,6 +172,13 @@ app.post('/redeem', async (c) => {
 // ---------------------------------------------------------------------------
 
 app.post('/guest', async (c) => {
+  // Dev-only: fail closed unless NODE_ENV is explicitly 'development'. Any
+  // production/staging deployment (where NODE_ENV is unset or 'production')
+  // rejects guest logins.
+  if (process.env.NODE_ENV !== 'development') {
+    return c.json({ error: 'Guest mode is disabled' }, 403);
+  }
+
   const identityRes = await fetch(`${SPACETIMEDB_URL}/v1/identity`, { method: 'POST' });
   if (!identityRes.ok) {
     console.error('[auth] SpacetimeDB /v1/identity failed:', identityRes.status, await identityRes.text());

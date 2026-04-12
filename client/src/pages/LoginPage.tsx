@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 
 const AUTH_SERVER_URL = import.meta.env.VITE_AUTH_SERVER_URL ?? 'http://localhost:4000';
 
+// Guest mode is a dev-only convenience. `import.meta.env.DEV` is true under
+// `vite dev` and false in any `vite build` output, so production bundles
+// (including the Docker image) automatically omit the guest login path.
+const GUEST_MODE_ENABLED = import.meta.env.DEV;
+
 const ADJECTIVES = ['swift', 'bold', 'keen', 'sharp', 'quick', 'calm', 'bright', 'cool'];
 const NOUNS = ['coder', 'hacker', 'solver', 'runner', 'thinker', 'builder', 'dev', 'ace'];
 
@@ -68,10 +73,14 @@ export default function LoginPage() {
         <button className="btn-primary mt-2 w-full" onClick={handleSignIn}>
           Sign in with GitHub
         </button>
-        <button className="btn-secondary w-full text-sm" onClick={handleGuest} disabled={guestLoading}>
-          {guestLoading ? 'Loading…' : 'Continue as Guest'}
-        </button>
-        {guestError && <p className="m-0 text-red text-[13px]">{guestError}</p>}
+        {GUEST_MODE_ENABLED && (
+          <>
+            <button className="btn-secondary w-full text-sm" onClick={handleGuest} disabled={guestLoading}>
+              {guestLoading ? 'Loading…' : 'Continue as Guest'}
+            </button>
+            {guestError && <p className="m-0 text-red text-[13px]">{guestError}</p>}
+          </>
+        )}
       </div>
     </div>
   );

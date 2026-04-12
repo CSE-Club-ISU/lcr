@@ -30,6 +30,21 @@ down:
 logs:
   docker compose logs -f spacetimedb
 
+# Fresh build: clean volumes, rebuild all services, init DB
+fresh:
+  @echo "🗑️  Removing old volumes..."
+  docker compose down
+  docker volume rm lcr_spacetimedb_data lcr_spacetime_config 2>/dev/null || true
+  @echo "🚀 Rebuilding and starting fresh stack..."
+  docker compose up -d
+  @echo "✓ Fresh build complete — stack is running"
+  @echo "   Open http://localhost in your browser to test the PR"
+
+# Production deployment: start backend services only (no client)
+prod:
+  docker compose up -d spacetimedb auth executor
+  @echo "✓ Backend services started (spacetimedb, auth, executor)"
+
 # Full workflow: init, generate bindings, build
 setup: init generate-bindings build-client
   @echo "✓ Setup complete"
@@ -48,6 +63,7 @@ help:
   @echo "Game Loop Implementation — Just Tasks"
   @echo ""
   @echo "Setup & Deployment:"
+  @echo "  just fresh             🌟 FRESH BUILD: clean volumes, rebuild, init — test PRs here"
   @echo "  just init              Initialize DB: publish module + seed problems"
   @echo "  just setup             Full setup: init + generate bindings + build"
   @echo "  just generate-bindings Regenerate SpacetimeDB TypeScript bindings"
