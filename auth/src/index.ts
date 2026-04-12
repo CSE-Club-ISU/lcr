@@ -15,13 +15,19 @@ app.use('*', async (c, next) => {
   c.res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
 });
 
-app.options('*', (c) => c.text('', 204));
+app.options('*', (c) => c.body(null, 204));
 
-const GITHUB_CLIENT_ID     = process.env.GITHUB_CLIENT_ID!;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET!;
-const AUTH_SERVER_URL      = process.env.AUTH_SERVER_URL      ?? 'http://localhost:4000';
-const CLIENT_CALLBACK_URL  = process.env.AUTH_REDIRECT_URI    ?? 'http://localhost:5173/auth/callback';
-const SPACETIMEDB_URL      = process.env.SPACETIMEDB_URL      ?? 'http://spacetimedb:3000';
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+}
+
+const GITHUB_CLIENT_ID     = requireEnv('GITHUB_CLIENT_ID');
+const GITHUB_CLIENT_SECRET = requireEnv('GITHUB_CLIENT_SECRET');
+const AUTH_SERVER_URL      = process.env.AUTH_SERVER_URL   ?? 'http://localhost:4000';
+const CLIENT_CALLBACK_URL  = process.env.AUTH_REDIRECT_URI ?? 'http://localhost:5173/auth/callback';
+const SPACETIMEDB_URL      = process.env.SPACETIMEDB_URL   ?? 'http://spacetimedb:3000';
 
 // ---------------------------------------------------------------------------
 // Health check

@@ -1384,7 +1384,26 @@ const PROBLEM_ARGS = {
   method_signatures:   t.string(),
 };
 
-function validateAndInsertProblem(ctx: any, args: any) {
+/** Typed args for problem insert/update — mirrors the fields in PROBLEM_ARGS above. */
+type ProblemArgsType = {
+  title:               string;
+  description:         string;
+  difficulty:          string;
+  method_name:         string;
+  sample_test_cases:   string;
+  sample_test_results: string;
+  hidden_test_cases:   string;
+  hidden_test_results: string;
+  boilerplate_python:  string;
+  boilerplate_java:    string;
+  boilerplate_cpp:     string;
+  problem_kind:        string;
+  param_types:         string;
+  return_type:         string;
+  method_signatures:   string;
+};
+
+function validateAndInsertProblem(ctx: DbCtx, args: ProblemArgsType) {
   if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
     throw new SenderError('Invalid problem_kind: must be "algorithm" or "data_structure"');
   }
