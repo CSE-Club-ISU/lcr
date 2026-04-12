@@ -43,6 +43,7 @@ interface EditDraft {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_COMPARE = 'def compare(expected, actual): return expected == actual';
+const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
 
 function serializeCases(cases: unknown[][]): string {
   return cases.map(c => JSON.stringify(c)).join('|');
@@ -262,8 +263,7 @@ function ProblemsTab() {
         return true;
       })
       .sort((a, b) => {
-        const dOrder = { easy: 0, medium: 1, hard: 2 };
-        const dd = (dOrder[a.difficulty as keyof typeof dOrder] ?? 0) - (dOrder[b.difficulty as keyof typeof dOrder] ?? 0);
+        const dd = (DIFFICULTY_ORDER[a.difficulty] ?? 0) - (DIFFICULTY_ORDER[b.difficulty] ?? 0);
         return dd !== 0 ? dd : a.title.localeCompare(b.title);
       });
   }, [problems, search, filterDifficulty, filterKind]);

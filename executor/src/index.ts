@@ -1,5 +1,5 @@
 import { executeCode } from './runner.js';
-import { initStdb, getConnection } from './stdb.js';
+import { initStdb, getConnection, getProblem } from './stdb.js';
 import type { ExecuteRequest } from './types.js';
 
 const PORT = parseInt(process.env.EXECUTOR_PORT ?? '8000');
@@ -115,7 +115,6 @@ const server = Bun.serve({
       }
 
       try {
-        const { getProblem } = await import('./stdb.js');
         const problem = getProblem(BigInt(execReq.problem_id));
         if (!problem) {
           return json({ error: `Problem ${execReq.problem_id} not found` }, { status: 400 });

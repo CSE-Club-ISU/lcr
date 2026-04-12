@@ -61,7 +61,7 @@ export default function MatchScreen() {
     e.preventDefault();
     setFriendError("");
     const code = friendCode.trim() || randomCode();
-    if (!/^[A-Z0-9]{4,8}$/i.test(code)) {
+    if (!/^[A-Z0-9]{4,8}$/.test(code)) {
       setFriendError("Code must be 4-8 alphanumeric characters");
       return;
     }

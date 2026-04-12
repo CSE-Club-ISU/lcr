@@ -42,6 +42,25 @@ function randArray(n, lo, hi, seed = 42) {
   return Array.from({ length: n }, () => Math.floor(r() * (hi - lo) + lo));
 }
 
+/** Fisher-Yates shuffle using a seeded RNG. Returns a new array. */
+function shuffle(arr, r) {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Python-only problems all leave these fields empty.
+const EMPTY_LANGS = {
+  boilerplate_java: '',
+  boilerplate_cpp: '',
+  compare_func_java: '',
+  compare_func_cpp: '',
+};
+const EQUAL_COMPARE = 'def compare(expected, actual): return expected == actual';
+
 // ---------------------------------------------------------------------------
 // Problems
 // Target distribution: ~8 easy, ~5 medium, ~2 hard
@@ -70,11 +89,8 @@ const problems = [
     })(),
     hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
     boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
+    ...EMPTY_LANGS,
     compare_func_python: 'def compare(expected, actual): return sorted(expected) == sorted(actual)',
-    compare_func_java: '',
-    compare_func_cpp: '',
     problem_kind: 'algorithm',
   },
 
@@ -87,21 +103,17 @@ const problems = [
     method_name: 'reverse_string',
     sample_test_cases: '"hello"|"world"|"a"',
     sample_test_results: '"olleh"|"dlrow"|"a"',
-    hidden_test_cases: (() => {
+    ...(() => {
       const big = 'abcdefghij'.repeat(2000); // 20k chars
-      return `"hello"|"world"|"a"|""|"abcde"|"racecar"|${JSON.stringify(big)}`;
-    })(),
-    hidden_test_results: (() => {
-      const big = 'abcdefghij'.repeat(2000);
-      const rev = JSON.stringify(big.split('').reverse().join(''));
-      return `"olleh"|"dlrow"|"a"|""|"edcba"|"racecar"|${rev}`;
+      const rev = big.split('').reverse().join('');
+      return {
+        hidden_test_cases: `"hello"|"world"|"a"|""|"abcde"|"racecar"|${JSON.stringify(big)}`,
+        hidden_test_results: `"olleh"|"dlrow"|"a"|""|"edcba"|"racecar"|${JSON.stringify(rev)}`,
+      };
     })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -118,11 +130,8 @@ const problems = [
     hidden_test_cases: '121|-121|10|0|1221|12321|123',
     hidden_test_results: 'true|false|false|true|true|true|false',
     boilerplate_python: 'def is_palindrome(x: int) -> bool:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -142,11 +151,8 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -159,21 +165,17 @@ const problems = [
     method_name: 'max_in_array',
     sample_test_cases: '[3,1,4,1,5,9]|[-3,-1,-4]|[7]',
     sample_test_results: '9|-1|7',
-    hidden_test_cases: (() => {
-      const big = randArray(10000, -1000000, 1000000, 7);
-      return `[3,1,4,1,5,9]|[-3,-1,-4]|[7]|[0,0,0]|[100,-100,50]|[1,2,3,4,5]|${JSON.stringify(big)}`;
-    })(),
-    hidden_test_results: (() => {
+    ...(() => {
       const big = randArray(10000, -1000000, 1000000, 7);
       const max = Math.max(...big);
-      return `9|-1|7|0|100|5|${max}`;
+      return {
+        hidden_test_cases: `[3,1,4,1,5,9]|[-3,-1,-4]|[7]|[0,0,0]|[100,-100,50]|[1,2,3,4,5]|${JSON.stringify(big)}`,
+        hidden_test_results: `9|-1|7|0|100|5|${max}`,
+      };
     })(),
     boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -192,11 +194,8 @@ const problems = [
     hidden_test_cases: '3|5|15|1|10',
     hidden_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]|["1"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz"]',
     boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -212,11 +211,8 @@ const problems = [
     hidden_test_cases: '123|9999|0|1|100|12345|999999999',
     hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -233,11 +229,8 @@ const problems = [
     hidden_test_cases: '0|1|2|3|6|10|15|50',
     hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -255,11 +248,8 @@ const problems = [
     hidden_test_cases: '"()"|"()[]{}"|"(]"|"([)]"|"{[]}"|""|"((("',
     hidden_test_results: 'true|true|false|false|true|true|false',
     boilerplate_python: 'def is_valid(s: str) -> bool:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -297,11 +287,8 @@ const problems = [
       '        pass\n\n' +
       '    def get_min(self) -> int:\n' +
       '        pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -316,21 +303,18 @@ const problems = [
     sample_test_cases: '"anagram","nagaram"|"rat","car"|"a","a"',
     sample_test_results: 'true|false|true',
     hidden_test_cases: (() => {
-      // Stress: two 5k-char anagram strings
+      // Stress: two 5k-char anagram strings (Fisher-Yates for a real shuffle)
       const chars = 'abcdefghijklmnopqrstuvwxyz';
       const r = seededRand(99);
       const arr = Array.from({ length: 5000 }, () => chars[Math.floor(r() * 26)]);
       const s = arr.join('');
-      const shuffled = [...arr].sort(() => r() - 0.5).join('');
+      const shuffled = shuffle(arr, r).join('');
       return `"anagram","nagaram"|"rat","car"|"a","a"|"",""|"ab","ba"|"abc","cba"|"abc","abcd"|${JSON.stringify(s)},${JSON.stringify(shuffled)}`;
     })(),
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -351,11 +335,8 @@ const problems = [
     })(),
     hidden_test_results: '4|-1|0|-1|2|4|4999',
     boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -369,25 +350,21 @@ const problems = [
     method_name: 'reverse_list',
     sample_test_cases: '[[1,2,3,4,5]]|[[1,2]]|[[1]]',
     sample_test_results: '[5,4,3,2,1]|[2,1]|[1]',
-    hidden_test_cases: (() => {
+    ...(() => {
       const big = Array.from({ length: 5000 }, (_, i) => i);
-      return `[[1,2,3,4,5]]|[[1,2]]|[[1]]|[[]]|[[1,2,3]]|[${JSON.stringify(big)}]`;
-    })(),
-    hidden_test_results: (() => {
-      const big = Array.from({ length: 5000 }, (_, i) => i);
-      const rev = JSON.stringify([...big].reverse());
-      return `[5,4,3,2,1]|[2,1]|[1]|[]|[3,2,1]|${rev}`;
+      const rev = [...big].reverse();
+      return {
+        hidden_test_cases: `[[1,2,3,4,5]]|[[1,2]]|[[1]]|[[]]|[[1,2,3]]|[${JSON.stringify(big)}]`,
+        hidden_test_results: `[5,4,3,2,1]|[2,1]|[1]|[]|[3,2,1]|${JSON.stringify(rev)}`,
+      };
     })(),
     boilerplate_python:
       'def reverse_list(head: list) -> list:\n' +
       '    # Treat the list as a linked list and reverse it with pointers.\n' +
       '    # Return the result as a list.\n' +
       '    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -404,11 +381,8 @@ const problems = [
     hidden_test_cases: '1|2|3|4|5|10|40',
     hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'algorithm',
   },
 
@@ -441,11 +415,8 @@ const problems = [
       '        pass\n\n' +
       '    def put(self, key: int, value: int) -> None:\n' +
       '        pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 
@@ -477,11 +448,8 @@ const problems = [
       '        pass\n\n' +
       '    def starts_with(self, prefix: str) -> bool:\n' +
       '        pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
+    ...EMPTY_LANGS,
+    compare_func_python: EQUAL_COMPARE,
     problem_kind: 'data_structure',
   },
 

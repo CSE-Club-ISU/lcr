@@ -243,6 +243,8 @@ export const set_profile = spacetimedb.reducer(
 
 type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
+type IdentityLike = ProblemRow['created_by'];
+type DraftCodeRow = NonNullable<ReturnType<DbCtx['db']['draft_code']['id']['find']>>;
 
 const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
 
@@ -256,19 +258,35 @@ function selectProblems(pool: ProblemRow[], seed: number, count: number): Proble
       usedIndices.add(idx);
       selected.push(pool[idx]);
     }
-    if (i >= pool.length * 2) break; // safety — shouldn't happen given count ≤ pool.length
   }
   // Sort easy → hard; within same difficulty preserve selection order (stable-ish)
   selected.sort((a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 0) - (DIFFICULTY_ORDER[b.difficulty] ?? 0));
   return selected;
 }
 
+/** Shared logic for picking the problem set for a new game. */
+function pickGameProblems(ctx: DbCtx, difficulty: string, count: number, seed: number): ProblemRow[] {
+  // Difficulty ceiling: easy → [easy], medium → [easy,medium], hard → [easy,medium,hard]
+  const allowedDifficulties = difficulty === 'easy'
+    ? ['easy']
+    : difficulty === 'medium'
+      ? ['easy', 'medium']
+      : ['easy', 'medium', 'hard'];
+
+  const approved = [...ctx.db.problem.iter()].filter(
+    p => p.is_approved && allowedDifficulties.includes(p.difficulty)
+  );
+  if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
+
+  return selectProblems(approved, seed, Math.min(count, approved.length));
+}
+
 /** Insert a game_state row and update the room to 'in_game'. */
 function startGameState(
   ctx: DbCtx,
   roomCode: string,
-  p1Identity: ProblemRow['id'] extends bigint ? any : any,   // IdentityLike
-  p2Identity: typeof p1Identity,
+  p1Identity: IdentityLike,
+  p2Identity: IdentityLike,
   selectedProblems: ProblemRow[],
   startingHp: number,
 ): void {
@@ -376,29 +394,12 @@ export const start_game = spacetimedb.reducer(
     const settings = JSON.parse(room.settings) as Record<string, unknown>;
     const difficulty = (settings.difficulty as string) ?? 'medium';
 
-    // Difficulty ceiling: easy → [easy], medium → [easy,medium], hard → [easy,medium,hard]
-    const allowedDifficulties = difficulty === 'easy'
-      ? ['easy']
-      : difficulty === 'medium'
-        ? ['easy', 'medium']
-        : ['easy', 'medium', 'hard'];
-
-    const approved = [...ctx.db.problem.iter()].filter(
-      p => p.is_approved && allowedDifficulties.includes(p.difficulty)
-    );
-    if (approved.length === 0) throw new SenderError('No approved problems for this difficulty');
-
-    // Use ctx.timestamp for entropy so the same room code gets different problems each game.
-    // Reducers must be deterministic, but ctx.timestamp varies per call — sufficient for a club tool.
+    // ctx.timestamp varies per call — sufficient entropy for a club tool.
     const seed = room.code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
 
-    const problemCount = Math.min(
-      Math.max(1, Number(settings.problem_count ?? 1)),
-      approved.length
-    );
-
-    const selected = selectProblems(approved, seed, problemCount);
+    const problemCount = Math.max(1, Number(settings.problem_count ?? 1));
+    const selected = pickGameProblems(ctx, difficulty, problemCount, seed);
     const starting_hp = Number(settings.starting_hp ?? 100);
 
     startGameState(ctx, room.code, room.host_identity, room.guest_identity, selected, starting_hp);
@@ -430,7 +431,6 @@ export const send_chat = spacetimedb.reducer(
 // ---------------------------------------------------------------------------
 
 type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
-type IdentityLike = { toHexString(): string };
 
 function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
   const loserIdentity = winnerIdentity.toHexString() === game.player1_identity.toHexString()
@@ -603,13 +603,11 @@ export const submit_result = spacetimedb.reducer(
     const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
     const winner_identity = isP1 ? game.player1_identity : game.player2_identity;
 
+    ctx.db.game_state.id.update(updated);
+
     // Win condition: solved all problems, OR opponent HP hits 0
     if (newSolvedIds.length >= problemCount || opponentHp <= 0) {
-      ctx.db.game_state.id.update(updated);
-      const updatedGame = ctx.db.game_state.id.find(game_id)!;
-      endGame(ctx, updatedGame, winner_identity);
-    } else {
-      ctx.db.game_state.id.update(updated);
+      endGame(ctx, updated, winner_identity);
     }
   }
 );
@@ -618,20 +616,34 @@ export const submit_result = spacetimedb.reducer(
 // Executor config (S3 fix)
 // ---------------------------------------------------------------------------
 
-// Called once by an admin to register the executor's SpacetimeDB identity.
-// After this, submit_result will only accept calls from that identity.
+// Called by the executor at startup to register its SpacetimeDB identity.
+// Auth rules, in order:
+//   1. No config yet + no admin yet → deploy-time bootstrap, allow.
+//   2. Caller matches the stored executor identity → idempotent self-register on restart.
+//   3. Caller is admin → allow override (e.g. rotating the executor).
+// Otherwise reject. Prevents a malicious client from racing the executor on
+// boot and hijacking submit_result authority.
 export const set_executor_identity = spacetimedb.reducer(
   {},
   (ctx) => {
     const existing = ctx.db.executor_config.id.find(0);
-    // Allow first-time registration freely; require admin to overwrite
-    if (existing) {
-      const user = ctx.db.user.identity.find(ctx.sender);
-      if (!user?.is_admin) throw new SenderError('Unauthorized');
-      ctx.db.executor_config.id.update({ ...existing, executor_identity: ctx.sender });
-    } else {
+    const senderHex = ctx.sender.toHexString();
+
+    if (!existing) {
+      const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+      if (adminExists) {
+        const caller = ctx.db.user.identity.find(ctx.sender);
+        if (!caller?.is_admin) throw new SenderError('Unauthorized');
+      }
       ctx.db.executor_config.insert({ id: 0, executor_identity: ctx.sender });
+      return;
     }
+
+    if (existing.executor_identity.toHexString() === senderHex) return; // idempotent
+
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    ctx.db.executor_config.id.update({ ...existing, executor_identity: ctx.sender });
   }
 );
 
@@ -639,9 +651,13 @@ export const set_executor_identity = spacetimedb.reducer(
 // Draft code reducer
 // ---------------------------------------------------------------------------
 
+const MAX_DRAFT_CODE_BYTES = 64 * 1024;
+
 export const save_draft = spacetimedb.reducer(
   { game_id: t.string(), problem_id: t.u64(), code: t.string() },
   (ctx, { game_id, problem_id, code }) => {
+    if (code.length > MAX_DRAFT_CODE_BYTES) throw new SenderError('Draft code too large');
+
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') throw new SenderError('Game not found or not in progress');
 
@@ -651,11 +667,10 @@ export const save_draft = spacetimedb.reducer(
     }
 
     // Upsert: find existing draft for this player+game+problem (small table — iter is fine)
-    const senderHexForDraft = ctx.sender.toHexString();
-    let found: any;
+    let found: DraftCodeRow | undefined;
     for (const row of ctx.db.draft_code.iter()) {
       if (row.game_id === game_id &&
-          row.player_identity.toHexString() === senderHexForDraft &&
+          row.player_identity.toHexString() === senderHex &&
           row.problem_id === problem_id) {
         found = row;
         break;
@@ -744,6 +759,10 @@ export const join_queue = spacetimedb.reducer(
     // Generate a deterministic room code unique to this reducer call
     const code = 'Q' + ctx.timestamp.microsSinceUnixEpoch.toString(16).slice(-5).toUpperCase();
 
+    const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+      + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
+    const selected = pickGameProblems(ctx, difficulty, problem_count, seed);
+
     const settings = JSON.stringify({ difficulty, problem_count, starting_hp: 100 });
     ctx.db.room.insert({
       code,
@@ -751,30 +770,11 @@ export const join_queue = spacetimedb.reducer(
       guest_identity: ctx.sender,
       host_ready:     true,
       guest_ready:    true,
-      status:         'waiting',
+      status:         'in_game',
       settings,
     });
 
-    // Difficulty ceiling: easy → [easy], medium → [easy,medium], hard → [easy,medium,hard]
-    const allowedDifficulties = difficulty === 'easy'
-      ? ['easy']
-      : difficulty === 'medium'
-        ? ['easy', 'medium']
-        : ['easy', 'medium', 'hard'];
-
-    const approvedProblems = [...ctx.db.problem.iter()].filter(
-      p => p.is_approved && allowedDifficulties.includes(p.difficulty)
-    );
-    if (approvedProblems.length === 0) throw new SenderError('No approved problems for this difficulty');
-
-    const seed = code.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-      + Number(ctx.timestamp.microsSinceUnixEpoch % 1_000_000n);
-    const count = Math.min(problem_count, approvedProblems.length);
-    const selected = selectProblems(approvedProblems, seed, count);
-
     startGameState(ctx, code, opponent.identity, ctx.sender, selected, 100);
-    const room = ctx.db.room.code.find(code)!;
-    ctx.db.room.code.update({ ...room, status: 'in_game' });
   }
 );
 
@@ -913,8 +913,14 @@ export const update_problem = spacetimedb.reducer(
 );
 
 // Called from seed-problems.mjs at deploy time via the server CLI token.
-// No auth check — access is controlled at the infrastructure level (only
-// init.sh has the token; the token is never exposed to clients).
+// Auth: admin OR no admin exists yet (deploy-time bootstrap window, matching
+// claim_first_admin). init.sh always runs before any user logs in, so it hits
+// the no-admin branch. After that, only admins can reseed.
 export const seed_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) {
+    const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+    if (adminExists) throw new SenderError('Unauthorized');
+  }
   validateAndInsertProblem(ctx, args);
 });

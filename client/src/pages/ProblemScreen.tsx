@@ -36,7 +36,8 @@ export default function ProblemScreen() {
   // All problem ids for this game, ordered as assigned by server (easy→hard)
   const problemIds: string[] = useMemo(() => {
     if (!game) return [];
-    try { return JSON.parse(game.problemIds); } catch { return []; }
+    try { return JSON.parse(game.problemIds); }
+    catch (e) { console.error('[ProblemScreen] failed to parse problemIds:', e); return []; }
   }, [game?.problemIds]);
 
   const problemCount = problemIds.length;
@@ -47,7 +48,7 @@ export default function ProblemScreen() {
     try {
       const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
       return new Set(JSON.parse(raw ?? '[]'));
-    } catch { return new Set(); }
+    } catch (e) { console.error('[ProblemScreen] failed to parse my solvedIds:', e); return new Set(); }
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Opponent's solved ids
@@ -56,7 +57,7 @@ export default function ProblemScreen() {
     try {
       const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
       return new Set(JSON.parse(raw ?? '[]'));
-    } catch { return new Set(); }
+    } catch (e) { console.error('[ProblemScreen] failed to parse opp solvedIds:', e); return new Set(); }
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Currently viewed problem index (navigation)
@@ -90,10 +91,10 @@ export default function ProblemScreen() {
     setCodeMap(prev => ({ ...prev, [viewedProblemId]: val }));
   }, [viewedProblemId]);
 
-  // Debounced draft save
+  // Debounced draft save (persists empty strings too — player may intentionally clear)
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!viewedProblemId || !gameId || !currentCode) return;
+    if (!viewedProblemId || !gameId) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       saveDraft({ gameId, problemId: BigInt(viewedProblemId), code: currentCode });
@@ -171,7 +172,7 @@ export default function ProblemScreen() {
     return Math.floor((Date.now() - startMs) / 1000);
   }, [game, submitting]);
 
-  async function runTests() {
+  async function callExecutor(mode: 'run' | 'submit') {
     if (!viewedProblem || !game) return;
     setError(null);
     setTestResults(null);
@@ -179,20 +180,24 @@ export default function ProblemScreen() {
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(mode === 'submit' && EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
+        },
         body: JSON.stringify({
           game_id: gameId,
           player_identity: ctx.identity?.toHexString() ?? '',
           code: currentCode,
           lang: 'python',
           problem_id: Number(viewedProblem.id),
-          mode: 'run',
+          mode,
           solve_time: solveTimeSec,
         }),
       });
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.`);
+        const verb = mode === 'run' ? 'running' : 'submitting';
+        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before ${verb} again.`);
         return;
       }
       const data: ExecuteResponse = await res.json();
@@ -209,45 +214,13 @@ export default function ProblemScreen() {
     }
   }
 
+  async function runTests() { await callExecutor('run'); }
+
   async function submit() {
     if (!viewedProblem || !game || submitting || isSolved) return;
-    setError(null);
-    setTestResults(null);
-    setRunSummary(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${EXECUTOR_URL}/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(EXECUTOR_SECRET ? { 'X-Executor-Secret': EXECUTOR_SECRET } : {}),
-        },
-        body: JSON.stringify({
-          game_id: gameId,
-          player_identity: ctx.identity?.toHexString() ?? '',
-          code: currentCode,
-          lang: 'python',
-          problem_id: Number(viewedProblem.id),
-          mode: 'submit',
-          solve_time: solveTimeSec,
-        }),
-      });
-      if (res.status === 429) {
-        const retryAfter = res.headers.get('Retry-After');
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before submitting again.`);
-        return;
-      }
-      const data: ExecuteResponse = await res.json();
-      if (data.compile_error) {
-        setError(data.compile_error);
-      } else if (data.runtime_error) {
-        setError(data.runtime_error);
-      } else {
-        setTestResults(data.results);
-        setRunSummary(`${data.passed} / ${data.total} tests passed`);
-      }
-    } catch (e) {
-      setError(String(e));
+      await callExecutor('submit');
     } finally {
       setSubmitting(false);
     }

@@ -44,7 +44,8 @@ echo "Seeding problems..."
 bun /workspace/seed-problems.mjs "${SERVER}" "${DB_NAME}" "${TOKEN}"
 
 # Write the token to the shared config volume so the executor can use it
-# as a stable identity across restarts.
+# as a stable identity across restarts. chmod 600 for defense-in-depth.
 echo -n "${TOKEN}" > "${CONFIG_DIR}/executor_token"
+chmod 600 "${CONFIG_DIR}/executor_token"
 
 echo "Init complete!"
