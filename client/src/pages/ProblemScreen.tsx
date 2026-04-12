@@ -337,7 +337,7 @@ export default function ProblemScreen() {
 
   // Active sabotage effects shown as a persistent notice (not pushed to history — they're ongoing state)
   const activeEffectNotice = activeEffectLabels.length > 0
-    ? [{ kind: 'notice' as const, id: -1, text: `Sabotage active: ${activeEffectLabels.join(', ')}`, color: 'text-orange' }]
+    ? [{ kind: 'notice' as const, id: -1, timestamp: Date.now(), text: `Sabotage active: ${activeEffectLabels.join(', ')}`, color: 'text-orange' }]
     : [];
 
   return (

@@ -40,6 +40,11 @@ fresh:
   @echo "✓ Fresh build complete — stack is running"
   @echo "   Open http://localhost in your browser to test the PR"
 
+# Production deployment: start backend services only (no client)
+prod:
+  docker compose up -d spacetimedb auth executor
+  @echo "✓ Backend services started (spacetimedb, auth, executor)"
+
 # Full workflow: init, generate bindings, build
 setup: init generate-bindings build-client
   @echo "✓ Setup complete"
