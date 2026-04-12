@@ -43,7 +43,6 @@ const problems = [
     compare_func_python: 'def compare(expected, actual): return sorted(expected) == sorted(actual)',
     compare_func_java: '',
     compare_func_cpp: '',
-    is_approved: true,
     problem_kind: 'algorithm',
   },
   {
@@ -75,7 +74,6 @@ const problems = [
     compare_func_python: 'def compare(expected, actual): return expected == actual',
     compare_func_java: '',
     compare_func_cpp: '',
-    is_approved: true,
     problem_kind: 'algorithm',
   },
   {
@@ -106,13 +104,12 @@ const problems = [
     compare_func_python: 'def compare(expected, actual): return expected == actual',
     compare_func_java: '',
     compare_func_cpp: '',
-    is_approved: true,
     problem_kind: 'algorithm',
   },
 ];
 
 console.log(`Seeding ${problems.length} problems to ${SERVER}/${DB_NAME}...`);
 for (const p of problems) {
-  await callReducer('insert_problem', p);
+  await callReducer('seed_problem', p);
 }
 console.log('Done!');

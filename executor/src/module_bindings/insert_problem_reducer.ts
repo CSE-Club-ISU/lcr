@@ -25,6 +25,5 @@ export default {
   compareFuncPython: __t.string(),
   compareFuncJava: __t.string(),
   compareFuncCpp: __t.string(),
-  isApproved: __t.bool(),
   problemKind: __t.string(),
 };

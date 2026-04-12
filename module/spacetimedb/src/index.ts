@@ -748,17 +748,6 @@ export const claim_first_admin = spacetimedb.reducer(
 // Problem reducers
 // ---------------------------------------------------------------------------
 
-export const approve_problem = spacetimedb.reducer(
-  { id: t.u64() },
-  (ctx, { id }) => {
-    const caller = ctx.db.user.identity.find(ctx.sender);
-    if (!caller?.is_admin) throw new SenderError('Unauthorized');
-    const prob = ctx.db.problem.id.find(id);
-    if (!prob) throw new SenderError('Problem not found');
-    ctx.db.problem.id.update({ ...prob, is_approved: true });
-  }
-);
-
 export const delete_problem = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
@@ -770,50 +759,60 @@ export const delete_problem = spacetimedb.reducer(
   }
 );
 
-export const insert_problem = spacetimedb.reducer(
-  {
-    title:               t.string(),
-    description:         t.string(),
-    difficulty:          t.string(),
-    method_name:         t.string(),
-    sample_test_cases:   t.string(),
-    sample_test_results: t.string(),
-    hidden_test_cases:   t.string(),
-    hidden_test_results: t.string(),
-    boilerplate_python:  t.string(),
-    boilerplate_java:    t.string(),
-    boilerplate_cpp:     t.string(),
-    compare_func_python: t.string(),
-    compare_func_java:   t.string(),
-    compare_func_cpp:    t.string(),
-    is_approved:         t.bool(),
-    problem_kind:        t.string(),
-  },
-  (ctx, args) => {
-    if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
-      throw new SenderError('Invalid problem_kind: must be "algorithm" or "data_structure"');
-    }
-    const caller = ctx.db.user.identity.find(ctx.sender);
-    const approved = caller?.is_admin ? args.is_approved : false;
-    ctx.db.problem.insert({
-      id:                   0n,
-      title:                args.title,
-      description:          args.description,
-      difficulty:           args.difficulty,
-      method_name:          args.method_name,
-      sample_test_cases:    args.sample_test_cases,
-      sample_test_results:  args.sample_test_results,
-      hidden_test_cases:    args.hidden_test_cases,
-      hidden_test_results:  args.hidden_test_results,
-      boilerplate_python:   args.boilerplate_python,
-      boilerplate_java:     args.boilerplate_java,
-      boilerplate_cpp:      args.boilerplate_cpp,
-      compare_func_python:  args.compare_func_python,
-      compare_func_java:    args.compare_func_java,
-      compare_func_cpp:     args.compare_func_cpp,
-      created_by:           ctx.sender,
-      is_approved:          approved,
-      problem_kind:         args.problem_kind,
-    });
+const PROBLEM_ARGS = {
+  title:               t.string(),
+  description:         t.string(),
+  difficulty:          t.string(),
+  method_name:         t.string(),
+  sample_test_cases:   t.string(),
+  sample_test_results: t.string(),
+  hidden_test_cases:   t.string(),
+  hidden_test_results: t.string(),
+  boilerplate_python:  t.string(),
+  boilerplate_java:    t.string(),
+  boilerplate_cpp:     t.string(),
+  compare_func_python: t.string(),
+  compare_func_java:   t.string(),
+  compare_func_cpp:    t.string(),
+  problem_kind:        t.string(),
+};
+
+function validateAndInsertProblem(ctx: any, args: any) {
+  if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
+    throw new SenderError('Invalid problem_kind: must be "algorithm" or "data_structure"');
   }
-);
+  ctx.db.problem.insert({
+    id:                   0n,
+    title:                args.title,
+    description:          args.description,
+    difficulty:           args.difficulty,
+    method_name:          args.method_name,
+    sample_test_cases:    args.sample_test_cases,
+    sample_test_results:  args.sample_test_results,
+    hidden_test_cases:    args.hidden_test_cases,
+    hidden_test_results:  args.hidden_test_results,
+    boilerplate_python:   args.boilerplate_python,
+    boilerplate_java:     args.boilerplate_java,
+    boilerplate_cpp:      args.boilerplate_cpp,
+    compare_func_python:  args.compare_func_python,
+    compare_func_java:    args.compare_func_java,
+    compare_func_cpp:     args.compare_func_cpp,
+    created_by:           ctx.sender,
+    is_approved:          true,
+    problem_kind:         args.problem_kind,
+  });
+}
+
+// Called from the admin UI — requires admin user row.
+export const insert_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) throw new SenderError('Unauthorized');
+  validateAndInsertProblem(ctx, args);
+});
+
+// Called from seed-problems.mjs at deploy time via the server CLI token.
+// No auth check — access is controlled at the infrastructure level (only
+// init.sh has the token; the token is never exposed to clients).
+export const seed_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
+  validateAndInsertProblem(ctx, args);
+});

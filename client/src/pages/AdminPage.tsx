@@ -21,7 +21,6 @@ interface ProblemJson {
   sample_test_results: unknown[];
   hidden_test_cases: unknown[][];
   hidden_test_results: unknown[];
-  auto_approve?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,13 +58,10 @@ function validateProblemJson(obj: Record<string, unknown>): string {
 function ProblemsTab() {
   const [problems] = useTypedTable<Problem>(tables.problem);
   const [users] = useTypedTable<User>(tables.user);
-  const approveProblem = useReducer(reducers.approveProblem);
   const deleteProblem = useReducer(reducers.deleteProblem);
 
   const sorted = useMemo(() => {
-    const pending = problems.filter(p => !p.isApproved).sort((a, b) => a.title.localeCompare(b.title));
-    const approved = problems.filter(p => p.isApproved).sort((a, b) => a.title.localeCompare(b.title));
-    return [...pending, ...approved];
+    return [...problems].sort((a, b) => a.title.localeCompare(b.title));
   }, [problems]);
 
   function creatorName(p: Problem): string {
@@ -85,18 +81,18 @@ function ProblemsTab() {
   return (
     <div className="flex flex-col gap-0 rounded-[12px] overflow-hidden border border-border">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_110px_80px_90px_100px] gap-4 px-4 py-2.5 bg-surface-alt text-[11px] font-bold text-text-muted uppercase tracking-wide">
+      <div className="grid grid-cols-[1fr_110px_80px_90px_60px] gap-4 px-4 py-2.5 bg-surface-alt text-[11px] font-bold text-text-muted uppercase tracking-wide">
         <span>Title</span>
         <span>Kind</span>
         <span>Difficulty</span>
         <span>Created by</span>
-        <span>Status</span>
+        <span></span>
       </div>
 
       {sorted.map((p, i) => (
         <div
           key={p.id.toString()}
-          className={`grid grid-cols-[1fr_110px_80px_90px_100px] gap-4 px-4 py-3 items-center text-sm ${
+          className={`grid grid-cols-[1fr_110px_80px_90px_60px] gap-4 px-4 py-3 items-center text-sm ${
             i % 2 === 0 ? 'bg-surface' : 'bg-surface/60'
           } border-t border-border`}
         >
@@ -111,17 +107,7 @@ function ProblemsTab() {
             {p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1)}
           </span>
           <span className="text-text-muted text-[12px] truncate">{creatorName(p)}</span>
-          <div className="flex items-center gap-2">
-            {p.isApproved ? (
-              <span className="text-[12px] text-green font-semibold">✓ Live</span>
-            ) : (
-              <button
-                onClick={() => approveProblem({ id: p.id })}
-                className="px-2 py-0.5 rounded-[6px] text-[12px] font-semibold border border-green text-green bg-transparent cursor-pointer hover:bg-green/10"
-              >
-                Approve
-              </button>
-            )}
+          <div className="flex items-center">
             <button
               onClick={() => handleDelete(p)}
               className="px-2 py-0.5 rounded-[6px] text-[12px] border border-border text-text-muted bg-transparent cursor-pointer hover:border-red hover:text-red"
@@ -191,7 +177,6 @@ function CreateTab() {
         compareFuncPython: p.compare_func_python || DEFAULT_COMPARE,
         compareFuncJava: '',
         compareFuncCpp: '',
-        isApproved: p.auto_approve ?? false,
         problemKind: p.kind,
       });
     }
@@ -216,8 +201,7 @@ function CreateTab() {
   "hidden_test_cases": [
     [["push",-2],["push",0],["push",-3],["getMin"],["pop"],["top"],["getMin"]]
   ],
-  "hidden_test_results": [0],
-  "auto_approve": false
+  "hidden_test_results": [0]
 }`;
 
   const LLM_PROMPT = `Generate a coding problem in the following JSON format for a competitive programming app. Output only valid JSON (or a JSON array for multiple problems), no extra text.
@@ -237,8 +221,7 @@ Schema:
   "sample_test_results": array,     // one expected result per test case
                                     // data_structure: return value of the LAST op in each sequence
   "hidden_test_cases": array[],     // same format, used for final grading (not shown to player)
-  "hidden_test_results": array,
-  "auto_approve": boolean           // true = goes live immediately
+  "hidden_test_results": array
 }
 
 Algorithm example:
@@ -344,9 +327,6 @@ Now generate: `;
                 <span className="text-[11px] text-text-muted bg-surface-alt px-2 py-0.5 rounded-full">
                   {p.kind}
                 </span>
-                {p.auto_approve && (
-                  <span className="text-[11px] text-green bg-green/10 px-2 py-0.5 rounded-full">auto-approve</span>
-                )}
               </div>
               <p className="m-0 text-text-muted text-[13px] line-clamp-2">{p.description}</p>
               <div className="text-[12px] text-text-muted">

@@ -6,8 +6,8 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
-import ApproveProblemReducer from "../approve_problem_reducer";
 import BuyAbilityReducer from "../buy_ability_reducer";
+import ClaimFirstAdminReducer from "../claim_first_admin_reducer";
 import CreateRoomReducer from "../create_room_reducer";
 import DeleteProblemReducer from "../delete_problem_reducer";
 import ForfeitReducer from "../forfeit_reducer";
@@ -17,6 +17,7 @@ import JoinRoomReducer from "../join_room_reducer";
 import LeaveQueueReducer from "../leave_queue_reducer";
 import LeaveRoomReducer from "../leave_room_reducer";
 import PromoteToAdminReducer from "../promote_to_admin_reducer";
+import SeedProblemReducer from "../seed_problem_reducer";
 import SendChatReducer from "../send_chat_reducer";
 import SetExecutorIdentityReducer from "../set_executor_identity_reducer";
 import SetProfileReducer from "../set_profile_reducer";
@@ -25,8 +26,8 @@ import StartGameReducer from "../start_game_reducer";
 import SubmitResultReducer from "../submit_result_reducer";
 import UseAbilityReducer from "../use_ability_reducer";
 
-export type ApproveProblemParams = __Infer<typeof ApproveProblemReducer>;
 export type BuyAbilityParams = __Infer<typeof BuyAbilityReducer>;
+export type ClaimFirstAdminParams = __Infer<typeof ClaimFirstAdminReducer>;
 export type CreateRoomParams = __Infer<typeof CreateRoomReducer>;
 export type DeleteProblemParams = __Infer<typeof DeleteProblemReducer>;
 export type ForfeitParams = __Infer<typeof ForfeitReducer>;
@@ -36,6 +37,7 @@ export type JoinRoomParams = __Infer<typeof JoinRoomReducer>;
 export type LeaveQueueParams = __Infer<typeof LeaveQueueReducer>;
 export type LeaveRoomParams = __Infer<typeof LeaveRoomReducer>;
 export type PromoteToAdminParams = __Infer<typeof PromoteToAdminReducer>;
+export type SeedProblemParams = __Infer<typeof SeedProblemReducer>;
 export type SendChatParams = __Infer<typeof SendChatReducer>;
 export type SetExecutorIdentityParams = __Infer<typeof SetExecutorIdentityReducer>;
 export type SetProfileParams = __Infer<typeof SetProfileReducer>;
