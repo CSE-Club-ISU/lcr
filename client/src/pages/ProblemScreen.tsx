@@ -230,7 +230,6 @@ export default function ProblemScreen() {
     await callExecutor('submit');
   }
 
-
   const navBar = (
     <div className="px-3 py-2 flex items-center gap-3 shrink-0">
       <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">

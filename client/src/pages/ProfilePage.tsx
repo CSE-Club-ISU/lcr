@@ -5,6 +5,7 @@ import { tables, reducers } from '../module_bindings';
 import type { User, MatchHistory } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { formatTime } from '../utils/formatTime';
 import Avatar from '../components/ui/Avatar';
 import StatCard from '../components/ui/StatCard';
@@ -13,13 +14,8 @@ import { safeParseJson } from '../utils/parseJson';
 
 // ── Setup form (first-time users) ────────────────────────────────────────
 function SetupForm({ onSaved }: { onSaved: () => void }) {
-  const ctx = useSpacetimeDB();
-  const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
-
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   const githubProfile = safeParseJson<Record<string, string>>(
     localStorage.getItem('lcr_github_profile'), {}, 'github profile'
@@ -289,10 +285,7 @@ export default function ProfilePage() {
   const ctx = useSpacetimeDB();
   const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
-
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   // Auto-populate profile from GitHub data on first login so the user
   // doesn't have to fill in a form they already completed before.
