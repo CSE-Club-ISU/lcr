@@ -36,3 +36,5 @@ The executor mounts `/var/run/docker.sock` to spawn containers. This gives it fu
 ## Rate limiting
 
 The executor enforces a per-game cooldown (`RATE_LIMIT_COOLDOWN_MS`, default 5s) to prevent a single game from monopolizing container slots.
+
+**Planned:** PR #28 (sandbox mode) will add per-identity rate limiting as well, preventing a single user from overwhelming the executor across multiple games.
