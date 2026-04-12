@@ -3,6 +3,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import CodeEditor from '../problem/CodeEditor';
 import { type Language, loadSavedLang, saveLang } from '../../utils/languages';
 import type { SandboxResponse } from '../../utils/executor-types';
+import StatusBox, { useStatusHistory } from '../problem/StatusBox';
 import { useSettings } from '../../hooks/useSettings';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
@@ -36,26 +37,21 @@ export default function SandboxTab() {
   const [code, setCode] = useState<string>(() => SANDBOX_DEFAULTS[loadSavedLang()]);
   const [resetCount, setResetCount] = useState(0);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<SandboxResponse | null>(null);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const status = useStatusHistory();
 
   function switchLang(newLang: Language) {
     saveLang(newLang);
     setLangState(newLang);
     setCode(SANDBOX_DEFAULTS[newLang]);
     setResetCount(c => c + 1);
-    setResult(null);
-    setFetchError(null);
   }
 
   async function runCode() {
     if (running) return;
-    setResult(null);
-    setFetchError(null);
 
     // Catch the most common Java mistake before paying a network round-trip.
     if (lang === 'java' && !/^\s*public\s+class\s+Main\b/.test(code)) {
-      setFetchError('Java: your code must contain a public class named Main (found at the top level).');
+      status.push({ kind: 'error', text: 'Java: your code must contain a public class named Main (found at the top level).' });
       return;
     }
 
@@ -76,23 +72,27 @@ export default function SandboxTab() {
       });
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
-        setFetchError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.`);
+        status.push({ kind: 'error', text: `Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.` });
         return;
       }
       if (res.status === 403) {
-        setFetchError('Sandbox mode requires a GitHub-authenticated account.');
+        status.push({ kind: 'error', text: 'Sandbox mode requires a GitHub-authenticated account.' });
         return;
       }
       const data: SandboxResponse = await res.json();
-      setResult(data);
+      if (data.compile_error) {
+        status.push({ kind: 'error', text: data.compile_error });
+      } else if (data.runtime_error) {
+        status.push({ kind: 'error', text: data.runtime_error });
+      } else {
+        status.push({ kind: 'stdout', text: '', stdout: data.stdout ?? '' });
+      }
     } catch (e) {
-      setFetchError(String(e));
+      status.push({ kind: 'error', text: String(e) });
     } finally {
       setRunning(false);
     }
   }
-
-  const hasOutput = result !== null || fetchError !== null;
 
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
@@ -109,24 +109,7 @@ export default function SandboxTab() {
       </div>
 
       {/* Output */}
-      {hasOutput && (
-        <div className="card px-4 py-3 text-sm shrink-0 max-h-48 overflow-y-auto">
-          {fetchError && (
-            <pre className="text-red text-xs whitespace-pre-wrap">{fetchError}</pre>
-          )}
-          {result && result.compile_error && (
-            <pre className="text-red text-xs whitespace-pre-wrap">{result.compile_error}</pre>
-          )}
-          {result && result.runtime_error && (
-            <pre className="text-red text-xs whitespace-pre-wrap">{result.runtime_error}</pre>
-          )}
-          {result && result.success && (
-            <pre className="text-green text-xs whitespace-pre-wrap">
-              {result.stdout || '(no output)'}
-            </pre>
-          )}
-        </div>
-      )}
+      <StatusBox entries={status.entries} />
 
       {/* Actions */}
       <div className="flex gap-2.5 shrink-0">
@@ -134,8 +117,7 @@ export default function SandboxTab() {
           onClick={() => {
             setCode(SANDBOX_DEFAULTS[lang]);
             setResetCount(c => c + 1);
-            setResult(null);
-            setFetchError(null);
+            status.clear();
           }}
           className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface"
         >

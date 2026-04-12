@@ -5,10 +5,11 @@ import type { Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { difficultyColor } from '../utils/difficulty';
 import { useSettings } from '../hooks/useSettings';
-import type { TestResult, ExecuteResponse } from '../utils/executor-types';
+import type { ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
+import StatusBox, { useStatusHistory } from '../components/problem/StatusBox';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import SandboxTab from '../components/practice/SandboxTab';
 import QuizModeTab from '../components/practice/QuizModeTab';
@@ -172,20 +173,14 @@ export default function PracticeScreen() {
     [problems, problemId],
   );
 
+  const status = useStatusHistory();
+
   function selectProblem(p: Problem) {
     setProblemIdRaw(p.id);
     setCode(getBoilerplate(p, selectedLangState));
     setResetCount(c => c + 1);
-    setTestResults(null);
-    setRunSummary(null);
-    setError(null);
+    status.clear();
   }
-
-  // ── Execution state ──────────────────────────────────────────────────────────
-
-  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
-  const [runSummary, setRunSummary] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // ── Stopwatch ────────────────────────────────────────────────────────────────
 
@@ -229,9 +224,7 @@ export default function PracticeScreen() {
     if (!problem) return;
     setCode(getBoilerplate(problem, selectedLangState));
     setResetCount(c => c + 1);
-    setTestResults(null);
-    setRunSummary(null);
-    setError(null);
+    status.clear();
   }
 
 
@@ -241,9 +234,6 @@ export default function PracticeScreen() {
 
   async function runTests() {
     if (!problem || running) return;
-    setError(null);
-    setTestResults(null);
-    setRunSummary(null);
     setRunning(true);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
@@ -264,20 +254,24 @@ export default function PracticeScreen() {
       });
       if (res.status === 429) {
         const retryAfter = res.headers.get('Retry-After');
-        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.`);
+        status.push({ kind: 'error', text: `Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.` });
         return;
       }
       const data: ExecuteResponse = await res.json();
       if (data.compile_error) {
-        setError(data.compile_error);
+        status.push({ kind: 'error', text: data.compile_error });
       } else if (data.runtime_error) {
-        setError(data.runtime_error);
+        status.push({ kind: 'error', text: data.runtime_error });
       } else {
-        setTestResults(data.results);
-        setRunSummary(`${data.passed} / ${data.total} tests passed`);
+        status.push({
+          kind: 'run',
+          text: `${data.passed} / ${data.total} tests passed`,
+          testResults: data.results,
+          allPassed: data.results.every(r => r.passed),
+        });
       }
     } catch (e) {
-      setError(String(e));
+      status.push({ kind: 'error', text: String(e) });
     } finally {
       setRunning(false);
     }
@@ -365,26 +359,7 @@ export default function PracticeScreen() {
                 />
               )}
 
-              {(testResults || error || runSummary) && (
-                <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
-                  {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
-                  {runSummary && (
-                    <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-yellow'}`}>
-                      {runSummary}
-                    </div>
-                  )}
-                  {testResults && testResults.map((r, i) => (
-                    <div key={i} className="flex items-start gap-2 mb-1 text-xs">
-                      <span className={r.passed ? 'text-green' : 'text-red'}>{r.passed ? '✓' : '✗'}</span>
-                      <span className="text-text-muted">
-                        in: <span className="text-text">{r.input}</span>
-                        {' → '}expected: <span className="text-text">{r.expected}</span>
-                        {' → '}got: <span className={r.passed ? 'text-text' : 'text-red'}>{r.actual || r.error}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <StatusBox entries={status.entries} />
 
               <div className="flex gap-2.5 shrink-0">
                 <button
