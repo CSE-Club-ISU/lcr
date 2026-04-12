@@ -230,11 +230,14 @@ export default function PracticeScreen() {
 
   // ── Execute ──────────────────────────────────────────────────────────────────
 
+  const [running, setRunning] = useState(false);
+
   async function runTests() {
-    if (!problem) return;
+    if (!problem || running) return;
     setError(null);
     setTestResults(null);
     setRunSummary(null);
+    setRunning(true);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
@@ -268,6 +271,8 @@ export default function PracticeScreen() {
       }
     } catch (e) {
       setError(String(e));
+    } finally {
+      setRunning(false);
     }
   }
 
@@ -363,10 +368,10 @@ export default function PracticeScreen() {
             </button>
             <button
               onClick={runTests}
-              disabled={!problem}
+              disabled={!problem || running}
               className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
             >
-              &#9655; Run Tests
+              {running ? 'Running…' : '▷ Run Tests'}
             </button>
           </div>
         </div>
