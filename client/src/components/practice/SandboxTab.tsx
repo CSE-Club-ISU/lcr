@@ -76,10 +76,7 @@ export default function SandboxTab() {
         status.push({ kind: 'error', text: `Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.` });
         return;
       }
-      if (res.status === 403) {
-        status.push({ kind: 'error', text: 'Sandbox mode requires a GitHub-authenticated account.' });
-        return;
-      }
+
       const data: SandboxResponse = await res.json();
       if (data.compile_error) {
         status.push({ kind: 'error', text: data.compile_error });

@@ -1,5 +1,5 @@
 import { executeCode, runSandbox } from './runner.js';
-import { initStdb, getConnection, getProblem, getUser } from './stdb.js';
+import { initStdb, getConnection, getProblem } from './stdb.js';
 import type { ExecuteRequest, SandboxRequest } from './types.js';
 
 function parseIntEnv(name: string, defaultVal: number): number {
@@ -133,22 +133,6 @@ const server = Bun.serve({
         if ('error' in v) return json({ error: v.error }, { status: 400 });
 
         const identity = v.req.player_identity;
-
-        // Server-side guard: reject guests (github_id is empty for guest accounts).
-        // Eventual-consistency note: getUser() reads from the executor's in-memory
-        // SpacetimeDB subscription. A real GitHub user who joins and immediately hits
-        // this endpoint could transiently get a 403 if their User row hasn't been
-        // applied yet (e.g. right after reconnect). This is acceptable — the client
-        // can retry — because the window is milliseconds and sandbox is not latency-
-        // sensitive. player_identity is also client-provided with no cryptographic
-        // proof of possession; see SECURITY.md for the known trust-model gap.
-        const user = getUser(identity);
-        if (!user || !user.githubId) {
-          return json(
-            { error: 'Sandbox mode requires a GitHub-authenticated account' },
-            { status: 403 },
-          );
-        }
 
         // Per-identity rate limit
         const eligible = sandboxRateLimitMap.get(identity) ?? 0;

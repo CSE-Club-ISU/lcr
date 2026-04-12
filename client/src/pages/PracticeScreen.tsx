@@ -174,6 +174,11 @@ export default function PracticeScreen() {
     [problems, problemId],
   );
 
+  // Seed code when problem first resolves (auto-select sets problemId but not code)
+  useEffect(() => {
+    if (problem && !code) setCode(getBoilerplate(problem, selectedLangState));
+  }, [problem?.id]);
+
   const status = useStatusHistory();
 
   function selectProblem(p: Problem) {
