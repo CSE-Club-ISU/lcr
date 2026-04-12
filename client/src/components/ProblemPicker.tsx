@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import type { Problem } from "../module_bindings/types";
+import { difficultyColor } from "../utils/difficulty";
 
 interface ProblemPickerProps {
   /** All approved problems to choose from */
@@ -7,10 +8,6 @@ interface ProblemPickerProps {
   /** Currently selected problem IDs (in order) */
   selectedIds: string[];
   onChange: (ids: string[]) => void;
-}
-
-function difficultyColor(d: string) {
-  return d === "easy" ? "text-green" : d === "hard" ? "text-red" : "text-yellow";
 }
 
 function difficultyLabel(d: string) {
@@ -102,7 +99,7 @@ function AddProblemDropdown({
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] border-none cursor-pointer transition-colors bg-transparent text-text hover:bg-surface-alt"
                 >
                   <span
-                    className={`text-[10px] font-bold w-5 shrink-0 ${difficultyColor(p.difficulty)}`}
+                    className={`text-[10px] font-bold w-5 shrink-0 text-${difficultyColor(p.difficulty)}`}
                   >
                     {difficultyLabel(p.difficulty)}
                   </span>
@@ -175,7 +172,7 @@ export default function ProblemPicker({
                 {p ? (
                   <>
                     <span
-                      className={`text-[10px] font-bold w-4 shrink-0 ${difficultyColor(p.difficulty)}`}
+                      className={`text-[10px] font-bold w-4 shrink-0 text-${difficultyColor(p.difficulty)}`}
                     >
                       {difficultyLabel(p.difficulty)}
                     </span>

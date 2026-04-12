@@ -5,6 +5,7 @@ import { tables, reducers } from '../module_bindings';
 import type { Room, User, Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
+import { difficultyColor } from '../utils/difficulty';
 import PlayerSlot from '../components/room/PlayerSlot';
 import CustomGameSettingsForm from '../components/CustomGameSettingsForm';
 import {
@@ -181,10 +182,6 @@ export default function RoomPage() {
 // Settings summary — shown in lobby when not editing
 // ---------------------------------------------------------------------------
 
-function difficultyColor(d: string) {
-  return d === 'easy' ? 'text-green' : d === 'hard' ? 'text-red' : 'text-yellow';
-}
-
 function difficultyLabel(d: string) {
   return d[0].toUpperCase() + d.slice(1);
 }
@@ -234,7 +231,7 @@ function SettingsSummary({ settings, problemMap, canEdit, onEdit }: SettingsSumm
                   </span>
                   {p ? (
                     <>
-                      <span className={`text-[10px] font-bold w-4 shrink-0 ${difficultyColor(p.difficulty)}`}>
+                      <span className={`text-[10px] font-bold w-4 shrink-0 text-${difficultyColor(p.difficulty)}`}>
                         {p.difficulty[0].toUpperCase()}
                       </span>
                       <span className="text-text">{p.title}</span>
