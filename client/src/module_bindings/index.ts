@@ -37,12 +37,14 @@ import {
 import ApproveProblemReducer from "./approve_problem_reducer";
 import BuyAbilityReducer from "./buy_ability_reducer";
 import CreateRoomReducer from "./create_room_reducer";
+import DeleteProblemReducer from "./delete_problem_reducer";
 import ForfeitReducer from "./forfeit_reducer";
 import InsertProblemReducer from "./insert_problem_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
 import JoinRoomReducer from "./join_room_reducer";
 import LeaveQueueReducer from "./leave_queue_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
+import PromoteToAdminReducer from "./promote_to_admin_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
 import SetProfileReducer from "./set_profile_reducer";
@@ -174,12 +176,14 @@ const reducersSchema = __reducers(
   __reducerSchema("approve_problem", ApproveProblemReducer),
   __reducerSchema("buy_ability", BuyAbilityReducer),
   __reducerSchema("create_room", CreateRoomReducer),
+  __reducerSchema("delete_problem", DeleteProblemReducer),
   __reducerSchema("forfeit", ForfeitReducer),
   __reducerSchema("insert_problem", InsertProblemReducer),
   __reducerSchema("join_queue", JoinQueueReducer),
   __reducerSchema("join_room", JoinRoomReducer),
   __reducerSchema("leave_queue", LeaveQueueReducer),
   __reducerSchema("leave_room", LeaveRoomReducer),
+  __reducerSchema("promote_to_admin", PromoteToAdminReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
   __reducerSchema("set_profile", SetProfileReducer),

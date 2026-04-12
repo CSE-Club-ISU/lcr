@@ -26,4 +26,5 @@ export default {
   compareFuncJava: __t.string(),
   compareFuncCpp: __t.string(),
   isApproved: __t.bool(),
+  problemKind: __t.string(),
 };

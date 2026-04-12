@@ -23,6 +23,7 @@ export default function AppLayout() {
       <Sidebar
         username={myUser?.username ?? ''}
         avatarUrl={myUser?.avatarUrl}
+        isAdmin={myUser?.isAdmin ?? false}
         onSettingsClick={() => setSettingsOpen(true)}
       />
       <div className="flex-1 ml-[220px] py-7 px-7 overflow-y-auto">
