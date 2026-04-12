@@ -58,12 +58,25 @@ export async function initStdb(): Promise<void> {
   });
 }
 
+/**
+ * Minimal interface describing the client-side problem table handle from
+ * connection.db. The SDK's full type is a complex generic; this declares only
+ * the parts we use so we can avoid `as any` while staying accurate.
+ */
+interface ProblemTableHandle extends Iterable<Problem> {
+  onInsert(cb: (ctx: unknown, row: Problem) => void): void;
+  onUpdate(cb: (ctx: unknown, old: Problem, row: Problem) => void): void;
+  onDelete(cb: (ctx: unknown, row: Problem) => void): void;
+}
+
+/** Typed view of connection.db exposing the problem table handle. */
+type ConnDb = { problem: ProblemTableHandle };
+
 function rebuildProblemMap() {
   if (!connection) return;
   problemMap.clear();
-  for (const problem of (connection.db as any).problem) {
-    const p = problem as Problem;
-    problemMap.set(p.id, p);
+  for (const problem of (connection.db as unknown as ConnDb).problem) {
+    problemMap.set(problem.id, problem);
   }
 }
 
@@ -71,10 +84,10 @@ function rebuildProblemMap() {
 // without restarting the executor.
 function wireLiveUpdates() {
   if (!connection) return;
-  const table = (connection.db as any).problem;
-  table.onInsert?.((_ctx: unknown, row: Problem) => { problemMap.set(row.id, row); });
-  table.onUpdate?.((_ctx: unknown, _old: Problem, row: Problem) => { problemMap.set(row.id, row); });
-  table.onDelete?.((_ctx: unknown, row: Problem) => { problemMap.delete(row.id); });
+  const table = (connection.db as unknown as ConnDb).problem;
+  table.onInsert((_ctx, row) => { problemMap.set(row.id, row); });
+  table.onUpdate((_ctx, _old, row) => { problemMap.set(row.id, row); });
+  table.onDelete((_ctx, row) => { problemMap.delete(row.id); });
 }
 
 export function getProblem(id: bigint): Problem | undefined {

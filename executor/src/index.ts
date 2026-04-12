@@ -136,13 +136,13 @@ const server = Bun.serve({
         const testResults = execReq.mode === 'run' ? sampleResults : hiddenResults;
 
         const problemData = {
-          kind: ((problem as any).problemKind || 'algorithm') as 'algorithm' | 'data_structure',
+          kind: (problem.problemKind || 'algorithm') as 'algorithm' | 'data_structure',
           method_name: problem.methodName,
           test_cases: testCases,
           test_results: testResults,
-          param_types:       (problem as any).paramTypes       ?? '',
-          return_type:       (problem as any).returnType       ?? '',
-          method_signatures: (problem as any).methodSignatures ?? '',
+          param_types:       problem.paramTypes       ?? '',
+          return_type:       problem.returnType       ?? '',
+          method_signatures: problem.methodSignatures ?? '',
         };
 
         const result = await executeCode(execReq, problemData);
