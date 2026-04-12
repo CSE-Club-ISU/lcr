@@ -80,6 +80,91 @@ const game_state = table(
     status:                 t.string(),   // "in_progress" | "finished"
     start_time:             t.timestamp(),
     winner_identity:        t.identity().optional(),
+    // Powerup state
+    // Currency model: available = floor((now - start_time) / POWERUP_TICK_SEC) + quiz_bonus - spent
+    player1_spent:          t.u32(),   // currency already spent on powerups
+    player2_spent:          t.u32(),
+    player1_quiz_bonus:     t.u32(),   // currency earned from quizzes (added to passive accrual)
+    player2_quiz_bonus:     t.u32(),
+    player1_last_quiz_at:   t.timestamp(),   // rate limit cooldown
+    player2_last_quiz_at:   t.timestamp(),
+    player1_shield:         t.i32(),   // pending damage reduction (flat)
+    player2_shield:         t.i32(),
+    player1_dmg_bonus:      t.i32(),   // pending flat bonus damage on next solve
+    player2_dmg_bonus:      t.i32(),
+    player1_dmg_mult_pct:   t.i32(),   // pending pct multiplier on next solve (100 = +100%)
+    player2_dmg_mult_pct:   t.i32(),
+  }
+);
+
+// Powerup catalog (seeded once)
+const powerup = table(
+  { name: 'powerup', public: true },
+  {
+    id:           t.u64().primaryKey().autoInc(),
+    name:         t.string(),
+    description:  t.string(),
+    kind:         t.string(),   // "damage" | "defense" | "sabotage"
+    target:       t.string(),   // "self" | "opponent"
+    cost:         t.u32(),
+    effect_data:  t.string(),   // JSON effect config, e.g. { amount: 20 } or { type: "delete_line" }
+  }
+);
+
+// Quiz questions (seeded)
+const quiz_question = table(
+  { name: 'quiz_question', public: true },
+  {
+    id:             t.u64().primaryKey().autoInc(),
+    question_type:  t.string(),   // "mcq" | "tf" | "code_fill"
+    prompt:         t.string(),
+    options:        t.string(),   // JSON array for MCQ, "[]" otherwise
+    answer:         t.string(),   // canonical correct answer
+  }
+);
+
+// Per-game loadout: which powerups the player may buy mid-match
+const powerup_loadout = table(
+  {
+    name: 'powerup_loadout',
+    public: true,
+    indexes: [
+      { accessor: 'loadout_game_id', algorithm: 'btree', columns: ['game_id'] },
+    ],
+  },
+  {
+    id:              t.u64().primaryKey().autoInc(),
+    game_id:         t.string(),
+    player_identity: t.identity(),
+    powerup_ids:     t.string(),   // JSON array of powerup id strings
+  }
+);
+
+// Ephemeral sabotage effects — client picks up and applies, then calls clear_sabotage_event
+const sabotage_event = table(
+  {
+    name: 'sabotage_event',
+    public: true,
+    indexes: [
+      { accessor: 'sabotage_target', algorithm: 'btree', columns: ['target_identity'] },
+    ],
+  },
+  {
+    id:               t.u64().primaryKey().autoInc(),
+    game_id:          t.string(),
+    target_identity:  t.identity(),
+    effect_type:      t.string(),   // "delete_line" | "font_size_up" | "font_blur" | "cursor_freeze"
+    effect_data:      t.string(),   // JSON, e.g. { duration_ms: 3000 }
+    created_at:       t.timestamp(),
+  }
+);
+
+// Pre-match loadout selection (persists across matches for UX convenience)
+const player_loadout_pref = table(
+  { name: 'player_loadout_pref', public: true },
+  {
+    identity:    t.identity().primaryKey(),
+    powerup_ids: t.string(),   // JSON array
   }
 );
 
@@ -118,7 +203,7 @@ const match_history = table(
     room_code:           t.string(),
     player1_identity:    t.identity(),
     player2_identity:    t.identity(),
-    winner_identity:     t.identity(),
+    winner_identity:     t.identity().optional(),
     problem_ids:         t.string(),   // JSON array of problem id strings
     problem_titles:      t.string(),   // JSON array of titles (denormalized)
     difficulties:        t.string(),   // JSON array of difficulty strings
@@ -193,7 +278,7 @@ const queue = table(
 // Schema
 // ---------------------------------------------------------------------------
 
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code });
+const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code, powerup, quiz_question, powerup_loadout, sabotage_event, player_loadout_pref });
 export default spacetimedb;
 
 // ---------------------------------------------------------------------------
@@ -246,8 +331,22 @@ type DbCtx = Parameters<Parameters<typeof spacetimedb.reducer>[1]>[0];
 type ProblemRow = NonNullable<ReturnType<DbCtx['db']['problem']['id']['find']>>;
 type IdentityLike = ProblemRow['created_by'];
 type DraftCodeRow = NonNullable<ReturnType<DbCtx['db']['draft_code']['id']['find']>>;
+type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
 
 const DIFFICULTY_ORDER: Record<string, number> = { easy: 0, medium: 1, hard: 2 };
+
+// Powerup currency: +1 every 3 seconds of active game
+const POWERUP_TICK_SEC = 3;
+
+/** Compute currency available to a player based on elapsed time, quiz bonus, and amount spent. */
+function availableCurrency(game: GameStateRow, isP1: boolean, nowMicros: bigint): number {
+  const elapsedMicros = nowMicros - game.start_time.microsSinceUnixEpoch;
+  const elapsedSec = Number(elapsedMicros / 1_000_000n);
+  const passive = Math.max(0, Math.floor(elapsedSec / POWERUP_TICK_SEC));
+  const bonus = isP1 ? game.player1_quiz_bonus : game.player2_quiz_bonus;
+  const spent = isP1 ? game.player1_spent : game.player2_spent;
+  return passive + bonus - spent;
+}
 
 /** Select `count` distinct problems from `pool` using a numeric seed, then sort easy→hard. */
 function selectProblems(pool: ProblemRow[], seed: number, count: number): ProblemRow[] {
@@ -310,7 +409,31 @@ function startGameState(
     status:                'in_progress',
     start_time:            ctx.timestamp,
     winner_identity:       undefined,
+    player1_spent:          0,
+    player2_spent:          0,
+    player1_quiz_bonus:     0,
+    player2_quiz_bonus:     0,
+    player1_last_quiz_at:   ctx.timestamp,
+    player2_last_quiz_at:   ctx.timestamp,
+    player1_shield:         0,
+    player2_shield:         0,
+    player1_dmg_bonus:      0,
+    player2_dmg_bonus:      0,
+    player1_dmg_mult_pct:   0,
+    player2_dmg_mult_pct:   0,
   });
+
+  // Copy per-player loadout from player_loadout_pref into powerup_loadout for this game.
+  for (const [identity, _isP1] of [[p1Identity, true], [p2Identity, false]] as const) {
+    const pref = ctx.db.player_loadout_pref.identity.find(identity as IdentityLike);
+    const powerupIds = pref ? pref.powerup_ids : '[]';
+    ctx.db.powerup_loadout.insert({
+      id:              0n,
+      game_id:         roomCode,
+      player_identity: identity as IdentityLike,
+      powerup_ids:     powerupIds,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -482,15 +605,19 @@ export const send_chat = spacetimedb.reducer(
 // endGame helper — called by submit_result and forfeit
 // ---------------------------------------------------------------------------
 
-type GameStateRow = NonNullable<ReturnType<DbCtx['db']['game_state']['id']['find']>>;
-
-function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
-  const loserIdentity = winnerIdentity.toHexString() === game.player1_identity.toHexString()
-    ? game.player2_identity
-    : game.player1_identity;
+function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike | undefined) {
+  const loserIdentity = winnerIdentity === undefined
+    ? undefined
+    : (winnerIdentity.toHexString() === game.player1_identity.toHexString()
+        ? game.player2_identity
+        : game.player1_identity);
 
   // Mark game finished
-  ctx.db.game_state.id.update({ ...game, status: 'finished', winner_identity: winnerIdentity as typeof game.player1_identity });
+  ctx.db.game_state.id.update({
+    ...game,
+    status: 'finished',
+    winner_identity: winnerIdentity as (typeof game.player1_identity) | undefined,
+  });
 
   // Aggregate submission rows for this game
   const subs = [...ctx.db.submission.submission_game_id.filter(game.id)];
@@ -531,7 +658,7 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     room_code:           game.room_code,
     player1_identity:    game.player1_identity,
     player2_identity:    game.player2_identity,
-    winner_identity:     winnerIdentity as typeof game.player1_identity,
+    winner_identity:     winnerIdentity as (typeof game.player1_identity) | undefined,
     problem_ids:         JSON.stringify(problemIdStrings),
     problem_titles:      JSON.stringify(problemTitles),
     difficulties:        JSON.stringify(difficulties),
@@ -544,7 +671,14 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     played_at:           ctx.timestamp,
   });
 
-  // Hidden ELO calculation (K=20)
+  // Hidden ELO calculation (K=20). Draws: both players get +0 ELO and a match counted.
+  if (winnerIdentity === undefined || loserIdentity === undefined) {
+    const p1 = ctx.db.user.identity.find(game.player1_identity);
+    const p2 = ctx.db.user.identity.find(game.player2_identity);
+    if (p1) ctx.db.user.identity.update({ ...p1, total_matches: p1.total_matches + 1, current_streak: 0 });
+    if (p2) ctx.db.user.identity.update({ ...p2, total_matches: p2.total_matches + 1, current_streak: 0 });
+    return;
+  }
   const winner = ctx.db.user.identity.find(winnerIdentity as typeof game.player1_identity);
   const loser  = ctx.db.user.identity.find(loserIdentity);
   if (winner && loser) {
@@ -565,6 +699,39 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     });
   }
 }
+
+// Time-out resolution: callable by either participant once the 20-minute clock
+// has elapsed. Winner is whoever has more solves; ties fall back to HP, and a
+// true tie ends the game as a draw (winner_identity = undefined).
+const MATCH_DURATION_SEC = 20 * 60;
+
+export const expire_game = spacetimedb.reducer(
+  { game_id: t.string() },
+  (ctx, { game_id }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') return;
+
+    const isParticipant =
+      game.player1_identity.toHexString() === ctx.sender.toHexString() ||
+      game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isParticipant) throw new SenderError('Not a participant in this game');
+
+    const elapsedSec = Number((ctx.timestamp.microsSinceUnixEpoch - game.start_time.microsSinceUnixEpoch) / 1_000_000n);
+    if (elapsedSec < MATCH_DURATION_SEC) return; // not yet expired — ignore
+
+    const p1Solved = (JSON.parse(game.player1_solved_ids) as string[]).length;
+    const p2Solved = (JSON.parse(game.player2_solved_ids) as string[]).length;
+
+    let winner: IdentityLike | undefined;
+    if (p1Solved > p2Solved)       winner = game.player1_identity;
+    else if (p2Solved > p1Solved)  winner = game.player2_identity;
+    else if (game.player1_hp > game.player2_hp) winner = game.player1_identity;
+    else if (game.player2_hp > game.player1_hp) winner = game.player2_identity;
+    else                           winner = undefined; // draw
+
+    endGame(ctx, game, winner);
+  }
+);
 
 export const forfeit = spacetimedb.reducer(
   { game_id: t.string() },
@@ -641,15 +808,30 @@ export const submit_result = spacetimedb.reducer(
     const room = ctx.db.room.code.find(game.room_code);
     const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
     const startingHp = Number(settings.starting_hp ?? 100);
-    const damage = Math.ceil(startingHp / problemCount);
+    const baseDamage = Math.ceil(startingHp / problemCount);
+
+    // Apply attacker's pending damage buffs and defender's pending shield,
+    // then consume them.
+    const attackerMultPct = isP1 ? game.player1_dmg_mult_pct : game.player2_dmg_mult_pct;
+    const attackerFlat    = isP1 ? game.player1_dmg_bonus    : game.player2_dmg_bonus;
+    const defenderShield  = isP1 ? game.player2_shield       : game.player1_shield;
+
+    const boostedDamage = Math.floor(baseDamage * (100 + attackerMultPct) / 100) + attackerFlat;
+    const damage = Math.max(0, boostedDamage - defenderShield);
 
     let updated = { ...game };
     if (isP1) {
       updated.player1_solved_ids = JSON.stringify(newSolvedIds);
       updated.player2_hp = Math.max(0, game.player2_hp - damage);
+      updated.player1_dmg_mult_pct = 0;
+      updated.player1_dmg_bonus    = 0;
+      updated.player2_shield       = 0;
     } else {
       updated.player2_solved_ids = JSON.stringify(newSolvedIds);
       updated.player1_hp = Math.max(0, game.player1_hp - damage);
+      updated.player2_dmg_mult_pct = 0;
+      updated.player2_dmg_bonus    = 0;
+      updated.player1_shield       = 0;
     }
 
     const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
@@ -743,6 +925,240 @@ export const save_draft = spacetimedb.reducer(
         updated_at:      ctx.timestamp,
       });
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Powerup catalog + quiz seeding (admin / bootstrap)
+// ---------------------------------------------------------------------------
+
+// Seed the powerup catalog. Safe to re-run: clears and re-inserts.
+// Auth: admin OR no admin exists yet (bootstrap window).
+export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) {
+    const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+    if (adminExists) throw new SenderError('Unauthorized');
+  }
+  // Clear existing
+  for (const p of [...ctx.db.powerup.iter()]) ctx.db.powerup.id.delete(p.id);
+
+  const entries: Array<{ name: string; description: string; kind: string; target: string; cost: number; effect_data: string }> = [
+    { name: 'Firestrike',   description: '+50% damage on your next solve',                    kind: 'damage',   target: 'self',     cost: 20, effect_data: '{"mult_pct":50}' },
+    { name: 'Overload',     description: '+100% damage on your next solve',                    kind: 'damage',   target: 'self',     cost: 35, effect_data: '{"mult_pct":100}' },
+    { name: 'Firewall',     description: 'Block 20 incoming damage',                           kind: 'defense',  target: 'self',     cost: 20, effect_data: '{"shield":20}' },
+    { name: 'Shield Wall',  description: 'Block 40 incoming damage',                           kind: 'defense',  target: 'self',     cost: 35, effect_data: '{"shield":40}' },
+    { name: 'Line Shredder', description: 'Delete a random line in opponent\'s editor',         kind: 'sabotage', target: 'opponent', cost: 15, effect_data: '{"type":"delete_line"}' },
+    { name: 'Font Chaos',   description: 'Opponent\'s editor font size jumps for 5s',           kind: 'sabotage', target: 'opponent', cost: 10, effect_data: '{"type":"font_size_up","duration_ms":5000}' },
+    { name: 'Fog',          description: 'Blur opponent\'s editor for 3s',                      kind: 'sabotage', target: 'opponent', cost: 15, effect_data: '{"type":"font_blur","duration_ms":3000}' },
+    { name: 'Brain Freeze', description: 'Opponent\'s editor becomes read-only for 2s',         kind: 'sabotage', target: 'opponent', cost: 25, effect_data: '{"type":"cursor_freeze","duration_ms":2000}' },
+  ];
+  for (const e of entries) {
+    ctx.db.powerup.insert({ id: 0n, name: e.name, description: e.description, kind: e.kind, target: e.target, cost: e.cost, effect_data: e.effect_data });
+  }
+});
+
+// Seed ~20 quiz questions. Same auth as seed_powerups.
+export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) {
+    const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+    if (adminExists) throw new SenderError('Unauthorized');
+  }
+  for (const q of [...ctx.db.quiz_question.iter()]) ctx.db.quiz_question.id.delete(q.id);
+
+  type Q = { question_type: string; prompt: string; options: string; answer: string };
+  const questions: Q[] = [
+    // MCQ
+    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack' },
+    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)' },
+    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort' },
+    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)' },
+    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order' },
+    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)' },
+    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue' },
+    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack' },
+
+    // True/False
+    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'A min-heap\'s root is the smallest element.',             options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'Dijkstra\'s algorithm works with negative edge weights.', options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true' },
+
+    // Code fill-in — answer is the single token/value the user must type
+    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append' },
+    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final' },
+    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque' },
+    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len' },
+    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n' },
+    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue' },
+  ];
+  for (const q of questions) {
+    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Quiz mini-game
+// ---------------------------------------------------------------------------
+
+const QUIZ_COOLDOWN_SEC = 30;
+const QUIZ_REWARD = 10;
+const MAX_QUIZ_ANSWER_BYTES = 200;
+
+export const answer_quiz = spacetimedb.reducer(
+  { game_id: t.string(), question_id: t.u64(), answer: t.string() },
+  (ctx, { game_id, question_id, answer }) => {
+    if (answer.length > MAX_QUIZ_ANSWER_BYTES) throw new SenderError('Answer too large');
+
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not in progress');
+
+    const isP1 = game.player1_identity.toHexString() === ctx.sender.toHexString();
+    const isP2 = game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isP1 && !isP2) throw new SenderError('Not a participant in this game');
+
+    const lastAt = isP1 ? game.player1_last_quiz_at : game.player2_last_quiz_at;
+    const elapsedSec = Number((ctx.timestamp.microsSinceUnixEpoch - lastAt.microsSinceUnixEpoch) / 1_000_000n);
+    if (elapsedSec < QUIZ_COOLDOWN_SEC) throw new SenderError(`Quiz cooling down (${QUIZ_COOLDOWN_SEC - elapsedSec}s)`);
+
+    const q = ctx.db.quiz_question.id.find(question_id);
+    if (!q) throw new SenderError('Question not found');
+
+    const correct = q.answer.trim().toLowerCase() === answer.trim().toLowerCase();
+    const updated = { ...game };
+    if (isP1) {
+      updated.player1_last_quiz_at = ctx.timestamp;
+      if (correct) updated.player1_quiz_bonus = game.player1_quiz_bonus + QUIZ_REWARD;
+    } else {
+      updated.player2_last_quiz_at = ctx.timestamp;
+      if (correct) updated.player2_quiz_bonus = game.player2_quiz_bonus + QUIZ_REWARD;
+    }
+    ctx.db.game_state.id.update(updated);
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Powerup loadout preferences
+// ---------------------------------------------------------------------------
+
+export const set_loadout_pref = spacetimedb.reducer(
+  { powerup_ids: t.string() },
+  (ctx, { powerup_ids }) => {
+    // Validate JSON array of id strings
+    let ids: string[];
+    try {
+      ids = JSON.parse(powerup_ids);
+    } catch {
+      throw new SenderError('powerup_ids must be a JSON array');
+    }
+    if (!Array.isArray(ids)) throw new SenderError('powerup_ids must be a JSON array');
+    if (ids.length > 8) throw new SenderError('Loadout too large (max 8)');
+    for (const idStr of ids) {
+      const p = ctx.db.powerup.id.find(BigInt(idStr));
+      if (!p) throw new SenderError(`Unknown powerup id ${idStr}`);
+    }
+
+    const existing = ctx.db.player_loadout_pref.identity.find(ctx.sender);
+    if (existing) {
+      ctx.db.player_loadout_pref.identity.update({ ...existing, powerup_ids });
+    } else {
+      ctx.db.player_loadout_pref.insert({ identity: ctx.sender, powerup_ids });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Powerup usage
+// ---------------------------------------------------------------------------
+
+type PowerupRow = NonNullable<ReturnType<DbCtx['db']['powerup']['id']['find']>>;
+
+function getLoadoutIds(ctx: DbCtx, gameId: string, identity: IdentityLike): string[] {
+  const loadouts = [...ctx.db.powerup_loadout.loadout_game_id.filter(gameId)]
+    .filter(l => l.player_identity.toHexString() === identity.toHexString());
+  if (loadouts.length === 0) return [];
+  try { return JSON.parse(loadouts[0].powerup_ids); }
+  catch { return []; }
+}
+
+export const use_powerup = spacetimedb.reducer(
+  { game_id: t.string(), powerup_id: t.u64() },
+  (ctx, { game_id, powerup_id }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not active');
+
+    const senderHex = ctx.sender.toHexString();
+    const isP1 = game.player1_identity.toHexString() === senderHex;
+    const isP2 = game.player2_identity.toHexString() === senderHex;
+    if (!isP1 && !isP2) throw new SenderError('Not a participant');
+
+    const powerup = ctx.db.powerup.id.find(powerup_id);
+    if (!powerup) throw new SenderError('Unknown powerup');
+
+    // Loadout gate — must be in the player's selected loadout
+    const loadoutIds = getLoadoutIds(ctx, game_id, isP1 ? game.player1_identity : game.player2_identity);
+    if (!loadoutIds.includes(powerup_id.toString())) throw new SenderError('Powerup not in your loadout');
+
+    // Currency check
+    const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
+    const available = availableCurrency(game, isP1, nowMicros);
+    if (available < powerup.cost) throw new SenderError('Not enough energy');
+
+    // Parse effect
+    let effect: Record<string, unknown> = {};
+    try { effect = JSON.parse(powerup.effect_data); } catch { /* ignore */ }
+
+    const updated = { ...game };
+    if (isP1) updated.player1_spent = game.player1_spent + powerup.cost;
+    else      updated.player2_spent = game.player2_spent + powerup.cost;
+
+    if (powerup.kind === 'damage') {
+      const multPct = Number(effect.mult_pct ?? 0);
+      const flat    = Number(effect.amount   ?? 0);
+      if (isP1) {
+        updated.player1_dmg_mult_pct = Math.max(updated.player1_dmg_mult_pct, multPct);
+        updated.player1_dmg_bonus    = updated.player1_dmg_bonus + flat;
+      } else {
+        updated.player2_dmg_mult_pct = Math.max(updated.player2_dmg_mult_pct, multPct);
+        updated.player2_dmg_bonus    = updated.player2_dmg_bonus + flat;
+      }
+      ctx.db.game_state.id.update(updated);
+    } else if (powerup.kind === 'defense') {
+      const shield = Number(effect.shield ?? 0);
+      if (isP1) updated.player1_shield = updated.player1_shield + shield;
+      else      updated.player2_shield = updated.player2_shield + shield;
+      ctx.db.game_state.id.update(updated);
+    } else if (powerup.kind === 'sabotage') {
+      ctx.db.game_state.id.update(updated);
+      const opponentIdentity = isP1 ? game.player2_identity : game.player1_identity;
+      const effectType = typeof effect.type === 'string' ? effect.type : 'unknown';
+      ctx.db.sabotage_event.insert({
+        id:               0n,
+        game_id,
+        target_identity:  opponentIdentity,
+        effect_type:      effectType,
+        effect_data:      powerup.effect_data,
+        created_at:       ctx.timestamp,
+      });
+    } else {
+      throw new SenderError(`Unknown powerup kind: ${powerup.kind}`);
+    }
+  }
+);
+
+// Target client calls this after consuming a sabotage effect to free the row.
+export const clear_sabotage_event = spacetimedb.reducer(
+  { event_id: t.u64() },
+  (ctx, { event_id }) => {
+    const row = ctx.db.sabotage_event.id.find(event_id);
+    if (!row) return;
+    if (row.target_identity.toHexString() !== ctx.sender.toHexString()) {
+      throw new SenderError('Not your sabotage event');
+    }
+    ctx.db.sabotage_event.id.delete(event_id);
   }
 );
 
@@ -857,6 +1273,68 @@ export const promote_to_admin = spacetimedb.reducer(
     const user = ctx.db.user.identity.find(target);
     if (!user) throw new SenderError('User not found');
     ctx.db.user.identity.update({ ...user, is_admin: true });
+  }
+);
+
+// Admin cheat: instantly mark the current problem solved for the caller in
+// the given game. Mirrors submit_result's solve path but skips executor auth
+// and powerup buffs.
+export const admin_solve_problem = spacetimedb.reducer(
+  { game_id: t.string(), problem_id: t.u64() },
+  (ctx, { game_id, problem_id }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not in progress');
+
+    const isP1 = game.player1_identity.toHexString() === ctx.sender.toHexString();
+    const isP2 = game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isP1 && !isP2) throw new SenderError('Not a participant in this game');
+
+    const problemIds = JSON.parse(game.problem_ids) as string[];
+    const problemCount = problemIds.length;
+    const problemIdStr = problem_id.toString();
+    if (!problemIds.includes(problemIdStr)) throw new SenderError('problem_id is not part of this game');
+
+    const solvedIds: string[] = JSON.parse(isP1 ? game.player1_solved_ids : game.player2_solved_ids);
+    if (solvedIds.includes(problemIdStr)) return;
+
+    ctx.db.submission.insert({
+      id:              0n,
+      game_id,
+      player_identity: isP1 ? game.player1_identity : game.player2_identity,
+      problem_id,
+      passed:          1,
+      total:           1,
+      solve_time:      0,
+      language:        'admin',
+      submitted_at:    ctx.timestamp,
+    });
+
+    const newSolvedIds = [...solvedIds, problemIdStr];
+    const room = ctx.db.room.code.find(game.room_code);
+    const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
+    const startingHp = Number(settings.starting_hp ?? 100);
+    const damage = Math.ceil(startingHp / problemCount);
+
+    const updated = { ...game };
+    if (isP1) {
+      updated.player1_solved_ids = JSON.stringify(newSolvedIds);
+      updated.player2_hp = Math.max(0, game.player2_hp - damage);
+    } else {
+      updated.player2_solved_ids = JSON.stringify(newSolvedIds);
+      updated.player1_hp = Math.max(0, game.player1_hp - damage);
+    }
+
+    const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
+    const winner_identity = isP1 ? game.player1_identity : game.player2_identity;
+
+    ctx.db.game_state.id.update(updated);
+
+    if (newSolvedIds.length >= problemCount || opponentHp <= 0) {
+      endGame(ctx, updated, winner_identity);
+    }
   }
 );
 

@@ -6,12 +6,15 @@ import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
 import { useSettings } from '../hooks/useSettings';
+import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
-import ProblemPanel from '../components/problem/ProblemPanel';
-import CodeEditor from '../components/problem/CodeEditor';
+import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEditor';
+import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
+import PowerupShop from '../components/powerup/PowerupShop';
+import type { QuizResult } from '../components/powerup/QuizPanel';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -23,6 +26,8 @@ export default function ProblemScreen() {
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
   const saveDraft = useReducer(reducers.saveDraft);
+  const adminSolveProblem = useReducer(reducers.adminSolveProblem);
+  const expireGame = useReducer(reducers.expireGame);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -64,6 +69,7 @@ export default function ProblemScreen() {
 
   // Currently viewed problem index (navigation)
   const [viewIndex, setViewIndex] = useState(0);
+  const [panelTab, setPanelTab] = useState<'problem' | 'powerups'>('problem');
 
   // When a new problem is solved, stay on current view (don't auto-advance)
   const viewedProblemId = problemIds[viewIndex] ?? '';
@@ -127,9 +133,17 @@ export default function ProblemScreen() {
   const oppUser = oppIdentity
     ? users.find(u => identityEq(u.identity, oppIdentity))
     : undefined;
+  const myUser = ctx.identity
+    ? users.find(u => identityEq(u.identity, ctx.identity))
+    : undefined;
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
+  const currency = usePowerupCurrency(game, isP1);
+
+  const editorRef = useRef<CodeEditorHandle>(null);
+  const onDeleteLine = useCallback(() => editorRef.current?.deleteRandomLine(), []);
+  const sabotageEffects = useSabotageHandler(gameId, ctx.identity ?? undefined, onDeleteLine);
   const startingHp = useMemo(() => {
     if (!game) return 100;
     const room = rooms.find(r => r.code === game.roomCode);
@@ -142,28 +156,39 @@ export default function ProblemScreen() {
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
 
   // Clear execution state when switching problems
   useEffect(() => {
     setTestResults(null);
     setRunSummary(null);
     setError(null);
+    setQuizResult(null);
   }, [viewedProblemId]);
 
   // Timer
   const [seconds, setSeconds] = useState<number>(20 * 60);
+  const lastExpireAttemptRef = useRef(0);
   useEffect(() => {
     if (!game) return;
     const startMs = Number(game.startTime.microsSinceUnixEpoch / 1000n);
     const maxSeconds = 20 * 60;
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - startMs) / 1000);
-      setSeconds(Math.max(0, maxSeconds - elapsed));
+      const now = Date.now();
+      const elapsed = Math.floor((now - startMs) / 1000);
+      const remaining = Math.max(0, maxSeconds - elapsed);
+      setSeconds(remaining);
+      // Once the clock hits 0, nudge the server to resolve. Retry every 10s in
+      // case the server's elapsed check rejects us due to clock skew.
+      if (remaining === 0 && game.status === 'in_progress' && now - lastExpireAttemptRef.current > 10_000) {
+        lastExpireAttemptRef.current = now;
+        expireGame({ gameId });
+      }
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [game?.startTime]);
+  }, [game?.startTime, game?.status, gameId, expireGame]);
 
   // Navigate to results when game finishes
   useEffect(() => {
@@ -190,6 +215,7 @@ export default function ProblemScreen() {
     setError(null);
     setTestResults(null);
     setRunSummary(null);
+    setQuizResult(null);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
@@ -254,46 +280,66 @@ export default function ProblemScreen() {
     return 'bg-red';
   }
 
+  const navBar = (
+    <div className="px-3 py-2 flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">
+        {problemIds.map((pid, idx) => {
+          const prob = problems.find(p => p.id === BigInt(pid));
+          const solved = mySolvedIds.has(pid);
+          const oppSolved = oppSolvedIds.has(pid);
+          const active = idx === viewIndex;
+          return (
+            <button
+              key={pid}
+              onClick={() => setViewIndex(idx)}
+              className={[
+                'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
+                active
+                  ? 'border-accent bg-accent/10 text-accent'
+                  : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
+              ].join(' ')}
+              title={prob?.title ?? `Problem ${idx + 1}`}
+            >
+              <span>{idx + 1}</span>
+              {solved && <span className="text-green text-xs">&#10003;</span>}
+              {oppSolved && !solved && <span className="text-orange text-xs">&#9679;</span>}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={() => setPanelTab(panelTab === 'problem' ? 'powerups' : 'problem')}
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-text-muted hover:text-accent transition-all cursor-pointer"
+      >
+        {panelTab === 'problem' ? 'powerups →' : 'problem →'}
+      </button>
+    </div>
+  );
+
+  const titleBar = (
+    <div className="px-4 py-3 shrink-0">
+      {viewedProblem ? (
+        <div className="flex items-center gap-2 min-w-0">
+          <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
+          <span className="font-bold text-[15px] text-text truncate">{viewedProblem.title}</span>
+          {isSolved && <span className="text-green text-xs font-semibold">Solved</span>}
+        </div>
+      ) : (
+        <span className="text-text-muted text-sm">Loading…</span>
+      )}
+    </div>
+  );
+
+  const activeEffectLabels: string[] = [];
+  if (sabotageEffects.frozen)   activeEffectLabels.push('Editor frozen');
+  if (sabotageEffects.blurred)  activeEffectLabels.push('Editor blurred');
+  if (sabotageEffects.fontSize) activeEffectLabels.push('Font size changed');
+
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
       {/* Top bar */}
       <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
-        {/* Problem selector */}
-        <div className="flex items-center gap-2 min-w-0">
-          {problemIds.map((pid, idx) => {
-            const prob = problems.find(p => p.id === BigInt(pid));
-            const solved = mySolvedIds.has(pid);
-            const oppSolved = oppSolvedIds.has(pid);
-            const active = idx === viewIndex;
-            return (
-              <button
-                key={pid}
-                onClick={() => setViewIndex(idx)}
-                className={[
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
-                  active
-                    ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
-                ].join(' ')}
-                title={prob?.title ?? `Problem ${idx + 1}`}
-              >
-                <span>{idx + 1}</span>
-                {solved && <span className="text-green text-xs">&#10003;</span>}
-                {oppSolved && !solved && <span className="text-orange text-xs">&#9679;</span>}
-              </button>
-            );
-          })}
-          {viewedProblem && (
-            <div className="flex items-center gap-2 ml-2 min-w-0">
-              <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
-              <span className="font-bold text-[15px] text-text truncate">{viewedProblem.title}</span>
-              {isSolved && <span className="text-green text-xs font-semibold">Solved</span>}
-            </div>
-          )}
-          {!viewedProblem && <span className="text-text-muted text-sm">Loading…</span>}
-        </div>
-
-        {/* HP bars */}
+        {/* Left: HP bars + Energy */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col gap-1 w-28">
             <div className="flex justify-between text-[10px] text-text-muted">
@@ -319,8 +365,13 @@ export default function ProblemScreen() {
               />
             </div>
           </div>
+          <div className="flex items-center gap-2 shrink-0 px-3 py-1 rounded-lg border border-border bg-surface">
+            <span className="text-[11px] text-text-muted uppercase tracking-wider">Energy</span>
+            <span className="font-extrabold text-accent text-lg leading-none">{currency}</span>
+          </div>
         </div>
 
+        {/* Right: time + actions */}
         <div className="flex items-center gap-5 shrink-0">
           <div className="text-center">
             <div className="text-[11px] text-text-muted">TIME LEFT</div>
@@ -329,6 +380,18 @@ export default function ProblemScreen() {
             </div>
           </div>
           <div className="w-px h-8 bg-border" />
+          {myUser?.isAdmin && viewedProblem && !isSolved && (
+            <button
+              onClick={() => {
+                if (!viewedProblem) return;
+                adminSolveProblem({ gameId, problemId: viewedProblem.id });
+              }}
+              title="Admin: instantly mark this problem solved"
+              className="text-[12px] text-accent border border-accent/50 bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:bg-accent/10"
+            >
+              Admin Solve
+            </button>
+          )}
           <button
             onClick={() => { if (gameId) forfeit({ gameId }); }}
             className="text-[12px] text-text-faint border border-border bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:text-red"
@@ -340,23 +403,87 @@ export default function ProblemScreen() {
 
       {/* Main split */}
       <div className="flex gap-3 flex-1 min-h-0">
-        <ProblemPanel problem={viewedProblem} />
+        <div className="card flex-[0_0_340px] flex flex-col min-h-0 overflow-hidden">
+          {navBar}
+          {panelTab === 'problem' && titleBar}
+
+          <div className="p-5 overflow-y-auto flex-1 min-h-0">
+            {panelTab === 'powerups' && game ? (
+              <PowerupShop
+                game={game}
+                myIdentity={ctx.identity ?? undefined}
+                currency={currency}
+                isP1={isP1}
+                onQuizAnswered={setQuizResult}
+              />
+            ) : viewedProblem ? (
+              <div className="flex flex-col gap-0">
+                <div className="text-sm text-text leading-[1.7] whitespace-pre-wrap">
+                  {viewedProblem.description}
+                </div>
+                {(() => {
+                  const cases = viewedProblem.sampleTestCases?.split('|').filter(Boolean) ?? [];
+                  const results = viewedProblem.sampleTestResults?.split('|').filter(Boolean) ?? [];
+                  if (cases.length === 0) return null;
+                  return (
+                    <div className="flex flex-col gap-3 mt-5">
+                      {cases.map((input, i) => (
+                        <div key={i} className="bg-surface-alt rounded-lg p-3.5">
+                          <div className="text-xs font-bold text-text-muted mb-2">EXAMPLE {i + 1}</div>
+                          <code className="font-mono text-[13px] block">
+                            Input: {input}<br />
+                            Output: {results[i] ?? '?'}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="text-text-muted text-sm">Loading problem…</div>
+            )}
+          </div>
+        </div>
         <div className="flex-1 flex flex-col gap-3 min-h-0">
           <CodeEditor
+            ref={editorRef}
             key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
             initialCode={currentCode}
             onChange={handleCodeChange}
             language={selectedLang}
             onLanguageChange={setSelectedLang}
             vimMode={settings.vimMode}
+            readOnly={sabotageEffects.frozen}
+            extraStyle={{
+              filter: sabotageEffects.blurred ? 'blur(3px)' : undefined,
+              transition: 'filter 0.2s ease',
+            }}
           />
 
-          {/* Test results */}
-          {(testResults || error || runSummary) && (
-            <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
+          {/* Permanent status + action bar */}
+          <div className="card shrink-0 flex flex-col">
+            <div className="px-4 py-3 text-sm max-h-40 overflow-y-auto min-h-[44px]">
+              {activeEffectLabels.length > 0 && (
+                <div className="text-orange text-xs font-semibold mb-1">
+                  Sabotage active: {activeEffectLabels.join(', ')}
+                </div>
+              )}
+              {sabotageEffects.flash && (
+                <div key={sabotageEffects.flash.at} className="text-orange text-xs font-semibold mb-1">
+                  {sabotageEffects.flash.message}
+                </div>
+              )}
+              {quizResult && (
+                <div className={`text-xs font-semibold mb-1 ${quizResult.kind === 'correct' ? 'text-green' : 'text-red'}`}>
+                  {quizResult.kind === 'correct'
+                    ? `Quiz: Correct! +${quizResult.reward} Energy`
+                    : `Quiz: Wrong — answer was "${quizResult.correctAnswer}"`}
+                </div>
+              )}
               {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
               {runSummary && (
-                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-orange'}`}>
+                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-red'}`}>
                   {runSummary}
                 </div>
               )}
@@ -366,35 +493,37 @@ export default function ProblemScreen() {
                   <span className="text-text-muted">
                     in: <span className="text-text">{r.input}</span>
                     {' → '}expected: <span className="text-text">{r.expected}</span>
-                    {' → '}got: <span className={r.passed ? 'text-text' : 'text-red'}>{r.actual || r.error}</span>
+                    {' → '}got: <span className={r.passed ? 'text-text-muted' : 'text-red'}>{r.actual || r.error}</span>
                   </span>
                 </div>
               ))}
+              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && (
+                <div className="text-text-faint text-xs">Ready.</div>
+              )}
             </div>
-          )}
-
-          <div className="flex gap-2.5 shrink-0">
-            <button
-              onClick={resetCode}
-              disabled={!viewedProblem}
-              className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
-            >
-              ↺ Reset
-            </button>
-            <button
-              onClick={runTests}
-              disabled={!viewedProblem || running}
-              className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
-            >
-              {running ? 'Running…' : '▷ Run Tests'}
-            </button>
-            <button
-              onClick={submit}
-              disabled={submitting || isSolved || !viewedProblem}
-              className="flex-1 py-[11px] rounded-[10px] border-none bg-accent text-white font-bold text-sm cursor-pointer disabled:opacity-50"
-            >
-              {isSolved ? '✓ Solved' : submitting ? 'Submitting…' : '↑ Submit'}
-            </button>
+            <div className="flex gap-2 px-3 py-2 border-t border-border shrink-0">
+              <button
+                onClick={resetCode}
+                disabled={!viewedProblem}
+                className="py-1.5 px-3 rounded-md border border-border bg-transparent text-text-muted font-semibold text-xs cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
+              >
+                ↺ Reset
+              </button>
+              <button
+                onClick={runTests}
+                disabled={!viewedProblem || running}
+                className="flex-1 py-1.5 rounded-md border border-border bg-surface text-text font-semibold text-xs cursor-pointer hover:bg-surface-alt disabled:opacity-50"
+              >
+                {running ? 'Running…' : '▷ Run Tests'}
+              </button>
+              <button
+                onClick={submit}
+                disabled={submitting || isSolved || !viewedProblem}
+                className="flex-1 py-1.5 rounded-md border-none bg-accent text-white font-semibold text-xs cursor-pointer disabled:opacity-50"
+              >
+                {isSolved ? '✓ Solved' : submitting ? 'Submitting…' : '↑ Submit'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

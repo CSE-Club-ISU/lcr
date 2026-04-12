@@ -34,10 +34,14 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AdminSolveProblemReducer from "./admin_solve_problem_reducer";
+import AnswerQuizReducer from "./answer_quiz_reducer";
 import BuyAbilityReducer from "./buy_ability_reducer";
 import ClaimFirstAdminReducer from "./claim_first_admin_reducer";
+import ClearSabotageEventReducer from "./clear_sabotage_event_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DeleteProblemReducer from "./delete_problem_reducer";
+import ExpireGameReducer from "./expire_game_reducer";
 import ForfeitReducer from "./forfeit_reducer";
 import InsertProblemReducer from "./insert_problem_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
@@ -46,9 +50,12 @@ import LeaveQueueReducer from "./leave_queue_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import PromoteToAdminReducer from "./promote_to_admin_reducer";
 import SaveDraftReducer from "./save_draft_reducer";
+import SeedPowerupsReducer from "./seed_powerups_reducer";
 import SeedProblemReducer from "./seed_problem_reducer";
+import SeedQuizQuestionsReducer from "./seed_quiz_questions_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
+import SetLoadoutPrefReducer from "./set_loadout_pref_reducer";
 import SetProfileReducer from "./set_profile_reducer";
 import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
@@ -56,6 +63,7 @@ import SubmitResultReducer from "./submit_result_reducer";
 import UpdateProblemReducer from "./update_problem_reducer";
 import UpdateRoomSettingsReducer from "./update_room_settings_reducer";
 import UseAbilityReducer from "./use_ability_reducer";
+import UsePowerupReducer from "./use_powerup_reducer";
 
 // Import all procedure arg schemas
 
@@ -63,9 +71,14 @@ import UseAbilityReducer from "./use_ability_reducer";
 import ChatMessageRow from "./chat_message_table";
 import GameStateRow from "./game_state_table";
 import MatchHistoryRow from "./match_history_table";
+import PlayerLoadoutPrefRow from "./player_loadout_pref_table";
+import PowerupRow from "./powerup_table";
+import PowerupLoadoutRow from "./powerup_loadout_table";
 import ProblemRow from "./problem_table";
 import QueueRow from "./queue_table";
+import QuizQuestionRow from "./quiz_question_table";
 import RoomRow from "./room_table";
+import SabotageEventRow from "./sabotage_event_table";
 import SubmissionRow from "./submission_table";
 import UserRow from "./user_table";
 
@@ -112,6 +125,42 @@ const tablesSchema = __schema({
       { name: 'match_history_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MatchHistoryRow),
+  player_loadout_pref: __table({
+    name: 'player_loadout_pref',
+    indexes: [
+      { accessor: 'identity', name: 'player_loadout_pref_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_loadout_pref_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerLoadoutPrefRow),
+  powerup: __table({
+    name: 'powerup',
+    indexes: [
+      { accessor: 'id', name: 'powerup_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'powerup_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PowerupRow),
+  powerup_loadout: __table({
+    name: 'powerup_loadout',
+    indexes: [
+      { accessor: 'loadout_game_id', name: 'powerup_loadout_game_id_idx_btree', algorithm: 'btree', columns: [
+        'gameId',
+      ] },
+      { accessor: 'id', name: 'powerup_loadout_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'powerup_loadout_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, PowerupLoadoutRow),
   problem: __table({
     name: 'problem',
     indexes: [
@@ -137,6 +186,17 @@ const tablesSchema = __schema({
       { name: 'queue_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, QueueRow),
+  quiz_question: __table({
+    name: 'quiz_question',
+    indexes: [
+      { accessor: 'id', name: 'quiz_question_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'quiz_question_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, QuizQuestionRow),
   room: __table({
     name: 'room',
     indexes: [
@@ -148,6 +208,20 @@ const tablesSchema = __schema({
       { name: 'room_code_key', constraint: 'unique', columns: ['code'] },
     ],
   }, RoomRow),
+  sabotage_event: __table({
+    name: 'sabotage_event',
+    indexes: [
+      { accessor: 'id', name: 'sabotage_event_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+      { accessor: 'sabotage_target', name: 'sabotage_event_target_identity_idx_btree', algorithm: 'btree', columns: [
+        'targetIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'sabotage_event_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, SabotageEventRow),
   submission: __table({
     name: 'submission',
     indexes: [
@@ -177,10 +251,14 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("admin_solve_problem", AdminSolveProblemReducer),
+  __reducerSchema("answer_quiz", AnswerQuizReducer),
   __reducerSchema("buy_ability", BuyAbilityReducer),
   __reducerSchema("claim_first_admin", ClaimFirstAdminReducer),
+  __reducerSchema("clear_sabotage_event", ClearSabotageEventReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("delete_problem", DeleteProblemReducer),
+  __reducerSchema("expire_game", ExpireGameReducer),
   __reducerSchema("forfeit", ForfeitReducer),
   __reducerSchema("insert_problem", InsertProblemReducer),
   __reducerSchema("join_queue", JoinQueueReducer),
@@ -189,9 +267,12 @@ const reducersSchema = __reducers(
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("promote_to_admin", PromoteToAdminReducer),
   __reducerSchema("save_draft", SaveDraftReducer),
+  __reducerSchema("seed_powerups", SeedPowerupsReducer),
   __reducerSchema("seed_problem", SeedProblemReducer),
+  __reducerSchema("seed_quiz_questions", SeedQuizQuestionsReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
+  __reducerSchema("set_loadout_pref", SetLoadoutPrefReducer),
   __reducerSchema("set_profile", SetProfileReducer),
   __reducerSchema("set_ready", SetReadyReducer),
   __reducerSchema("start_game", StartGameReducer),
@@ -199,6 +280,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_problem", UpdateProblemReducer),
   __reducerSchema("update_room_settings", UpdateRoomSettingsReducer),
   __reducerSchema("use_ability", UseAbilityReducer),
+  __reducerSchema("use_powerup", UsePowerupReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

@@ -58,9 +58,10 @@ export default function ResultsScreen() {
 
   const p1 = resolveUserById(match.player1Identity);
   const p2 = resolveUserById(match.player2Identity);
-  const winner = resolveUserById(match.winnerIdentity);
+  const isDraw = !match.winnerIdentity;
+  const winner = match.winnerIdentity ? resolveUserById(match.winnerIdentity) : undefined;
 
-  const iWon = identityEq(match.winnerIdentity, ctx.identity);
+  const iWon = !isDraw && !!match.winnerIdentity && identityEq(match.winnerIdentity, ctx.identity);
   const myIsP1 = identityEq(match.player1Identity, ctx.identity);
 
   const myTime   = myIsP1 ? match.player1SolveTime : match.player2SolveTime;
@@ -79,7 +80,7 @@ export default function ResultsScreen() {
       accepted: match.player1Accepted,
       solveTime: match.player1SolveTime,
       language: match.player1Language,
-      isWinner: identityEq(match.player1Identity, match.winnerIdentity),
+      isWinner: !isDraw && !!match.winnerIdentity && identityEq(match.player1Identity, match.winnerIdentity),
       grad: GRAD_P1,
     },
     {
@@ -87,7 +88,7 @@ export default function ResultsScreen() {
       accepted: match.player2Accepted,
       solveTime: match.player2SolveTime,
       language: match.player2Language,
-      isWinner: identityEq(match.player2Identity, match.winnerIdentity),
+      isWinner: !isDraw && !!match.winnerIdentity && identityEq(match.player2Identity, match.winnerIdentity),
       grad: GRAD_P2,
     },
   ];
@@ -98,17 +99,22 @@ export default function ResultsScreen() {
       <div
         className="rounded-2xl px-8 py-7 flex items-center justify-between text-white"
         style={{
-          background: iWon
-            ? 'linear-gradient(135deg, #166534 0%, #0a1a0a 100%)'
-            : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+          background: isDraw
+            ? 'linear-gradient(135deg, #3f3f46 0%, #18181b 100%)'
+            : iWon
+              ? 'linear-gradient(135deg, #166534 0%, #0a1a0a 100%)'
+              : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
         }}
       >
         <div>
           <div className="text-xs font-semibold opacity-80 tracking-widest mb-1">MATCH RESULT</div>
           <div className="text-4xl font-black tracking-tight leading-none">
-            {iWon ? 'Victory!' : 'Defeat'}
+            {isDraw ? 'Draw' : iWon ? 'Win' : 'Loss'}
           </div>
-          {timeDelta !== null && (
+          {isDraw && (
+            <div className="text-sm opacity-80 mt-1.5">Time expired with the match tied.</div>
+          )}
+          {!isDraw && timeDelta !== null && (
             <div className="text-sm opacity-80 mt-1.5">
               {iWon
                 ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUserById(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`

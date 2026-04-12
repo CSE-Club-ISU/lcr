@@ -1,10 +1,14 @@
 import type { Problem } from '../../module_bindings/types';
+import type { ReactNode } from 'react';
 
 interface Props {
   problem: Problem | undefined;
+  header?: ReactNode;
+  topRight?: ReactNode;
+  children?: ReactNode;
 }
 
-export default function ProblemPanel({ problem }: Props) {
+export default function ProblemPanel({ problem, header, topRight, children }: Props) {
   const sampleCases: string[] = problem?.sampleTestCases
     ? problem.sampleTestCases.split('|').filter(Boolean)
     : [];
@@ -14,7 +18,15 @@ export default function ProblemPanel({ problem }: Props) {
 
   return (
     <div className="card flex-[0_0_340px] p-5 overflow-y-auto flex flex-col gap-0">
-      {problem ? (
+      {(header || topRight) && (
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">{header}</div>
+          {topRight && <div className="shrink-0">{topRight}</div>}
+        </div>
+      )}
+      {children ? (
+        children
+      ) : problem ? (
         <>
           <div className="text-sm text-text leading-[1.7] whitespace-pre-wrap">
             {problem.description}
