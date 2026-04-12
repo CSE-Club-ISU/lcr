@@ -11,6 +11,7 @@ import ResultsScreen    from './pages/ResultsScreen';
 import LeaderboardScreen from './pages/LeaderboardScreen';
 import AdminPage         from './pages/AdminPage';
 import CustomGameSetupPage from './pages/CustomGameSetupPage';
+import LoadoutPage         from './pages/LoadoutPage';
 import AppLayout         from './components/layout/AppLayout';
 import RequireAuth       from './components/RequireAuth';
 
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/play/room/:code" element={<RoomPage />} />
           <Route path="/play/match"      element={<ProblemScreen />} />
           <Route path="/practice"     element={<PracticeScreen />} />
+          <Route path="/loadout"     element={<LoadoutPage />} />
           <Route path="/results"     element={<ResultsScreen />} />
           <Route path="/leaderboard" element={<LeaderboardScreen />} />
           <Route path="/admin"       element={<AdminPage />} />
