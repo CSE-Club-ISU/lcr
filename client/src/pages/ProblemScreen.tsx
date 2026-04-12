@@ -454,7 +454,7 @@ export default function ProblemScreen() {
                 </div>
               ))}
               {draftSavedAt && !error && !runSummary && !activeEffectLabels.length && !sabotageEffects.flash && !quizResult && (
-                <div className="text-accent text-xs font-semibold">✓ Draft saved.</div>
+                <div className="text-green text-xs font-semibold">✓ Draft saved.</div>
               )}
               {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && !draftSavedAt && (
                 <div className="text-text-faint text-xs">Ready.</div>
