@@ -25,6 +25,7 @@ import SetProfileReducer from "../set_profile_reducer";
 import SetReadyReducer from "../set_ready_reducer";
 import StartGameReducer from "../start_game_reducer";
 import SubmitResultReducer from "../submit_result_reducer";
+import UpdateProblemReducer from "../update_problem_reducer";
 import UseAbilityReducer from "../use_ability_reducer";
 
 export type BuyAbilityParams = __Infer<typeof BuyAbilityReducer>;
@@ -46,5 +47,6 @@ export type SetProfileParams = __Infer<typeof SetProfileReducer>;
 export type SetReadyParams = __Infer<typeof SetReadyReducer>;
 export type StartGameParams = __Infer<typeof StartGameReducer>;
 export type SubmitResultParams = __Infer<typeof SubmitResultReducer>;
+export type UpdateProblemParams = __Infer<typeof UpdateProblemReducer>;
 export type UseAbilityParams = __Infer<typeof UseAbilityReducer>;
 

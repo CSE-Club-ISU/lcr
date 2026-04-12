@@ -880,6 +880,38 @@ export const insert_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
   validateAndInsertProblem(ctx, args);
 });
 
+// Update an existing problem — admin only.
+export const update_problem = spacetimedb.reducer(
+  { id: t.u64(), ...PROBLEM_ARGS },
+  (ctx, { id, ...args }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const prob = ctx.db.problem.id.find(id);
+    if (!prob) throw new SenderError('Problem not found');
+    if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
+      throw new SenderError('Invalid problem_kind');
+    }
+    ctx.db.problem.id.update({
+      ...prob,
+      title:               args.title,
+      description:         args.description,
+      difficulty:          args.difficulty,
+      method_name:         args.method_name,
+      sample_test_cases:   args.sample_test_cases,
+      sample_test_results: args.sample_test_results,
+      hidden_test_cases:   args.hidden_test_cases,
+      hidden_test_results: args.hidden_test_results,
+      boilerplate_python:  args.boilerplate_python,
+      boilerplate_java:    args.boilerplate_java,
+      boilerplate_cpp:     args.boilerplate_cpp,
+      compare_func_python: args.compare_func_python,
+      compare_func_java:   args.compare_func_java,
+      compare_func_cpp:    args.compare_func_cpp,
+      problem_kind:        args.problem_kind,
+    });
+  }
+);
+
 // Called from seed-problems.mjs at deploy time via the server CLI token.
 // No auth check — access is controlled at the infrastructure level (only
 // init.sh has the token; the token is never exposed to clients).

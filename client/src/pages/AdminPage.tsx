@@ -23,6 +23,21 @@ interface ProblemJson {
   hidden_test_results: unknown[];
 }
 
+// Fields shown/edited in the inline editor (raw pipe-delimited strings)
+interface EditDraft {
+  title: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  problemKind: 'algorithm' | 'data_structure';
+  description: string;
+  methodName: string;
+  boilerplatePython: string;
+  compareFuncPython: string;
+  sampleTestCases: string;
+  sampleTestResults: string;
+  hiddenTestCases: string;
+  hiddenTestResults: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -51,6 +66,178 @@ function validateProblemJson(obj: Record<string, unknown>): string {
   return '';
 }
 
+function problemToDraft(p: Problem): EditDraft {
+  return {
+    title:             p.title,
+    difficulty:        p.difficulty as EditDraft['difficulty'],
+    problemKind:       p.problemKind as EditDraft['problemKind'],
+    description:       p.description,
+    methodName:        p.methodName,
+    boilerplatePython: p.boilerplatePython,
+    compareFuncPython: p.compareFuncPython || DEFAULT_COMPARE,
+    sampleTestCases:   p.sampleTestCases,
+    sampleTestResults: p.sampleTestResults,
+    hiddenTestCases:   p.hiddenTestCases,
+    hiddenTestResults: p.hiddenTestResults,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Edit modal
+// ---------------------------------------------------------------------------
+
+function EditModal({ problem, onClose }: { problem: Problem; onClose: () => void }) {
+  const updateProblem = useReducer(reducers.updateProblem);
+  const [draft, setDraft] = useState<EditDraft>(() => problemToDraft(problem));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function field(key: keyof EditDraft) {
+    return {
+      value: draft[key] as string,
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+        setDraft(prev => ({ ...prev, [key]: e.target.value })),
+    };
+  }
+
+  function handleSave() {
+    if (!draft.title.trim()) { setError('Title is required'); return; }
+    if (!draft.methodName.trim()) { setError('Method name is required'); return; }
+    if (!draft.description.trim()) { setError('Description is required'); return; }
+    setError('');
+    setSaving(true);
+    updateProblem({
+      id:                 problem.id,
+      title:              draft.title.trim(),
+      description:        draft.description,
+      difficulty:         draft.difficulty,
+      methodName:         draft.methodName.trim(),
+      sampleTestCases:    draft.sampleTestCases,
+      sampleTestResults:  draft.sampleTestResults,
+      hiddenTestCases:    draft.hiddenTestCases,
+      hiddenTestResults:  draft.hiddenTestResults,
+      boilerplatePython:  draft.boilerplatePython,
+      boilerplateJava:    '',
+      boilerplateCpp:     '',
+      compareFuncPython:  draft.compareFuncPython || DEFAULT_COMPARE,
+      compareFuncJava:    '',
+      compareFuncCpp:     '',
+      problemKind:        draft.problemKind,
+    });
+    setSaving(false);
+    onClose();
+  }
+
+  const inputCls = 'input-field text-sm w-full';
+  const textareaCls = 'input-field text-sm w-full font-mono resize-y';
+  const labelCls = 'text-[11px] font-bold text-text-muted uppercase tracking-wide';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="bg-bg border border-border rounded-[16px] w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <span className="font-bold text-text">Edit Problem</span>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text bg-transparent border-none cursor-pointer text-lg leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-col gap-5 px-6 py-5">
+          {/* Title */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Title</label>
+            <input className={inputCls} {...field('title')} />
+          </div>
+
+          {/* Difficulty + Kind row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Difficulty</label>
+              <select className={inputCls} {...field('difficulty')}>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Kind</label>
+              <select className={inputCls} {...field('problemKind')}>
+                <option value="algorithm">Algorithm</option>
+                <option value="data_structure">Data Structure</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Method name */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Method / Class Name</label>
+            <input className={`${inputCls} font-mono`} {...field('methodName')} />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Description</label>
+            <textarea className={textareaCls} rows={5} {...field('description')} />
+          </div>
+
+          {/* Boilerplate */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Boilerplate Python</label>
+            <textarea className={textareaCls} rows={6} {...field('boilerplatePython')} />
+          </div>
+
+          {/* Compare func */}
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Compare Function (Python)</label>
+            <textarea className={textareaCls} rows={2} {...field('compareFuncPython')} />
+          </div>
+
+          {/* Test cases — pipe-delimited raw strings */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Sample Test Cases <span className="normal-case font-normal">(pipe-delimited)</span></label>
+              <textarea className={textareaCls} rows={4} {...field('sampleTestCases')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Sample Results <span className="normal-case font-normal">(pipe-delimited)</span></label>
+              <textarea className={textareaCls} rows={4} {...field('sampleTestResults')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Hidden Test Cases <span className="normal-case font-normal">(pipe-delimited)</span></label>
+              <textarea className={textareaCls} rows={4} {...field('hiddenTestCases')} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Hidden Results <span className="normal-case font-normal">(pipe-delimited)</span></label>
+              <textarea className={textareaCls} rows={4} {...field('hiddenTestResults')} />
+            </div>
+          </div>
+
+          {error && <p className="text-red text-sm m-0">{error}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border shrink-0">
+          <button onClick={onClose} className="btn-secondary px-4 py-2 text-sm">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary px-5 py-2 text-sm">
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Problems tab
 // ---------------------------------------------------------------------------
@@ -60,9 +247,26 @@ function ProblemsTab() {
   const [users] = useTypedTable<User>(tables.user);
   const deleteProblem = useReducer(reducers.deleteProblem);
 
-  const sorted = useMemo(() => {
-    return [...problems].sort((a, b) => a.title.localeCompare(b.title));
-  }, [problems]);
+  const [search, setSearch] = useState('');
+  const [filterDifficulty, setFilterDifficulty] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [filterKind, setFilterKind] = useState<'all' | 'algorithm' | 'data_structure'>('all');
+  const [editingProblem, setEditingProblem] = useState<Problem | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return [...problems]
+      .filter(p => {
+        if (filterDifficulty !== 'all' && p.difficulty !== filterDifficulty) return false;
+        if (filterKind !== 'all' && p.problemKind !== filterKind) return false;
+        if (q && !p.title.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const dOrder = { easy: 0, medium: 1, hard: 2 };
+        const dd = (dOrder[a.difficulty as keyof typeof dOrder] ?? 0) - (dOrder[b.difficulty as keyof typeof dOrder] ?? 0);
+        return dd !== 0 ? dd : a.title.localeCompare(b.title);
+      });
+  }, [problems, search, filterDifficulty, filterKind]);
 
   function creatorName(p: Problem): string {
     const u = users.find(u => identityEq(u.identity, p.createdBy));
@@ -74,49 +278,115 @@ function ProblemsTab() {
     deleteProblem({ id: p.id });
   }
 
-  if (problems.length === 0) {
-    return <div className="text-text-muted text-sm">No problems yet.</div>;
-  }
+  const filterBtnCls = (active: boolean) =>
+    `px-2.5 py-1 rounded-[7px] border text-[12px] font-semibold cursor-pointer transition-all ${
+      active
+        ? 'border-accent bg-accent/10 text-accent'
+        : 'border-border bg-transparent text-text-muted hover:text-text'
+    }`;
 
   return (
-    <div className="flex flex-col gap-0 rounded-[12px] overflow-hidden border border-border">
-      {/* Header */}
-      <div className="grid grid-cols-[1fr_110px_80px_90px_60px] gap-4 px-4 py-2.5 bg-surface-alt text-[11px] font-bold text-text-muted uppercase tracking-wide">
-        <span>Title</span>
-        <span>Kind</span>
-        <span>Difficulty</span>
-        <span>Created by</span>
-        <span></span>
+    <div className="flex flex-col gap-4">
+      {/* Search + filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          className="input-field text-sm w-56"
+          placeholder="Search problems…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+
+        <div className="flex items-center gap-1.5">
+          {(['all', 'easy', 'medium', 'hard'] as const).map(d => (
+            <button
+              key={d}
+              onClick={() => setFilterDifficulty(d)}
+              className={filterBtnCls(filterDifficulty === d)}
+            >
+              {d === 'all' ? 'All' : d.charAt(0).toUpperCase() + d.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {(['all', 'algorithm', 'data_structure'] as const).map(k => (
+            <button
+              key={k}
+              onClick={() => setFilterKind(k)}
+              className={filterBtnCls(filterKind === k)}
+            >
+              {k === 'all' ? 'All kinds' : k === 'algorithm' ? 'Algorithm' : 'Data Struct.'}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-[12px] text-text-muted ml-auto">
+          {filtered.length} / {problems.length} problems
+        </span>
       </div>
 
-      {sorted.map((p, i) => (
-        <div
-          key={p.id.toString()}
-          className={`grid grid-cols-[1fr_110px_80px_90px_60px] gap-4 px-4 py-3 items-center text-sm ${
-            i % 2 === 0 ? 'bg-surface' : 'bg-surface/60'
-          } border-t border-border`}
-        >
-          <span className="font-medium text-text truncate">{p.title}</span>
-          <span className="text-text-muted text-[12px]">
-            {p.problemKind === 'data_structure' ? 'Data Struct.' : 'Algorithm'}
-          </span>
-          <span className={`text-[12px] font-semibold ${
-            p.difficulty === 'easy' ? 'text-green' :
-            p.difficulty === 'medium' ? 'text-yellow' : 'text-red'
-          }`}>
-            {p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1)}
-          </span>
-          <span className="text-text-muted text-[12px] truncate">{creatorName(p)}</span>
-          <div className="flex items-center">
-            <button
-              onClick={() => handleDelete(p)}
-              className="px-2 py-0.5 rounded-[6px] text-[12px] border border-border text-text-muted bg-transparent cursor-pointer hover:border-red hover:text-red"
-            >
-              Delete
-            </button>
+      {problems.length === 0 && (
+        <div className="text-text-muted text-sm">No problems yet.</div>
+      )}
+
+      {problems.length > 0 && filtered.length === 0 && (
+        <div className="text-text-muted text-sm">No problems match the current filter.</div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="flex flex-col gap-0 rounded-[12px] overflow-hidden border border-border">
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_110px_80px_90px_100px] gap-4 px-4 py-2.5 bg-surface-alt text-[11px] font-bold text-text-muted uppercase tracking-wide">
+            <span>Title</span>
+            <span>Kind</span>
+            <span>Difficulty</span>
+            <span>Created by</span>
+            <span></span>
           </div>
+
+          {filtered.map((p, i) => (
+            <div
+              key={p.id.toString()}
+              className={`grid grid-cols-[1fr_110px_80px_90px_100px] gap-4 px-4 py-3 items-center text-sm ${
+                i % 2 === 0 ? 'bg-surface' : 'bg-surface/60'
+              } border-t border-border`}
+            >
+              <span className="font-medium text-text truncate">{p.title}</span>
+              <span className="text-text-muted text-[12px]">
+                {p.problemKind === 'data_structure' ? 'Data Struct.' : 'Algorithm'}
+              </span>
+              <span className={`text-[12px] font-semibold ${
+                p.difficulty === 'easy' ? 'text-green' :
+                p.difficulty === 'medium' ? 'text-yellow' : 'text-red'
+              }`}>
+                {p.difficulty.charAt(0).toUpperCase() + p.difficulty.slice(1)}
+              </span>
+              <span className="text-text-muted text-[12px] truncate">{creatorName(p)}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingProblem(p)}
+                  className="px-2 py-0.5 rounded-[6px] text-[12px] border border-border text-text-muted bg-transparent cursor-pointer hover:border-accent hover:text-accent"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(p)}
+                  className="px-2 py-0.5 rounded-[6px] text-[12px] border border-border text-text-muted bg-transparent cursor-pointer hover:border-red hover:text-red"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {editingProblem && (
+        <EditModal
+          problem={editingProblem}
+          onClose={() => setEditingProblem(null)}
+        />
+      )}
     </div>
   );
 }
