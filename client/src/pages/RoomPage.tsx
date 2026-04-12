@@ -1,11 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
-import type { Room, User } from '../module_bindings/types';
+import type { Room, User, Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
 import PlayerSlot from '../components/room/PlayerSlot';
+import CustomGameSettingsForm from '../components/CustomGameSettingsForm';
+import {
+  parseRoomSettings,
+  serializeRoomSettings,
+  type RoomSettings,
+} from '../types/roomSettings';
 
 export default function RoomPage() {
   const { code }    = useParams<{ code: string }>();
@@ -13,10 +19,15 @@ export default function RoomPage() {
   const ctx         = useSpacetimeDB();
   const [rooms]     = useTypedTable<Room>(tables.room);
   const [users]     = useTypedTable<User>(tables.user);
-  const joinRoom    = useReducer(reducers.joinRoom);
-  const leaveRoom   = useReducer(reducers.leaveRoom);
-  const setReady    = useReducer(reducers.setReady);
-  const startGame   = useReducer(reducers.startGame);
+  const [problems]  = useTypedTable<Problem>(tables.problem);
+  const joinRoom           = useReducer(reducers.joinRoom);
+  const leaveRoom          = useReducer(reducers.leaveRoom);
+  const setReady           = useReducer(reducers.setReady);
+  const startGame          = useReducer(reducers.startGame);
+  const updateRoomSettings = useReducer(reducers.updateRoomSettings);
+
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [draftSettings, setDraftSettings] = useState<RoomSettings | null>(null);
 
   const myIdentity = ctx.identity;
   const room = rooms.find(r => r.code === code);
@@ -30,24 +41,13 @@ export default function RoomPage() {
   // Join the room once we confirm we're NOT the host (guest or unknown)
   useEffect(() => {
     if (!ctx.isActive || !myIdentity || !code || joinAttempted.current) return;
-    // If room data loaded and we're the host, no need to join
-    if (isHost) {
-      joinAttempted.current = true;
-      return;
-    }
-    // If room loaded and we're already guest, no need to join
-    if (isGuest) {
-      joinAttempted.current = true;
-      return;
-    }
-    // If room loaded but we're neither host nor guest, join now
+    if (isHost) { joinAttempted.current = true; return; }
+    if (isGuest) { joinAttempted.current = true; return; }
     if (room && !inRoom) {
       joinAttempted.current = true;
       joinRoom({ code });
       return;
     }
-    // Room hasn't loaded yet — wait for it. Once it loads, this effect
-    // re-runs and one of the branches above will fire.
   }, [ctx.isActive, myIdentity?.toHexString(), code, room, isHost, isGuest, inRoom, joinRoom]);
 
   const host  = resolveUser(users, room?.hostIdentity);
@@ -70,9 +70,16 @@ export default function RoomPage() {
     }
   }, [room?.status, room?.code, navigate]);
 
-  const settings = (() => {
-    try { return JSON.parse(room?.settings ?? '{}') as Record<string, string>; } catch { return {}; }
-  })();
+  const parsedSettings = useMemo(
+    () => parseRoomSettings(room?.settings ?? '{}'),
+    [room?.settings]
+  );
+
+  const problemMap = useMemo(() => {
+    const m = new Map<string, Problem>();
+    for (const p of problems) m.set(String(p.id), p);
+    return m;
+  }, [problems]);
 
   const handleLeave = () => {
     if (code) leaveRoom({ code });
@@ -81,6 +88,23 @@ export default function RoomPage() {
 
   const handleToggleReady = () => {
     if (code) setReady({ code, ready: !myReady });
+  };
+
+  const handleEditSettings = () => {
+    setDraftSettings(parsedSettings);
+    setEditingSettings(true);
+  };
+
+  const handleSaveSettings = () => {
+    if (!code || !draftSettings) return;
+    updateRoomSettings({ code, settings: serializeRoomSettings(draftSettings) });
+    setEditingSettings(false);
+    setDraftSettings(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSettings(false);
+    setDraftSettings(null);
   };
 
   if (!room) {
@@ -102,11 +126,31 @@ export default function RoomPage() {
       </div>
 
       <div className="max-w-[640px] w-full flex flex-col items-center gap-8">
-        <div className="flex gap-2 flex-wrap justify-center">
-          {settings.difficulty    && <Chip label={`Difficulty: ${settings.difficulty}`} />}
-          {settings.problem_count && <Chip label={`Problems: ${settings.problem_count}`} />}
-          {settings.starting_hp  && <Chip label={`HP: ${settings.starting_hp}`} />}
-        </div>
+        {/* Settings panel */}
+        {editingSettings && draftSettings ? (
+          <div className="w-full card p-6 flex flex-col gap-4">
+            <div className="text-sm font-semibold text-text">Edit Game Settings</div>
+            <CustomGameSettingsForm
+              settings={draftSettings}
+              onChange={setDraftSettings}
+            />
+            <div className="flex gap-2 pt-2">
+              <button className="btn-primary px-4 py-1.5 text-sm" onClick={handleSaveSettings}>
+                Save
+              </button>
+              <button className="btn-secondary px-4 py-1.5 text-sm" onClick={handleCancelEdit}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <SettingsSummary
+            settings={parsedSettings}
+            problemMap={problemMap}
+            canEdit={isHost && room.status === 'waiting'}
+            onEdit={handleEditSettings}
+          />
+        )}
 
         <div className="flex items-center gap-8 w-full justify-center">
           <PlayerSlot user={host}  label="Host"  isReady={room.hostReady} />
@@ -120,7 +164,7 @@ export default function RoomPage() {
           </div>
         )}
 
-        {(isHost || isGuest) && !bothReady && (
+        {(isHost || isGuest) && !bothReady && !editingSettings && (
           <button
             className={myReady ? 'btn-secondary px-8 py-3 text-[15px] font-semibold' : 'btn-primary'}
             onClick={handleToggleReady}
@@ -133,6 +177,87 @@ export default function RoomPage() {
   );
 }
 
-function Chip({ label }: { label: string }) {
-  return <span className="chip">{label}</span>;
+// ---------------------------------------------------------------------------
+// Settings summary — shown in lobby when not editing
+// ---------------------------------------------------------------------------
+
+function difficultyColor(d: string) {
+  return d === 'easy' ? 'text-green' : d === 'hard' ? 'text-red' : 'text-yellow';
+}
+
+function difficultyLabel(d: string) {
+  return d[0].toUpperCase() + d.slice(1);
+}
+
+interface SettingsSummaryProps {
+  settings: RoomSettings;
+  problemMap: Map<string, Problem>;
+  canEdit: boolean;
+  onEdit: () => void;
+}
+
+function SettingsSummary({ settings, problemMap, canEdit, onEdit }: SettingsSummaryProps) {
+  const ps = settings.problemSelection;
+
+  return (
+    <div className="w-full card p-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+          Game Settings
+        </span>
+        {canEdit && (
+          <button
+            className="text-xs text-accent hover:text-accent/80 cursor-pointer transition-colors"
+            onClick={onEdit}
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {/* Problem list */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] text-text-faint">
+          {ps.kind === 'explicit'
+            ? `${ps.problemIds.length} problem${ps.problemIds.length !== 1 ? 's' : ''}`
+            : `${ps.count} problem${ps.count !== 1 ? 's' : ''} · ${difficultyLabel(ps.difficulty)} pool`}
+        </span>
+
+        {ps.kind === 'explicit' && ps.problemIds.length > 0 && (
+          <ol className="flex flex-col gap-0.5">
+            {ps.problemIds.map((id, idx) => {
+              const p = problemMap.get(id);
+              return (
+                <li key={id} className="flex items-center gap-2 text-[13px]">
+                  <span className="text-[10px] text-text-faint w-4 text-right shrink-0 select-none">
+                    {idx + 1}.
+                  </span>
+                  {p ? (
+                    <>
+                      <span className={`text-[10px] font-bold w-4 shrink-0 ${difficultyColor(p.difficulty)}`}>
+                        {p.difficulty[0].toUpperCase()}
+                      </span>
+                      <span className="text-text">{p.title}</span>
+                    </>
+                  ) : (
+                    <span className="text-text-muted">Unknown problem</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
+        {ps.kind === 'explicit' && ps.problemIds.length === 0 && (
+          <span className="text-[13px] text-red">No problems selected yet.</span>
+        )}
+      </div>
+
+      {/* HP */}
+      <div className="flex items-center gap-2 text-[12px] text-text-muted">
+        <span className="text-red font-semibold">♥</span>
+        <span>Starting HP: {settings.startingHp}</span>
+      </div>
+    </div>
+  );
 }

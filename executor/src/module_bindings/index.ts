@@ -54,6 +54,7 @@ import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
 import SubmitResultReducer from "./submit_result_reducer";
 import UpdateProblemReducer from "./update_problem_reducer";
+import UpdateRoomSettingsReducer from "./update_room_settings_reducer";
 import UseAbilityReducer from "./use_ability_reducer";
 
 // Import all procedure arg schemas
@@ -196,6 +197,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_game", StartGameReducer),
   __reducerSchema("submit_result", SubmitResultReducer),
   __reducerSchema("update_problem", UpdateProblemReducer),
+  __reducerSchema("update_room_settings", UpdateRoomSettingsReducer),
   __reducerSchema("use_ability", UseAbilityReducer),
 );
 

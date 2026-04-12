@@ -11,6 +11,7 @@ import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
+import { parseRoomSettings } from '../types/roomSettings';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -132,7 +133,7 @@ export default function ProblemScreen() {
   const startingHp = useMemo(() => {
     if (!game) return 100;
     const room = rooms.find(r => r.code === game.roomCode);
-    try { return JSON.parse(room?.settings ?? '{}').starting_hp ?? 100; } catch { return 100; }
+    return parseRoomSettings(room?.settings ?? '{}').startingHp;
   }, [game?.roomCode, rooms]);
 
   // Execution state
