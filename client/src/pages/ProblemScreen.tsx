@@ -5,6 +5,7 @@ import { tables, reducers } from '../module_bindings';
 import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
+import { useSettings } from '../hooks/useSettings';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
@@ -34,6 +35,7 @@ export default function ProblemScreen() {
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
   const submitResult = useReducer(reducers.submitResult);
+  const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
 
@@ -274,7 +276,7 @@ export default function ProblemScreen() {
       <div className="flex gap-3 flex-1 min-h-0">
         <ProblemPanel problem={problem} />
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          <CodeEditor initialCode={code} onChange={setCode} />
+          <CodeEditor initialCode={code} onChange={setCode} vimMode={settings.vimMode} />
 
           {/* Test results */}
           {(testResults || error || runSummary) && (

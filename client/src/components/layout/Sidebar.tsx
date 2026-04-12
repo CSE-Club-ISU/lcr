@@ -15,9 +15,10 @@ const navItems: NavItem[] = [
 interface Props {
   username: string;
   avatarUrl?: string;
+  onSettingsClick?: () => void;
 }
 
-export default function Sidebar({ username, avatarUrl }: Props) {
+export default function Sidebar({ username, avatarUrl, onSettingsClick }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -54,10 +55,22 @@ export default function Sidebar({ username, avatarUrl }: Props) {
         );
       })}
 
+      {/* Settings button */}
+      {onSettingsClick && (
+        <button
+          onClick={onSettingsClick}
+          className="mt-auto flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px] border-none bg-transparent text-text-muted text-sm font-medium cursor-pointer hover:text-text w-full"
+          title="Settings"
+        >
+          <span className="text-base">⚙</span>
+          Settings
+        </button>
+      )}
+
       {/* User info at bottom */}
       <button
         onClick={() => navigate("/profile")}
-        className="mt-auto pt-4 px-3.5 border-t border-border border-none bg-transparent cursor-pointer text-left w-full transition-opacity hover:opacity-80"
+        className={`${onSettingsClick ? '' : 'mt-auto '}pt-4 px-3.5 border-t border-border border-none bg-transparent cursor-pointer text-left w-full transition-opacity hover:opacity-80`}
       >
         <div className="flex items-center gap-2.5">
           <Avatar src={avatarUrl} username={username || "?"} size="sm" />
