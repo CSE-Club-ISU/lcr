@@ -204,9 +204,10 @@ export default function PracticeScreen() {
     setError(null);
   }
 
-  // Persist problemId, current code, and elapsedSec
+  // Persist problemId, current code, and elapsedSec.
+  // Skip when code is empty — the editor hasn't mounted yet and we don't want to overwrite saved code.
   useEffect(() => {
-    if (problemId === undefined) return;
+    if (problemId === undefined || !code) return;
     saveStored({ problemId: String(problemId), code, elapsedSec });
   }, [problemId, code, elapsedSec]);
 
