@@ -5,6 +5,8 @@ import { tables, reducers } from '../module_bindings';
 import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
+import { difficultyColor, hpColor } from '../utils/difficulty';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useSettings } from '../hooks/useSettings';
 import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
@@ -133,9 +135,7 @@ export default function ProblemScreen() {
   const oppUser = oppIdentity
     ? users.find(u => identityEq(u.identity, oppIdentity))
     : undefined;
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
@@ -165,9 +165,6 @@ export default function ProblemScreen() {
       navigate(`/results?game=${gameId}`);
     }
   }, [game?.status, gameId, navigate]);
-
-  const difficultyColor = (d: string): 'green' | 'yellow' | 'red' =>
-    d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
 
   const solveTimeSec = useMemo(() => {
     if (!game) return 0;
@@ -233,12 +230,6 @@ export default function ProblemScreen() {
     await callExecutor('submit');
   }
 
-  function hpColor(hp: number, max: number) {
-    const pct = hp / max;
-    if (pct > 0.5) return 'bg-green';
-    if (pct > 0.25) return 'bg-orange';
-    return 'bg-red';
-  }
 
   const navBar = (
     <div className="px-3 py-2 flex items-center gap-3 shrink-0">
