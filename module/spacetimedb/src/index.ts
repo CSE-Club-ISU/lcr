@@ -731,6 +731,19 @@ export const promote_to_admin = spacetimedb.reducer(
   }
 );
 
+// Bootstrap: callable by anyone, but only works if NO admin exists yet.
+// Run once after first login to make yourself admin; becomes a no-op after that.
+export const claim_first_admin = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const admins = [...ctx.db.user.iter()].filter(u => u.is_admin);
+    if (admins.length > 0) throw new SenderError('An admin already exists');
+    const user = ctx.db.user.identity.find(ctx.sender);
+    if (!user) throw new SenderError('User not found — connect first');
+    ctx.db.user.identity.update({ ...user, is_admin: true });
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Problem reducers
 // ---------------------------------------------------------------------------

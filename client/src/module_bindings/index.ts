@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import ApproveProblemReducer from "./approve_problem_reducer";
 import BuyAbilityReducer from "./buy_ability_reducer";
+import ClaimFirstAdminReducer from "./claim_first_admin_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DeleteProblemReducer from "./delete_problem_reducer";
 import ForfeitReducer from "./forfeit_reducer";
@@ -175,6 +176,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("approve_problem", ApproveProblemReducer),
   __reducerSchema("buy_ability", BuyAbilityReducer),
+  __reducerSchema("claim_first_admin", ClaimFirstAdminReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("delete_problem", DeleteProblemReducer),
   __reducerSchema("forfeit", ForfeitReducer),

@@ -90,6 +90,7 @@ function SetupForm({ onSaved }: { onSaved: () => void }) {
 function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
   const navigate = useNavigate();
   const setProfile = useReducer(reducers.setProfile);
+  const claimFirstAdmin = useReducer(reducers.claimFirstAdmin);
   const [historyRows] = useTypedTable<MatchHistory>(tables.match_history);
 
   const myMatches = useMemo(() => {
@@ -201,6 +202,15 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
           ) : (
             <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
               Sign out
+            </button>
+          )}
+          {!allUsers.some(u => u.isAdmin) && !user.isAdmin && (
+            <button
+              onClick={() => claimFirstAdmin()}
+              className="btn-secondary py-2 text-xs text-gold-bright border-gold-bright/40"
+              title="Only works if no admin exists yet"
+            >
+              Claim admin
             </button>
           )}
         </div>
