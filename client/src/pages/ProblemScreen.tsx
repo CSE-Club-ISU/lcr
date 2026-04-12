@@ -26,6 +26,7 @@ export default function ProblemScreen() {
   const ctx = useSpacetimeDB();
   const forfeit = useReducer(reducers.forfeit);
   const saveDraft = useReducer(reducers.saveDraft);
+  const adminSolveProblem = useReducer(reducers.adminSolveProblem);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -129,6 +130,9 @@ export default function ProblemScreen() {
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
   const oppUser = oppIdentity
     ? users.find(u => identityEq(u.identity, oppIdentity))
+    : undefined;
+  const myUser = ctx.identity
+    ? users.find(u => identityEq(u.identity, ctx.identity))
     : undefined;
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
@@ -343,6 +347,18 @@ export default function ProblemScreen() {
             </div>
           </div>
           <div className="w-px h-8 bg-border" />
+          {myUser?.isAdmin && viewedProblem && !isSolved && (
+            <button
+              onClick={() => {
+                if (!viewedProblem) return;
+                adminSolveProblem({ gameId, problemId: viewedProblem.id });
+              }}
+              title="Admin: instantly mark this problem solved"
+              className="text-[12px] text-accent border border-accent/50 bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:bg-accent/10"
+            >
+              Admin Solve
+            </button>
+          )}
           <button
             onClick={() => { if (gameId) forfeit({ gameId }); }}
             className="text-[12px] text-text-faint border border-border bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:text-red"

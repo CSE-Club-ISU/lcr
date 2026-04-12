@@ -1190,6 +1190,68 @@ export const promote_to_admin = spacetimedb.reducer(
   }
 );
 
+// Admin cheat: instantly mark the current problem solved for the caller in
+// the given game. Mirrors submit_result's solve path but skips executor auth
+// and powerup buffs.
+export const admin_solve_problem = spacetimedb.reducer(
+  { game_id: t.string(), problem_id: t.u64() },
+  (ctx, { game_id, problem_id }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not in progress');
+
+    const isP1 = game.player1_identity.toHexString() === ctx.sender.toHexString();
+    const isP2 = game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isP1 && !isP2) throw new SenderError('Not a participant in this game');
+
+    const problemIds = JSON.parse(game.problem_ids) as string[];
+    const problemCount = problemIds.length;
+    const problemIdStr = problem_id.toString();
+    if (!problemIds.includes(problemIdStr)) throw new SenderError('problem_id is not part of this game');
+
+    const solvedIds: string[] = JSON.parse(isP1 ? game.player1_solved_ids : game.player2_solved_ids);
+    if (solvedIds.includes(problemIdStr)) return;
+
+    ctx.db.submission.insert({
+      id:              0n,
+      game_id,
+      player_identity: isP1 ? game.player1_identity : game.player2_identity,
+      problem_id,
+      passed:          1,
+      total:           1,
+      solve_time:      0,
+      language:        'admin',
+      submitted_at:    ctx.timestamp,
+    });
+
+    const newSolvedIds = [...solvedIds, problemIdStr];
+    const room = ctx.db.room.code.find(game.room_code);
+    const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
+    const startingHp = Number(settings.starting_hp ?? 100);
+    const damage = Math.ceil(startingHp / problemCount);
+
+    const updated = { ...game };
+    if (isP1) {
+      updated.player1_solved_ids = JSON.stringify(newSolvedIds);
+      updated.player2_hp = Math.max(0, game.player2_hp - damage);
+    } else {
+      updated.player2_solved_ids = JSON.stringify(newSolvedIds);
+      updated.player1_hp = Math.max(0, game.player1_hp - damage);
+    }
+
+    const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
+    const winner_identity = isP1 ? game.player1_identity : game.player2_identity;
+
+    ctx.db.game_state.id.update(updated);
+
+    if (newSolvedIds.length >= problemCount || opponentHp <= 0) {
+      endGame(ctx, updated, winner_identity);
+    }
+  }
+);
+
 // Bootstrap: callable by anyone, but only works if NO admin exists yet.
 // Run once after first login to make yourself admin; becomes a no-op after that.
 export const claim_first_admin = spacetimedb.reducer(
