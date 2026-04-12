@@ -6,7 +6,7 @@ import { useTypedTable } from '../../utils/useTypedTable';
 const MAX_ANSWER_LEN = 200;
 
 export default function QuizModeTab() {
-  const [questions, loading] = useTypedTable<QuizQuestion>(tables.quiz_question);
+  const [questions, isReady] = useTypedTable<QuizQuestion>(tables.quiz_question);
 
   const sorted = useMemo(
     () => [...questions].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
@@ -26,7 +26,7 @@ export default function QuizModeTab() {
     setSubmitted('');
   }, [currentIndex]);
 
-  if (loading) {
+  if (!isReady) {
     return (
       <div className="flex items-center justify-center h-48 text-text-muted text-sm">
         Loading questions…
