@@ -99,7 +99,7 @@ export default function ResultsScreen() {
         className="rounded-2xl px-8 py-7 flex items-center justify-between text-white"
         style={{
           background: iWon
-            ? 'linear-gradient(135deg, #C0272D 0%, #1A0A0A 100%)'
+            ? 'linear-gradient(135deg, #166534 0%, #0a1a0a 100%)'
             : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
         }}
       >
