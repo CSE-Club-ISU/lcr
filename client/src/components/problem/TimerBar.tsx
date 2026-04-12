@@ -1,26 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { useReducer } from 'spacetimedb/react';
-import { reducers } from '../../module_bindings';
 
 /**
- * Countdown timer that displays remaining match time and triggers game expiry.
+ * Countdown timer that displays remaining match time.
  *
  * Teaching note: extracting the timer into its own component means ProblemScreen
  * doesn't need to know about setSeconds, lastExpireAttemptRef, or the tick math.
  * The component just receives what it needs and manages its own local state.
+ * Game expiry (calling the server reducer) is the caller's responsibility via onExpire.
  */
 
 interface TimerBarProps {
   startTimeMicros: bigint;  // game.startTime.microsSinceUnixEpoch
   status: string;            // game.status
-  gameId: string;
-  onExpire: () => void;      // called when timer hits 0 (triggers expireGame reducer)
+  onExpire: () => void;      // called when timer hits 0; caller owns expireGame
 }
 
-export default function TimerBar({ startTimeMicros, status, gameId, onExpire }: TimerBarProps) {
+export default function TimerBar({ startTimeMicros, status, onExpire }: TimerBarProps) {
   const [seconds, setSeconds] = useState<number>(20 * 60);
   const lastExpireAttemptRef = useRef(0);
-  const expireGame = useReducer(reducers.expireGame);
 
   useEffect(() => {
     const startMs = Number(startTimeMicros / 1000n);
@@ -30,18 +27,17 @@ export default function TimerBar({ startTimeMicros, status, gameId, onExpire }: 
       const elapsed = Math.floor((now - startMs) / 1000);
       const remaining = Math.max(0, maxSeconds - elapsed);
       setSeconds(remaining);
-      // Once the clock hits 0, nudge the server to resolve. Retry every 10s in
-      // case the server's elapsed check rejects us due to clock skew.
+      // Once the clock hits 0, notify the caller. Retry every 10s in case the
+      // server's elapsed check rejects due to clock skew.
       if (remaining === 0 && status === 'in_progress' && now - lastExpireAttemptRef.current > 10_000) {
         lastExpireAttemptRef.current = now;
-        expireGame({ gameId });
         onExpire();
       }
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [startTimeMicros, status, gameId, expireGame, onExpire]);
+  }, [startTimeMicros, status, onExpire]);
 
   const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
   const secs = String(seconds % 60).padStart(2, '0');

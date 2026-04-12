@@ -31,6 +31,7 @@ export default function ProblemScreen() {
   const forfeit = useReducer(reducers.forfeit);
   const saveDraft = useReducer(reducers.saveDraft);
   const adminSolveProblem = useReducer(reducers.adminSolveProblem);
+  const expireGame = useReducer(reducers.expireGame);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -108,8 +109,8 @@ export default function ProblemScreen() {
   }, [codeKey]);
 
   // Debounced draft save — keyed by (game, problem, language)
-  const [saveDraftDebounced] = useDebouncedCallback(
-    (..._args: unknown[]) => {
+  const saveDraftDebounced = useDebouncedCallback(
+    () => {
       if (!viewedProblemId || !gameId) return;
       saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
     },
@@ -336,8 +337,7 @@ export default function ProblemScreen() {
             <TimerBar
               startTimeMicros={game.startTime.microsSinceUnixEpoch}
               status={game.status}
-              gameId={gameId}
-              onExpire={() => {}}
+              onExpire={() => expireGame({ gameId })}
             />
           )}
           <div className="w-px h-8 bg-border" />
