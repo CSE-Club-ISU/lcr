@@ -10,7 +10,8 @@ import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import ProblemPanel from '../components/problem/ProblemPanel';
-import CodeEditor from '../components/problem/CodeEditor';
+import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEditor';
+import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
 import PowerupShop from '../components/powerup/PowerupShop';
@@ -133,6 +134,10 @@ export default function ProblemScreen() {
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
   const currency = usePowerupCurrency(game, isP1);
+
+  const editorRef = useRef<CodeEditorHandle>(null);
+  const onDeleteLine = useCallback(() => editorRef.current?.deleteRandomLine(), []);
+  const sabotageEffects = useSabotageHandler(gameId, ctx.identity ?? undefined, onDeleteLine);
   const startingHp = useMemo(() => {
     if (!game) return 100;
     const room = rooms.find(r => r.code === game.roomCode);
@@ -357,12 +362,19 @@ export default function ProblemScreen() {
         )}
         <div className="flex-1 flex flex-col gap-3 min-h-0">
           <CodeEditor
+            ref={editorRef}
             key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
             initialCode={currentCode}
             onChange={handleCodeChange}
             language={selectedLang}
             onLanguageChange={setSelectedLang}
             vimMode={settings.vimMode}
+            readOnly={sabotageEffects.frozen}
+            extraStyle={{
+              filter: sabotageEffects.blurred ? 'blur(3px)' : undefined,
+              transition: 'filter 0.2s ease',
+            }}
+            editorStyle={sabotageEffects.fontSize ? { fontSize: `${sabotageEffects.fontSize}px` } : undefined}
           />
 
           {/* Test results */}
