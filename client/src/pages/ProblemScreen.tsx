@@ -114,8 +114,8 @@ export default function ProblemScreen() {
   const secs = String(seconds % 60).padStart(2, '0');
   const timeStr = `${mins}:${secs}`;
 
-  const difficultyColor = (d: string): 'green' | 'orange' | 'red' =>
-    d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'orange';
+  const difficultyColor = (d: string): 'green' | 'yellow' | 'red' =>
+    d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
 
   const solveTimeSec = useMemo(() => {
     if (!game) return 0;
@@ -142,6 +142,11 @@ export default function ProblemScreen() {
           solve_time: solveTimeSec,
         }),
       });
+      if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before running again.`);
+        return;
+      }
       const data: ExecuteResponse = await res.json();
       if (data.compile_error) {
         setError(data.compile_error);
@@ -176,6 +181,11 @@ export default function ProblemScreen() {
           solve_time: solveTimeSec,
         }),
       });
+      if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        setError(`Too many requests — wait ${retryAfter ?? 'a few'} second(s) before submitting again.`);
+        return;
+      }
       const data: ExecuteResponse = await res.json();
       if (data.compile_error) {
         setError(data.compile_error);
