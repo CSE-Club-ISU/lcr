@@ -141,17 +141,22 @@ export default function MatchScreen() {
           {/* Create room */}
           <div className="flex flex-col gap-2 flex-1">
             <label className="text-xs text-text-muted">Create a room</label>
-            <div className="flex gap-2">
-              <button
-                className="btn-primary px-4 py-2 text-sm"
-                onClick={handleCreateFriendRoom}
-              >
-                Set up game
-              </button>
-            </div>
-            <p className="text-[11px] text-text-faint m-0">
-              Choose problems, order, and settings before inviting a friend.
+            <p className="text-[13px] text-text-muted m-0">
+              Pick problems, order, and settings, then share a code with a friend.
             </p>
+            <button
+              className="btn-primary px-4 py-2 text-sm self-start"
+              onClick={handleCreateFriendRoom}
+            >
+              Set up game
+            </button>
+          </div>
+
+          {/* OR divider */}
+          <div className="flex flex-col items-center gap-2 py-1">
+            <div className="w-px flex-1 bg-border" />
+            <span className="text-[11px] font-semibold text-text-faint uppercase tracking-widest">or</span>
+            <div className="w-px flex-1 bg-border" />
           </div>
 
           {/* Join room */}
