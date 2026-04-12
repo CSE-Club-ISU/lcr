@@ -43,4 +43,8 @@ echo "Token extracted: ${TOKEN:0:8}..."
 echo "Seeding problems..."
 bun /workspace/seed-problems.mjs "${SERVER}" "${DB_NAME}" "${TOKEN}"
 
+# Write the token to the shared config volume so the executor can use it
+# as a stable identity across restarts.
+echo -n "${TOKEN}" > "${CONFIG_DIR}/executor_token"
+
 echo "Init complete!"
