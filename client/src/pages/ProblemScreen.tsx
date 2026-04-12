@@ -110,11 +110,14 @@ export default function ProblemScreen() {
     setCodeMap(prev => ({ ...prev, [codeKey]: val }));
   }, [codeKey]);
 
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+
   // Debounced draft save — keyed by (game, problem, language)
   const saveDraftDebounced = useDebouncedCallback(
     () => {
       if (!viewedProblemId || !gameId) return;
       saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
+      setDraftSavedAt(Date.now());
     },
     DRAFT_DEBOUNCE_MS,
   );
@@ -129,6 +132,7 @@ export default function ProblemScreen() {
     setCodeMap(prev => ({ ...prev, [codeKey]: getBoilerplate(viewedProblem, selectedLang) }));
     setResetCount(c => c + 1);
     execDispatch({ type: 'CLEAR' });
+    setDraftSavedAt(null);
   }
 
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
@@ -157,6 +161,7 @@ export default function ProblemScreen() {
   // Clear execution state when switching problems
   useEffect(() => {
     execDispatch({ type: 'CLEAR' });
+    setDraftSavedAt(null);
   }, [viewedProblemId]);
 
   // Navigate to results when game finishes
@@ -448,7 +453,10 @@ export default function ProblemScreen() {
                   </span>
                 </div>
               ))}
-              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && (
+              {draftSavedAt && !error && !runSummary && !activeEffectLabels.length && !sabotageEffects.flash && !quizResult && (
+                <div className="text-green text-xs font-semibold">✓ Draft auto-saved</div>
+              )}
+              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && !draftSavedAt && (
                 <div className="text-text-faint text-xs">Ready.</div>
               )}
             </div>
