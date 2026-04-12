@@ -1,4 +1,5 @@
 import spacetimedb from './schema';
+export default spacetimedb;
 import { t, SenderError } from 'spacetimedb/server';
 
 // ---------------------------------------------------------------------------
