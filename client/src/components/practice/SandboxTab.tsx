@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSpacetimeDB } from 'spacetimedb/react';
 import CodeEditor from '../problem/CodeEditor';
-import { type Language, LANGUAGES, LANGUAGE_LABELS, loadSavedLang, saveLang } from '../../utils/languages';
+import { type Language, loadSavedLang, saveLang } from '../../utils/languages';
 import type { SandboxResponse } from '../../utils/executor-types';
 import { useSettings } from '../../hooks/useSettings';
 
@@ -96,30 +96,6 @@ export default function SandboxTab() {
 
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
-      {/* Language selector */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-text-muted">Language:</span>
-        {LANGUAGES.map(l => (
-          <button
-            key={l}
-            onClick={() => switchLang(l)}
-            className={[
-              'px-3 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-colors',
-              lang === l
-                ? 'bg-accent text-white border-accent'
-                : 'bg-transparent text-text-muted border-border hover:text-text hover:bg-surface',
-            ].join(' ')}
-          >
-            {LANGUAGE_LABELS[l]}
-          </button>
-        ))}
-        {lang === 'java' && (
-          <span className="ml-2 text-[11px] text-text-faint">
-            class must be named <code className="font-mono">Main</code>
-          </span>
-        )}
-      </div>
-
       {/* Editor */}
       <div className="flex-1 min-h-0 flex flex-col">
         <CodeEditor
@@ -176,6 +152,7 @@ export default function SandboxTab() {
 
       <p className="text-[11px] text-text-faint shrink-0">
         stdin is not available — programs run to completion with no input.
+        {lang === 'java' && <> Java class must be named <code className="font-mono">Main</code>.</>}
       </p>
     </div>
   );
