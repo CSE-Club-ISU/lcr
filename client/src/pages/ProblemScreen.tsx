@@ -5,6 +5,8 @@ import { tables, reducers } from '../module_bindings';
 import type { GameState, Problem, Room, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
+import { difficultyColor, hpColor } from '../utils/difficulty';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useSettings } from '../hooks/useSettings';
 import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
@@ -133,9 +135,7 @@ export default function ProblemScreen() {
   const oppUser = oppIdentity
     ? users.find(u => identityEq(u.identity, oppIdentity))
     : undefined;
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   const playerHp = isP1 ? (game?.player1Hp ?? 0) : (game?.player2Hp ?? 0);
   const oppHp    = isP1 ? (game?.player2Hp ?? 0) : (game?.player1Hp ?? 0);
@@ -200,9 +200,6 @@ export default function ProblemScreen() {
   const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
   const secs = String(seconds % 60).padStart(2, '0');
   const timeStr = `${mins}:${secs}`;
-
-  const difficultyColor = (d: string): 'green' | 'yellow' | 'red' =>
-    d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
 
   const solveTimeSec = useMemo(() => {
     if (!game) return 0;
@@ -271,13 +268,6 @@ export default function ProblemScreen() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function hpColor(hp: number, max: number) {
-    const pct = hp / max;
-    if (pct > 0.5) return 'bg-green';
-    if (pct > 0.25) return 'bg-orange';
-    return 'bg-red';
   }
 
   const navBar = (

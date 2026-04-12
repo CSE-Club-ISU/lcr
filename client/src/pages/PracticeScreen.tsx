@@ -3,6 +3,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
+import { difficultyColor } from '../utils/difficulty';
 import { useSettings } from '../hooks/useSettings';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
@@ -13,10 +14,6 @@ import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
 
-
-function difficultyColor(d: string): 'green' | 'yellow' | 'red' {
-  return d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
-}
 
 // ── Problem picker dropdown ──────────────────────────────────────────────────
 
