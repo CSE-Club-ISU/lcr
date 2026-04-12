@@ -26,4 +26,7 @@ export default __t.row({
   createdBy: __t.identity().name("created_by"),
   isApproved: __t.bool().name("is_approved"),
   problemKind: __t.string().name("problem_kind"),
+  paramTypes: __t.string().name("param_types"),
+  returnType: __t.string().name("return_type"),
+  methodSignatures: __t.string().name("method_signatures"),
 });

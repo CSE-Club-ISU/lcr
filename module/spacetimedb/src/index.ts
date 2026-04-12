@@ -40,6 +40,9 @@ const problem = table(
     created_by:           t.identity(),
     is_approved:          t.bool(),
     problem_kind:         t.string(),   // "algorithm" | "data_structure"
+    param_types:          t.string(),   // algo: JSON array e.g. '["int[]","int"]'; empty = generic
+    return_type:          t.string(),   // algo: e.g. "int[]", "void"; empty = generic
+    method_signatures:    t.string(),   // data_structure: JSON object of method→{params,return}; empty = generic
   }
 );
 
@@ -842,6 +845,9 @@ const PROBLEM_ARGS = {
   boilerplate_java:    t.string(),
   boilerplate_cpp:     t.string(),
   problem_kind:        t.string(),
+  param_types:         t.string(),
+  return_type:         t.string(),
+  method_signatures:   t.string(),
 };
 
 function validateAndInsertProblem(ctx: any, args: any) {
@@ -864,6 +870,9 @@ function validateAndInsertProblem(ctx: any, args: any) {
     created_by:           ctx.sender,
     is_approved:          true,
     problem_kind:         args.problem_kind,
+    param_types:          args.param_types,
+    return_type:          args.return_type,
+    method_signatures:    args.method_signatures,
   });
 }
 
@@ -899,6 +908,9 @@ export const update_problem = spacetimedb.reducer(
       boilerplate_java:    args.boilerplate_java,
       boilerplate_cpp:     args.boilerplate_cpp,
       problem_kind:        args.problem_kind,
+      param_types:         args.param_types,
+      return_type:         args.return_type,
+      method_signatures:   args.method_signatures,
     });
   }
 );
