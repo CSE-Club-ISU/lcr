@@ -52,11 +52,44 @@ function shuffle(arr, r) {
   return out;
 }
 
-// Placeholder boilerplates for Java and C++ — populated per-problem in future.
-const EMPTY_LANGS = {
-  boilerplate_java: '',
-  boilerplate_cpp: '',
-};
+// ---------------------------------------------------------------------------
+// Per-language boilerplate helpers
+// ---------------------------------------------------------------------------
+
+// Algorithm contract:
+//   Java: public static Object <method>(Object... args)
+//   C++:  json <method>(const json& args)
+//
+// Data structure contract:
+//   Java: class with public Object call(String m, Object... a) dispatch
+//   C++:  struct with json call(const std::string& m, const json& a) dispatch
+
+function algoBoilerplates(javaMethod, javaBody, cppSignature, cppBody) {
+  return {
+    boilerplate_java:
+      `public static Object ${javaMethod}(Object... args) {\n${javaBody}\n}`,
+    boilerplate_cpp:
+      `json ${cppSignature}(const json& args) {\n${cppBody}\n}`,
+  };
+}
+
+function dsBoilerplates(className, javaFields, javaMethods, cppFields, cppMethods) {
+  const javaCall =
+    `    public Object call(String m, Object... a) throws Exception {\n` +
+    `        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\n` +
+    `    }`;
+  const java =
+    `class ${className} {\n${javaFields}${javaMethods}\n${javaCall}\n}`;
+
+  const cpp =
+    `struct ${className} {\n${cppFields}${cppMethods}\n` +
+    `    json call(const std::string& m, const json& a) {\n` +
+    `        throw std::runtime_error("unknown op: " + m);\n` +
+    `    }\n` +
+    `};`;
+
+  return { boilerplate_java: java, boilerplate_cpp: cpp };
+}
 
 // ---------------------------------------------------------------------------
 // Problems
@@ -86,7 +119,12 @@ const problems = [
     })(),
     hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
     boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'two_sum',
+      '    // args[0] = nums (List), args[1] = target (Long)\n    // return a List of two indices\n    return null;',
+      'two_sum',
+      '    // args[0] = nums array, args[1] = target\n    // return a json array of two indices\n    return nullptr;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -108,7 +146,12 @@ const problems = [
       };
     })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'reverse_string',
+      '    // args[0] = s (String)\n    String s = (String) args[0];\n    return null; // return the reversed string',
+      'reverse_string',
+      '    // args[0] = s (string)\n    std::string s = args[0].get<std::string>();\n    return nullptr; // return the reversed string',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -125,7 +168,12 @@ const problems = [
     hidden_test_cases: '121|-121|10|0|1221|12321|123',
     hidden_test_results: 'true|false|false|true|true|true|false',
     boilerplate_python: 'def is_palindrome(x: int) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'is_palindrome',
+      '    // args[0] = x (Long)\n    long x = (Long) args[0];\n    return null; // return true or false',
+      'is_palindrome',
+      '    // args[0] = x (number)\n    long x = args[0].get<long>();\n    return nullptr; // return true or false',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -145,7 +193,12 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'contains_duplicate',
+      '    // args[0] = nums (List)\n    @SuppressWarnings("unchecked")\n    java.util.List<Object> nums = (java.util.List<Object>) args[0];\n    return null; // return true or false',
+      'contains_duplicate',
+      '    // args[0] = nums array\n    auto nums = args[0];\n    return nullptr; // return true or false',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -167,7 +220,12 @@ const problems = [
       };
     })(),
     boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'max_in_array',
+      '    // args[0] = nums (List)\n    @SuppressWarnings("unchecked")\n    java.util.List<Object> nums = (java.util.List<Object>) args[0];\n    return null; // return the max as a Long',
+      'max_in_array',
+      '    // args[0] = nums array\n    auto nums = args[0];\n    return nullptr; // return the max as an integer',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -186,7 +244,12 @@ const problems = [
     hidden_test_cases: '3|5|15|1|10',
     hidden_test_results: '["1","2","Fizz"]|["1","2","Fizz","4","Buzz"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz","11","Fizz","13","14","FizzBuzz"]|["1"]|["1","2","Fizz","4","Buzz","Fizz","7","8","Fizz","Buzz"]',
     boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'fizz_buzz',
+      '    // args[0] = n (Long)\n    long n = (Long) args[0];\n    java.util.List<Object> result = new java.util.ArrayList<>();\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
+      'fizz_buzz',
+      '    // args[0] = n (integer)\n    long n = args[0].get<long>();\n    json result = json::array();\n    // fill result with "Fizz", "Buzz", "FizzBuzz", or number string\n    return result;',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -202,7 +265,12 @@ const problems = [
     hidden_test_cases: '123|9999|0|1|100|12345|999999999',
     hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'sum_of_digits',
+      '    // args[0] = n (Long)\n    long n = (Long) args[0];\n    return null; // return the digit sum as a Long',
+      'sum_of_digits',
+      '    // args[0] = n (integer)\n    long n = args[0].get<long>();\n    return nullptr; // return the digit sum',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -219,7 +287,12 @@ const problems = [
     hidden_test_cases: '0|1|2|3|6|10|15|50',
     hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'fib',
+      '    // args[0] = n (Long)\n    long n = (Long) args[0];\n    return null; // return the nth Fibonacci number as a Long',
+      'fib',
+      '    // args[0] = n (integer)\n    long n = args[0].get<long>();\n    return nullptr; // return the nth Fibonacci number',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -237,7 +310,12 @@ const problems = [
     hidden_test_cases: '"()"|"()[]{}"|"(]"|"([)]"|"{[]}"|""|"((("',
     hidden_test_results: 'true|true|false|false|true|true|false',
     boilerplate_python: 'def is_valid(s: str) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'is_valid',
+      '    // args[0] = s (String)\n    String s = (String) args[0];\n    return null; // return true or false',
+      'is_valid',
+      '    // args[0] = s (string)\n    std::string s = args[0].get<std::string>();\n    return nullptr; // return true or false',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -275,7 +353,40 @@ const problems = [
       '        pass\n\n' +
       '    def get_min(self) -> int:\n' +
       '        pass',
-    ...EMPTY_LANGS,
+    boilerplate_java:
+      'class MinStack {\n' +
+      '    // add fields here\n\n' +
+      '    public Object push(Object... args) {\n' +
+      '        long val = (Long) args[0];\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object pop(Object... args) {\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object top(Object... args) {\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object get_min(Object... args) {\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object call(String m, Object... a) throws Exception {\n' +
+      '        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct MinStack {\n' +
+      '    // add fields here\n\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "push") {\n' +
+      '            long val = a[0].get<long>();\n' +
+      '            return nullptr;\n' +
+      '        }\n' +
+      '        if (m == "pop")     { return nullptr; }\n' +
+      '        if (m == "top")     { return nullptr; }\n' +
+      '        if (m == "get_min") { return nullptr; }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 
@@ -300,7 +411,12 @@ const problems = [
     })(),
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'is_anagram',
+      '    // args[0] = s (String), args[1] = t (String)\n    String s = (String) args[0];\n    String t = (String) args[1];\n    return null; // return true or false',
+      'is_anagram',
+      '    // args[0] = s (string), args[1] = t (string)\n    std::string s = args[0].get<std::string>();\n    std::string t = args[1].get<std::string>();\n    return nullptr; // return true or false',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -321,7 +437,12 @@ const problems = [
     })(),
     hidden_test_results: '4|-1|0|-1|2|4|4999',
     boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'binary_search',
+      '    // args[0] = nums (List<Object>), args[1] = target (Long)\n    @SuppressWarnings("unchecked")\n    java.util.List<Object> nums = (java.util.List<Object>) args[0];\n    long target = (Long) args[1];\n    return null; // return the index as a Long, or -1',
+      'binary_search',
+      '    // args[0] = nums array, args[1] = target\n    auto nums = args[0];\n    long target = args[1].get<long>();\n    return nullptr; // return the index, or -1',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -348,8 +469,13 @@ const problems = [
       '    # Treat the list as a linked list and reverse it with pointers.\n' +
       '    # Return the result as a list.\n' +
       '    pass',
-    ...EMPTY_LANGS,
-    problem_kind: 'data_structure',
+    ...algoBoilerplates(
+      'reverse_list',
+      '    // args[0] = head (List<Object>) representing the linked list\n    @SuppressWarnings("unchecked")\n    java.util.List<Object> head = (java.util.List<Object>) args[0];\n    return null; // return the reversed list',
+      'reverse_list',
+      '    // args[0] = head (array) representing the linked list\n    auto head = args[0];\n    return nullptr; // return the reversed list',
+    ),
+    problem_kind: 'algorithm',
   },
 
   {
@@ -365,7 +491,12 @@ const problems = [
     hidden_test_cases: '1|2|3|4|5|10|40',
     hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
-    ...EMPTY_LANGS,
+    ...algoBoilerplates(
+      'climb_stairs',
+      '    // args[0] = n (Long)\n    long n = (Long) args[0];\n    return null; // return the number of distinct ways as a Long',
+      'climb_stairs',
+      '    // args[0] = n (integer)\n    long n = args[0].get<long>();\n    return nullptr; // return the number of distinct ways',
+    ),
     problem_kind: 'algorithm',
   },
 
@@ -398,7 +529,48 @@ const problems = [
       '        pass\n\n' +
       '    def put(self, key: int, value: int) -> None:\n' +
       '        pass',
-    ...EMPTY_LANGS,
+    boilerplate_java:
+      'class LRUCache {\n' +
+      '    // add fields here\n\n' +
+      '    public Object LRUCache(Object... args) {\n' +
+      '        long capacity = (Long) args[0];\n' +
+      '        // initialize with capacity\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object get(Object... args) {\n' +
+      '        long key = (Long) args[0];\n' +
+      '        return null; // return value or -1\n' +
+      '    }\n\n' +
+      '    public Object put(Object... args) {\n' +
+      '        long key = (Long) args[0];\n' +
+      '        long value = (Long) args[1];\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object call(String m, Object... a) throws Exception {\n' +
+      '        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct LRUCache {\n' +
+      '    // add fields here\n\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "LRUCache") {\n' +
+      '            long capacity = a[0].get<long>();\n' +
+      '            // initialize with capacity\n' +
+      '            return nullptr;\n' +
+      '        }\n' +
+      '        if (m == "get") {\n' +
+      '            long key = a[0].get<long>();\n' +
+      '            return nullptr; // return value or -1\n' +
+      '        }\n' +
+      '        if (m == "put") {\n' +
+      '            long key = a[0].get<long>();\n' +
+      '            long value = a[1].get<long>();\n' +
+      '            return nullptr;\n' +
+      '        }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 
@@ -430,7 +602,44 @@ const problems = [
       '        pass\n\n' +
       '    def starts_with(self, prefix: str) -> bool:\n' +
       '        pass',
-    ...EMPTY_LANGS,
+    boilerplate_java:
+      'class Trie {\n' +
+      '    // add fields here\n\n' +
+      '    public Object insert(Object... args) {\n' +
+      '        String word = (String) args[0];\n' +
+      '        return null;\n' +
+      '    }\n\n' +
+      '    public Object search(Object... args) {\n' +
+      '        String word = (String) args[0];\n' +
+      '        return null; // return true or false\n' +
+      '    }\n\n' +
+      '    public Object starts_with(Object... args) {\n' +
+      '        String prefix = (String) args[0];\n' +
+      '        return null; // return true or false\n' +
+      '    }\n\n' +
+      '    public Object call(String m, Object... a) throws Exception {\n' +
+      '        return (Object) getClass().getMethod(m, Object[].class).invoke(this, (Object) a);\n' +
+      '    }\n' +
+      '}',
+    boilerplate_cpp:
+      'struct Trie {\n' +
+      '    // add fields here\n\n' +
+      '    json call(const std::string& m, const json& a) {\n' +
+      '        if (m == "insert") {\n' +
+      '            std::string word = a[0].get<std::string>();\n' +
+      '            return nullptr;\n' +
+      '        }\n' +
+      '        if (m == "search") {\n' +
+      '            std::string word = a[0].get<std::string>();\n' +
+      '            return nullptr; // return true or false\n' +
+      '        }\n' +
+      '        if (m == "starts_with") {\n' +
+      '            std::string prefix = a[0].get<std::string>();\n' +
+      '            return nullptr; // return true or false\n' +
+      '        }\n' +
+      '        throw std::runtime_error("unknown op: " + m);\n' +
+      '    }\n' +
+      '};',
     problem_kind: 'data_structure',
   },
 
