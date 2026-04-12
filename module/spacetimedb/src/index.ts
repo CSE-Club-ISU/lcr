@@ -203,7 +203,7 @@ const match_history = table(
     room_code:           t.string(),
     player1_identity:    t.identity(),
     player2_identity:    t.identity(),
-    winner_identity:     t.identity(),
+    winner_identity:     t.identity().optional(),
     problem_ids:         t.string(),   // JSON array of problem id strings
     problem_titles:      t.string(),   // JSON array of titles (denormalized)
     difficulties:        t.string(),   // JSON array of difficulty strings
@@ -605,13 +605,19 @@ export const send_chat = spacetimedb.reducer(
 // endGame helper — called by submit_result and forfeit
 // ---------------------------------------------------------------------------
 
-function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
-  const loserIdentity = winnerIdentity.toHexString() === game.player1_identity.toHexString()
-    ? game.player2_identity
-    : game.player1_identity;
+function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike | undefined) {
+  const loserIdentity = winnerIdentity === undefined
+    ? undefined
+    : (winnerIdentity.toHexString() === game.player1_identity.toHexString()
+        ? game.player2_identity
+        : game.player1_identity);
 
   // Mark game finished
-  ctx.db.game_state.id.update({ ...game, status: 'finished', winner_identity: winnerIdentity as typeof game.player1_identity });
+  ctx.db.game_state.id.update({
+    ...game,
+    status: 'finished',
+    winner_identity: winnerIdentity as (typeof game.player1_identity) | undefined,
+  });
 
   // Aggregate submission rows for this game
   const subs = [...ctx.db.submission.submission_game_id.filter(game.id)];
@@ -652,7 +658,7 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     room_code:           game.room_code,
     player1_identity:    game.player1_identity,
     player2_identity:    game.player2_identity,
-    winner_identity:     winnerIdentity as typeof game.player1_identity,
+    winner_identity:     winnerIdentity as (typeof game.player1_identity) | undefined,
     problem_ids:         JSON.stringify(problemIdStrings),
     problem_titles:      JSON.stringify(problemTitles),
     difficulties:        JSON.stringify(difficulties),
@@ -665,7 +671,14 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     played_at:           ctx.timestamp,
   });
 
-  // Hidden ELO calculation (K=20)
+  // Hidden ELO calculation (K=20). Draws: both players get +0 ELO and a match counted.
+  if (winnerIdentity === undefined || loserIdentity === undefined) {
+    const p1 = ctx.db.user.identity.find(game.player1_identity);
+    const p2 = ctx.db.user.identity.find(game.player2_identity);
+    if (p1) ctx.db.user.identity.update({ ...p1, total_matches: p1.total_matches + 1, current_streak: 0 });
+    if (p2) ctx.db.user.identity.update({ ...p2, total_matches: p2.total_matches + 1, current_streak: 0 });
+    return;
+  }
   const winner = ctx.db.user.identity.find(winnerIdentity as typeof game.player1_identity);
   const loser  = ctx.db.user.identity.find(loserIdentity);
   if (winner && loser) {
@@ -686,6 +699,39 @@ function endGame(ctx: DbCtx, game: GameStateRow, winnerIdentity: IdentityLike) {
     });
   }
 }
+
+// Time-out resolution: callable by either participant once the 20-minute clock
+// has elapsed. Winner is whoever has more solves; ties fall back to HP, and a
+// true tie ends the game as a draw (winner_identity = undefined).
+const MATCH_DURATION_SEC = 20 * 60;
+
+export const expire_game = spacetimedb.reducer(
+  { game_id: t.string() },
+  (ctx, { game_id }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') return;
+
+    const isParticipant =
+      game.player1_identity.toHexString() === ctx.sender.toHexString() ||
+      game.player2_identity.toHexString() === ctx.sender.toHexString();
+    if (!isParticipant) throw new SenderError('Not a participant in this game');
+
+    const elapsedSec = Number((ctx.timestamp.microsSinceUnixEpoch - game.start_time.microsSinceUnixEpoch) / 1_000_000n);
+    if (elapsedSec < MATCH_DURATION_SEC) return; // not yet expired — ignore
+
+    const p1Solved = (JSON.parse(game.player1_solved_ids) as string[]).length;
+    const p2Solved = (JSON.parse(game.player2_solved_ids) as string[]).length;
+
+    let winner: IdentityLike | undefined;
+    if (p1Solved > p2Solved)       winner = game.player1_identity;
+    else if (p2Solved > p1Solved)  winner = game.player2_identity;
+    else if (game.player1_hp > game.player2_hp) winner = game.player1_identity;
+    else if (game.player2_hp > game.player1_hp) winner = game.player2_identity;
+    else                           winner = undefined; // draw
+
+    endGame(ctx, game, winner);
+  }
+);
 
 export const forfeit = spacetimedb.reducer(
   { game_id: t.string() },

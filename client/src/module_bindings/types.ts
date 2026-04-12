@@ -75,7 +75,7 @@ export const MatchHistory = __t.object("MatchHistory", {
   roomCode: __t.string(),
   player1Identity: __t.identity(),
   player2Identity: __t.identity(),
-  winnerIdentity: __t.identity(),
+  winnerIdentity: __t.option(__t.identity()),
   problemIds: __t.string(),
   problemTitles: __t.string(),
   difficulties: __t.string(),

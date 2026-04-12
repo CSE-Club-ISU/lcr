@@ -15,7 +15,7 @@ export default __t.row({
   roomCode: __t.string().name("room_code"),
   player1Identity: __t.identity().name("player_1_identity"),
   player2Identity: __t.identity().name("player_2_identity"),
-  winnerIdentity: __t.identity().name("winner_identity"),
+  winnerIdentity: __t.option(__t.identity()).name("winner_identity"),
   problemIds: __t.string().name("problem_ids"),
   problemTitles: __t.string().name("problem_titles"),
   difficulties: __t.string(),

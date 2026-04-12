@@ -40,6 +40,7 @@ import ClaimFirstAdminReducer from "./claim_first_admin_reducer";
 import ClearSabotageEventReducer from "./clear_sabotage_event_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DeleteProblemReducer from "./delete_problem_reducer";
+import ExpireGameReducer from "./expire_game_reducer";
 import ForfeitReducer from "./forfeit_reducer";
 import InsertProblemReducer from "./insert_problem_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
@@ -255,6 +256,7 @@ const reducersSchema = __reducers(
   __reducerSchema("clear_sabotage_event", ClearSabotageEventReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("delete_problem", DeleteProblemReducer),
+  __reducerSchema("expire_game", ExpireGameReducer),
   __reducerSchema("forfeit", ForfeitReducer),
   __reducerSchema("insert_problem", InsertProblemReducer),
   __reducerSchema("join_queue", JoinQueueReducer),

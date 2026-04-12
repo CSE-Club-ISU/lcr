@@ -26,6 +26,7 @@ export default function ProblemScreen() {
   const forfeit = useReducer(reducers.forfeit);
   const saveDraft = useReducer(reducers.saveDraft);
   const adminSolveProblem = useReducer(reducers.adminSolveProblem);
+  const expireGame = useReducer(reducers.expireGame);
   const [settings] = useSettings();
 
   const gameId = searchParams.get('game') ?? '';
@@ -164,18 +165,24 @@ export default function ProblemScreen() {
 
   // Timer
   const [seconds, setSeconds] = useState<number>(20 * 60);
+  const expireCalledRef = useRef(false);
   useEffect(() => {
     if (!game) return;
     const startMs = Number(game.startTime.microsSinceUnixEpoch / 1000n);
     const maxSeconds = 20 * 60;
     const tick = () => {
       const elapsed = Math.floor((Date.now() - startMs) / 1000);
-      setSeconds(Math.max(0, maxSeconds - elapsed));
+      const remaining = Math.max(0, maxSeconds - elapsed);
+      setSeconds(remaining);
+      if (remaining === 0 && game.status === 'in_progress' && !expireCalledRef.current) {
+        expireCalledRef.current = true;
+        expireGame({ gameId });
+      }
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, [game?.startTime]);
+  }, [game?.startTime, game?.status, gameId, expireGame]);
 
   // Navigate to results when game finishes
   useEffect(() => {
