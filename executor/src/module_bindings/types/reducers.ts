@@ -8,6 +8,7 @@ import { type Infer as __Infer } from "spacetimedb";
 // Import all reducer arg schemas
 import BuyAbilityReducer from "../buy_ability_reducer";
 import ClaimFirstAdminReducer from "../claim_first_admin_reducer";
+import ClearSabotageEventReducer from "../clear_sabotage_event_reducer";
 import CreateRoomReducer from "../create_room_reducer";
 import DeleteProblemReducer from "../delete_problem_reducer";
 import ForfeitReducer from "../forfeit_reducer";
@@ -31,9 +32,11 @@ import SubmitResultReducer from "../submit_result_reducer";
 import UpdateProblemReducer from "../update_problem_reducer";
 import UpdateRoomSettingsReducer from "../update_room_settings_reducer";
 import UseAbilityReducer from "../use_ability_reducer";
+import UsePowerupReducer from "../use_powerup_reducer";
 
 export type BuyAbilityParams = __Infer<typeof BuyAbilityReducer>;
 export type ClaimFirstAdminParams = __Infer<typeof ClaimFirstAdminReducer>;
+export type ClearSabotageEventParams = __Infer<typeof ClearSabotageEventReducer>;
 export type CreateRoomParams = __Infer<typeof CreateRoomReducer>;
 export type DeleteProblemParams = __Infer<typeof DeleteProblemReducer>;
 export type ForfeitParams = __Infer<typeof ForfeitReducer>;
@@ -57,4 +60,5 @@ export type SubmitResultParams = __Infer<typeof SubmitResultReducer>;
 export type UpdateProblemParams = __Infer<typeof UpdateProblemReducer>;
 export type UpdateRoomSettingsParams = __Infer<typeof UpdateRoomSettingsReducer>;
 export type UseAbilityParams = __Infer<typeof UseAbilityReducer>;
+export type UsePowerupParams = __Infer<typeof UsePowerupReducer>;
 

@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import BuyAbilityReducer from "./buy_ability_reducer";
 import ClaimFirstAdminReducer from "./claim_first_admin_reducer";
+import ClearSabotageEventReducer from "./clear_sabotage_event_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DeleteProblemReducer from "./delete_problem_reducer";
 import ForfeitReducer from "./forfeit_reducer";
@@ -59,6 +60,7 @@ import SubmitResultReducer from "./submit_result_reducer";
 import UpdateProblemReducer from "./update_problem_reducer";
 import UpdateRoomSettingsReducer from "./update_room_settings_reducer";
 import UseAbilityReducer from "./use_ability_reducer";
+import UsePowerupReducer from "./use_powerup_reducer";
 
 // Import all procedure arg schemas
 
@@ -248,6 +250,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("buy_ability", BuyAbilityReducer),
   __reducerSchema("claim_first_admin", ClaimFirstAdminReducer),
+  __reducerSchema("clear_sabotage_event", ClearSabotageEventReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("delete_problem", DeleteProblemReducer),
   __reducerSchema("forfeit", ForfeitReducer),
@@ -271,6 +274,7 @@ const reducersSchema = __reducers(
   __reducerSchema("update_problem", UpdateProblemReducer),
   __reducerSchema("update_room_settings", UpdateRoomSettingsReducer),
   __reducerSchema("use_ability", UseAbilityReducer),
+  __reducerSchema("use_powerup", UsePowerupReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

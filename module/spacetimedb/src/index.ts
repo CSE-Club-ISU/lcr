@@ -762,15 +762,30 @@ export const submit_result = spacetimedb.reducer(
     const room = ctx.db.room.code.find(game.room_code);
     const settings = room ? JSON.parse(room.settings) as Record<string, unknown> : {};
     const startingHp = Number(settings.starting_hp ?? 100);
-    const damage = Math.ceil(startingHp / problemCount);
+    const baseDamage = Math.ceil(startingHp / problemCount);
+
+    // Apply attacker's pending damage buffs and defender's pending shield,
+    // then consume them.
+    const attackerMultPct = isP1 ? game.player1_dmg_mult_pct : game.player2_dmg_mult_pct;
+    const attackerFlat    = isP1 ? game.player1_dmg_bonus    : game.player2_dmg_bonus;
+    const defenderShield  = isP1 ? game.player2_shield       : game.player1_shield;
+
+    const boostedDamage = Math.floor(baseDamage * (100 + attackerMultPct) / 100) + attackerFlat;
+    const damage = Math.max(0, boostedDamage - defenderShield);
 
     let updated = { ...game };
     if (isP1) {
       updated.player1_solved_ids = JSON.stringify(newSolvedIds);
       updated.player2_hp = Math.max(0, game.player2_hp - damage);
+      updated.player1_dmg_mult_pct = 0;
+      updated.player1_dmg_bonus    = 0;
+      updated.player2_shield       = 0;
     } else {
       updated.player2_solved_ids = JSON.stringify(newSolvedIds);
       updated.player1_hp = Math.max(0, game.player1_hp - damage);
+      updated.player2_dmg_mult_pct = 0;
+      updated.player2_dmg_bonus    = 0;
+      updated.player1_shield       = 0;
     }
 
     const opponentHp = isP1 ? updated.player2_hp : updated.player1_hp;
@@ -966,6 +981,98 @@ export const set_loadout_pref = spacetimedb.reducer(
     } else {
       ctx.db.player_loadout_pref.insert({ identity: ctx.sender, powerup_ids });
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Powerup usage
+// ---------------------------------------------------------------------------
+
+type PowerupRow = NonNullable<ReturnType<DbCtx['db']['powerup']['id']['find']>>;
+
+function getLoadoutIds(ctx: DbCtx, gameId: string, identity: IdentityLike): string[] {
+  const loadouts = [...ctx.db.powerup_loadout.loadout_game_id.filter(gameId)]
+    .filter(l => l.player_identity.toHexString() === identity.toHexString());
+  if (loadouts.length === 0) return [];
+  try { return JSON.parse(loadouts[0].powerup_ids); }
+  catch { return []; }
+}
+
+export const use_powerup = spacetimedb.reducer(
+  { game_id: t.string(), powerup_id: t.u64() },
+  (ctx, { game_id, powerup_id }) => {
+    const game = ctx.db.game_state.id.find(game_id);
+    if (!game || game.status !== 'in_progress') throw new SenderError('Game not active');
+
+    const senderHex = ctx.sender.toHexString();
+    const isP1 = game.player1_identity.toHexString() === senderHex;
+    const isP2 = game.player2_identity.toHexString() === senderHex;
+    if (!isP1 && !isP2) throw new SenderError('Not a participant');
+
+    const powerup = ctx.db.powerup.id.find(powerup_id);
+    if (!powerup) throw new SenderError('Unknown powerup');
+
+    // Loadout gate — must be in the player's selected loadout
+    const loadoutIds = getLoadoutIds(ctx, game_id, isP1 ? game.player1_identity : game.player2_identity);
+    if (!loadoutIds.includes(powerup_id.toString())) throw new SenderError('Powerup not in your loadout');
+
+    // Currency check
+    const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
+    const available = availableCurrency(game, isP1, nowMicros);
+    if (available < powerup.cost) throw new SenderError('Not enough energy');
+
+    // Parse effect
+    let effect: Record<string, unknown> = {};
+    try { effect = JSON.parse(powerup.effect_data); } catch { /* ignore */ }
+
+    const updated = { ...game };
+    if (isP1) updated.player1_spent = game.player1_spent + powerup.cost;
+    else      updated.player2_spent = game.player2_spent + powerup.cost;
+
+    if (powerup.kind === 'damage') {
+      const multPct = Number(effect.mult_pct ?? 0);
+      const flat    = Number(effect.amount   ?? 0);
+      if (isP1) {
+        updated.player1_dmg_mult_pct = Math.max(updated.player1_dmg_mult_pct, multPct);
+        updated.player1_dmg_bonus    = updated.player1_dmg_bonus + flat;
+      } else {
+        updated.player2_dmg_mult_pct = Math.max(updated.player2_dmg_mult_pct, multPct);
+        updated.player2_dmg_bonus    = updated.player2_dmg_bonus + flat;
+      }
+      ctx.db.game_state.id.update(updated);
+    } else if (powerup.kind === 'defense') {
+      const shield = Number(effect.shield ?? 0);
+      if (isP1) updated.player1_shield = updated.player1_shield + shield;
+      else      updated.player2_shield = updated.player2_shield + shield;
+      ctx.db.game_state.id.update(updated);
+    } else if (powerup.kind === 'sabotage') {
+      ctx.db.game_state.id.update(updated);
+      const opponentIdentity = isP1 ? game.player2_identity : game.player1_identity;
+      const effectType = typeof effect.type === 'string' ? effect.type : 'unknown';
+      ctx.db.sabotage_event.insert({
+        id:               0n,
+        game_id,
+        target_identity:  opponentIdentity,
+        effect_type:      effectType,
+        effect_data:      powerup.effect_data,
+        created_at:       ctx.timestamp,
+      });
+    } else {
+      throw new SenderError(`Unknown powerup kind: ${powerup.kind}`);
+    }
+  }
+);
+
+// Target client calls this after consuming a sabotage effect to free the row.
+export const clear_sabotage_event = spacetimedb.reducer(
+  { event_id: t.u64() },
+  (ctx, { event_id }) => {
+    const row = ctx.db.sabotage_event.id.find(event_id);
+    if (!row) return;
+    if (row.target_identity.toHexString() !== ctx.sender.toHexString()) {
+      throw new SenderError('Not your sabotage event');
+    }
+    ctx.db.sabotage_event.id.delete(event_id);
   }
 );
 
