@@ -93,11 +93,6 @@ const server = Bun.serve({
       }
       const execReq = validation.req;
 
-      // Java and C++ runners are not yet implemented
-      if (execReq.lang === 'java' || execReq.lang === 'cpp') {
-        return json({ error: `${execReq.lang} is not yet supported` }, { status: 400 });
-      }
-
       const gameId = execReq.game_id ?? '';
 
       // Practice mode sends an empty game_id — skip rate limiting in that case
