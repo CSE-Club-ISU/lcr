@@ -10,6 +10,12 @@ import type { GameState } from '../module_bindings/types';
 /**
  * Build a minimal GameState mock.
  * startOffsetMs: how many milliseconds ago the game started.
+ *
+ * Note on time: makeGame() calls Date.now() on the real clock to set startTime,
+ * then vi.useFakeTimers() takes over for the hook's internal Date.now() calls.
+ * This works because fake timers freeze at the moment they're installed, so
+ * the hook sees the same "now" that makeGame used — elapsed stays consistent.
+ * Intentional: mixing real clock for setup and fake clock for hook execution.
  */
 function makeGame(
   startOffsetMs: number,

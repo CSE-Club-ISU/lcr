@@ -1,23 +1,16 @@
 /**
  * Tests for auth/src/store.ts
  *
- * store.ts loads its in-memory state at module import time via loadFromDisk().
- * We set STORE_FILE to a temp path before importing so each test run starts
- * from an empty store backed by a throwaway file.
+ * We import resetForTesting() and call it in beforeEach so each test starts
+ * with a clean slate. This is safer than the old STORE_FILE env trick, which
+ * was brittle if any transitive import also read the env at import time.
  */
-import { describe, it, expect, afterAll } from 'bun:test';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { unlinkSync, existsSync } from 'fs';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
-// Must be set before the first import of store.ts so loadFromDisk() uses it.
-const TEMP_STORE = join(tmpdir(), `lcr-store-test-${Date.now()}-${process.pid}.json`);
-process.env.STORE_FILE = TEMP_STORE;
+const { getToken, setToken, createCode, redeemCode, resetForTesting } = await import('./store.js');
 
-const { getToken, setToken, createCode, redeemCode } = await import('./store.js');
-
-afterAll(() => {
-  if (existsSync(TEMP_STORE)) unlinkSync(TEMP_STORE);
+beforeEach(() => {
+  resetForTesting();
 });
 
 // ---------------------------------------------------------------------------
