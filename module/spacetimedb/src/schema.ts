@@ -246,6 +246,9 @@ export const draft_code = table(
   {
     name: 'draft_code',
     public: false,
+    indexes: [
+      { accessor: 'draft_code_game_id', algorithm: 'btree', columns: ['game_id'] },
+    ],
   },
   {
     id:              t.u64().primaryKey().autoInc(),
