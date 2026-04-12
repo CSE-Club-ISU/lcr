@@ -14,6 +14,10 @@ export interface ProblemData {
   method_name: string;
   test_cases: string[];        // JSON strings (sample or hidden based on mode)
   test_results: string[];      // Expected outputs
+  // Optional typed-signature fields — empty string = generic (legacy) path
+  param_types?: string;        // algo: JSON array e.g. '["int[]","int"]'
+  return_type?: string;        // algo: e.g. "int[]"
+  method_signatures?: string;  // data_structure: JSON object of method→{params,return}
 }
 
 export async function executeCode(
