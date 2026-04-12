@@ -14,3 +14,10 @@ export interface ExecuteResponse {
   compile_error?: string;
   runtime_error?: string;
 }
+
+export interface SandboxResponse {
+  success: boolean;
+  stdout?: string;
+  compile_error?: string;
+  runtime_error?: string;
+}

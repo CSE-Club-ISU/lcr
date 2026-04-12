@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { useSpacetimeDB } from 'spacetimedb/react';
-import { tables } from '../../module_bindings';
+import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
+import { tables, reducers } from '../../module_bindings';
 import type { User } from '../../module_bindings/types';
 import { useTypedTable } from '../../utils/useTypedTable';
 import { identityEq } from '../../utils/identity';
@@ -14,10 +14,35 @@ export default function AppLayout() {
   const [users] = useTypedTable<User>(tables.user);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const setProfile = useReducer(reducers.setProfile);
 
   const myUser = ctx.identity
     ? users.find((u) => identityEq(u.identity, ctx.identity))
     : undefined;
+
+  // Sync GitHub profile into the SpacetimeDB user row on first login.
+  // The auth callback stores profile data in localStorage but can't call
+  // SpacetimeDB reducers before the connection is ready. We do it here,
+  // once the user row is loaded and github_id is still empty.
+  useEffect(() => {
+    if (!myUser || myUser.githubId) return;
+    const raw = localStorage.getItem('lcr_github_profile');
+    if (!raw) return;
+    try {
+      const profile = JSON.parse(raw) as {
+        githubId: string; username: string; name: string;
+        avatarUrl: string; email: string;
+      };
+      if (!profile.githubId) return;
+      setProfile({
+        username:   myUser.username || profile.username,
+        firstName:  myUser.firstName || profile.name.split(' ')[0] || '',
+        lastName:   myUser.lastName  || profile.name.split(' ').slice(1).join(' ') || '',
+        githubId:   profile.githubId,
+        avatarUrl:  myUser.avatarUrl || profile.avatarUrl,
+      });
+    } catch { /* malformed localStorage entry — ignore */ }
+  }, [myUser?.identity.toHexString(), myUser?.githubId]);
 
   return (
     <div className="font-sans bg-bg min-h-screen flex">

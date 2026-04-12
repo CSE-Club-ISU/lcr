@@ -14,6 +14,8 @@ import { useExecutionState } from '../hooks/useExecutionState';
 import type { ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
 import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEditor';
+import StatusBox from '../components/problem/StatusBox';
+import { useStatusHistory } from '../components/problem/useStatusHistory';
 import TimerBar from '../components/problem/TimerBar';
 import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
@@ -158,11 +160,54 @@ export default function ProblemScreen() {
   const { state: execState, dispatch: execDispatch } = useExecutionState();
   const { running, submitting, testResults, runSummary, error, quizResult } = execState;
 
-  // Clear execution state when switching problems
+  const status = useStatusHistory();
+
+  // Clear status history and execution state when switching problems
   useEffect(() => {
     execDispatch({ type: 'CLEAR' });
     setDraftSavedAt(null);
+    status.clear();
   }, [viewedProblemId]);
+
+  // Push run/error results into history as they arrive
+  useEffect(() => {
+    if (error) status.push({ kind: 'error', text: error });
+  }, [error]);
+
+  useEffect(() => {
+    if (runSummary && testResults) {
+      status.push({
+        kind: 'run',
+        text: runSummary,
+        testResults,
+        allPassed: testResults.every(r => r.passed),
+      });
+    }
+  }, [runSummary]);
+
+  // Push quiz results into history
+  useEffect(() => {
+    if (!quizResult) return;
+    status.push({
+      kind: 'notice',
+      text: quizResult.kind === 'correct'
+        ? `Quiz: Correct! +${quizResult.reward} Energy`
+        : `Quiz: Wrong — answer was "${quizResult.correctAnswer}"`,
+      color: quizResult.kind === 'correct' ? 'text-green' : 'text-red',
+    });
+  }, [quizResult]);
+
+  // Push sabotage flash messages into history
+  useEffect(() => {
+    if (!sabotageEffects.flash) return;
+    status.push({ kind: 'notice', text: sabotageEffects.flash.message, color: 'text-orange' });
+  }, [sabotageEffects.flash]);
+
+  // Push draft-saved confirmation into history
+  useEffect(() => {
+    if (!draftSavedAt) return;
+    status.push({ kind: 'notice', text: '✓ Draft auto-saved', color: 'text-green' });
+  }, [draftSavedAt]);
 
   // Navigate to results when game finishes
   useEffect(() => {
@@ -289,6 +334,11 @@ export default function ProblemScreen() {
   if (sabotageEffects.frozen)   activeEffectLabels.push('Editor frozen');
   if (sabotageEffects.blurred)  activeEffectLabels.push('Editor blurred');
   if (sabotageEffects.fontSize) activeEffectLabels.push('Font size changed');
+
+  // Active sabotage effects shown as a persistent notice (not pushed to history — they're ongoing state)
+  const activeEffectNotice = activeEffectLabels.length > 0
+    ? [{ kind: 'notice' as const, id: -1, text: `Sabotage active: ${activeEffectLabels.join(', ')}`, color: 'text-orange' }]
+    : [];
 
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
@@ -419,47 +469,10 @@ export default function ProblemScreen() {
 
           {/* Permanent status + action bar */}
           <div className="card shrink-0 flex flex-col">
-            <div className="px-4 py-3 text-sm max-h-40 overflow-y-auto min-h-[44px]">
-              {activeEffectLabels.length > 0 && (
-                <div className="text-orange text-xs font-semibold mb-1">
-                  Sabotage active: {activeEffectLabels.join(', ')}
-                </div>
-              )}
-              {sabotageEffects.flash && (
-                <div key={sabotageEffects.flash.at} className="text-orange text-xs font-semibold mb-1">
-                  {sabotageEffects.flash.message}
-                </div>
-              )}
-              {quizResult && (
-                <div className={`text-xs font-semibold mb-1 ${quizResult.kind === 'correct' ? 'text-green' : 'text-red'}`}>
-                  {quizResult.kind === 'correct'
-                    ? `Quiz: Correct! +${quizResult.reward} Energy`
-                    : `Quiz: Wrong — answer was "${quizResult.correctAnswer}"`}
-                </div>
-              )}
-              {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
-              {runSummary && (
-                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-red'}`}>
-                  {runSummary}
-                </div>
-              )}
-              {testResults && testResults.map((r, i) => (
-                <div key={i} className="flex items-start gap-2 mb-1 text-xs">
-                  <span className={r.passed ? 'text-green' : 'text-red'}>{r.passed ? '✓' : '✗'}</span>
-                  <span className="text-text-muted">
-                    in: <span className="text-text">{r.input}</span>
-                    {' → '}expected: <span className="text-text">{r.expected}</span>
-                    {' → '}got: <span className={r.passed ? 'text-text-muted' : 'text-red'}>{r.actual || r.error}</span>
-                  </span>
-                </div>
-              ))}
-              {draftSavedAt && !error && !runSummary && !activeEffectLabels.length && !sabotageEffects.flash && !quizResult && (
-                <div className="text-green text-xs font-semibold">✓ Draft auto-saved</div>
-              )}
-              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && !draftSavedAt && (
-                <div className="text-text-faint text-xs">Ready.</div>
-              )}
-            </div>
+            <StatusBox
+              entries={[...activeEffectNotice, ...status.entries]}
+              className="px-4 py-3 text-sm h-32 overflow-y-auto"
+            />
             <div className="flex gap-2 px-3 py-2 border-t border-border shrink-0">
               <button
                 onClick={resetCode}

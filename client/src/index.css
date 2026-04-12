@@ -49,6 +49,14 @@
   }
 }
 
+/* Make CodeMirror fill its flex container instead of sizing to content */
+.cm-editor {
+  height: 100%;
+}
+.cm-scroller {
+  overflow: auto;
+}
+
 @layer components {
   .btn-primary {
     @apply px-8 py-3 font-semibold text-[15px] text-white bg-accent border-none rounded-lg cursor-pointer transition-colors duration-150 hover:bg-accent-hover;

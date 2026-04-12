@@ -77,7 +77,7 @@ const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEditor(
           </select>
           {vimMode && <span className="text-[11px] text-text-faint font-mono">-- VIM --</span>}
         </div>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <CodeMirror
             ref={cmRef}
             value={initialCode}
@@ -85,8 +85,9 @@ const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEditor(
             theme={oneDark}
             onChange={onChange}
             editable={!readOnly}
-            style={{ height: '100%', fontSize: '13px' }}
+            height="100%"
             basicSetup={{ lineNumbers: true, bracketMatching: true, autocompletion: true }}
+            style={{ fontSize: '13px' }}
           />
         </div>
       </div>

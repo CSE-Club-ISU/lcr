@@ -14,6 +14,7 @@ import CustomGameSetupPage from './pages/CustomGameSetupPage';
 import LoadoutPage         from './pages/LoadoutPage';
 import AppLayout         from './components/layout/AppLayout';
 import RequireAuth       from './components/RequireAuth';
+import RequireLogin      from './components/RequireLogin';
 
 export default function App() {
   return (
@@ -31,7 +32,7 @@ export default function App() {
           <Route path="/play/custom/new" element={<CustomGameSetupPage />} />
           <Route path="/play/room/:code" element={<RoomPage />} />
           <Route path="/play/match"      element={<ProblemScreen />} />
-          <Route path="/practice"     element={<PracticeScreen />} />
+          <Route path="/practice"     element={<RequireLogin><PracticeScreen /></RequireLogin>} />
           <Route path="/loadout"     element={<LoadoutPage />} />
           <Route path="/results"     element={<ResultsScreen />} />
           <Route path="/leaderboard" element={<LeaderboardScreen />} />

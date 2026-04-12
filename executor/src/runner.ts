@@ -1,4 +1,4 @@
-import type { ExecuteRequest, ExecuteResult } from './types.js';
+import type { ExecuteRequest, ExecuteResult, SandboxRequest, SandboxResult } from './types.js';
 import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators/index.js';
 
 const CPU_LIMIT = process.env.DOCKER_CPU_LIMIT ?? '0.5';
@@ -133,6 +133,25 @@ function getRunScript(lang: string, fileName: string): string {
     default:
       throw new Error(`Unsupported language: ${lang}`);
   }
+}
+
+// Run arbitrary user code with no test harness — used for sandbox mode.
+// Java requires the class name to match the file name; we hardcode Main.java.
+export async function runSandbox(req: SandboxRequest): Promise<SandboxResult> {
+  const fileName  = req.lang === 'java' ? 'Main.java' : `solution${getFileExtension(req.lang)}`;
+  const image     = getDockerImage(req.lang);
+  const timeLimit = getTimeLimitMs(req.lang);
+  const mem       = memoryLimit[req.lang] ?? '128m';
+
+  const result = await runInDocker({ image, fileName, code: req.code, lang: req.lang, timeLimit, mem });
+
+  if (result.exitCode !== 0 && !result.stdout) {
+    return { success: false, compile_error: result.stderr || 'Unknown error' };
+  }
+  if (result.exitCode !== 0) {
+    return { success: false, runtime_error: result.stderr || result.stdout };
+  }
+  return { success: true, stdout: result.stdout };
 }
 
 function parseDockerOutput(
