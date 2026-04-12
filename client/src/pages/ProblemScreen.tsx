@@ -13,6 +13,7 @@ import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEdi
 import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
+import { safeParseJson, splitPipe } from '../utils/parseJson';
 import PowerupShop from '../components/powerup/PowerupShop';
 import type { QuizResult } from '../components/powerup/QuizPanel';
 
@@ -43,8 +44,7 @@ export default function ProblemScreen() {
   // All problem ids for this game, ordered as assigned by server (easy→hard)
   const problemIds: string[] = useMemo(() => {
     if (!game) return [];
-    try { return JSON.parse(game.problemIds); }
-    catch (e) { console.error('[ProblemScreen] failed to parse problemIds:', e); return []; }
+    return safeParseJson<string[]>(game.problemIds, [], 'problemIds');
   }, [game?.problemIds]);
 
   const problemCount = problemIds.length;
@@ -52,19 +52,15 @@ export default function ProblemScreen() {
   // My solved ids (set for O(1) lookup)
   const mySolvedIds: Set<string> = useMemo(() => {
     if (!game) return new Set();
-    try {
-      const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
-      return new Set(JSON.parse(raw ?? '[]'));
-    } catch (e) { console.error('[ProblemScreen] failed to parse my solvedIds:', e); return new Set(); }
+    const raw = isP1 ? game.player1SolvedIds : game.player2SolvedIds;
+    return new Set(safeParseJson<string[]>(raw ?? '[]', [], 'mySolvedIds'));
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Opponent's solved ids
   const oppSolvedIds: Set<string> = useMemo(() => {
     if (!game) return new Set();
-    try {
-      const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
-      return new Set(JSON.parse(raw ?? '[]'));
-    } catch (e) { console.error('[ProblemScreen] failed to parse opp solvedIds:', e); return new Set(); }
+    const raw = isP1 ? game.player2SolvedIds : game.player1SolvedIds;
+    return new Set(safeParseJson<string[]>(raw ?? '[]', [], 'oppSolvedIds'));
   }, [game?.player1SolvedIds, game?.player2SolvedIds, isP1]);
 
   // Currently viewed problem index (navigation)
@@ -422,8 +418,8 @@ export default function ProblemScreen() {
                   {viewedProblem.description}
                 </div>
                 {(() => {
-                  const cases = viewedProblem.sampleTestCases?.split('|').filter(Boolean) ?? [];
-                  const results = viewedProblem.sampleTestResults?.split('|').filter(Boolean) ?? [];
+                  const cases = splitPipe(viewedProblem.sampleTestCases);
+                  const results = splitPipe(viewedProblem.sampleTestResults);
                   if (cases.length === 0) return null;
                   return (
                     <div className="flex flex-col gap-3 mt-5">

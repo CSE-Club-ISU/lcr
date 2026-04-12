@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { tables } from '../../module_bindings';
 import type { QuizQuestion } from '../../module_bindings/types';
 import { useTypedTable } from '../../utils/useTypedTable';
+import { safeParseJson } from '../../utils/parseJson';
 
 const MAX_ANSWER_LEN = 200;
 
@@ -92,7 +93,7 @@ export default function QuizModeTab() {
 
   const opts: string[] = q === null ? [] :
     q.questionType === 'mcq'
-      ? (() => { try { return JSON.parse(q.options) as string[]; } catch { return []; } })()
+      ? safeParseJson<string[]>(q.options, [], 'quiz options')
       : q.questionType === 'tf'
         ? ['true', 'false']
         : [];

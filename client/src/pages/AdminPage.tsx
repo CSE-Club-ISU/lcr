@@ -527,6 +527,8 @@ function CreateTab() {
     setParsed(null);
     setSubmitted(false);
 
+    // Intentional try/catch: we need the SyntaxError message to show in the UI.
+    // safeParseJson silently returns a fallback, which would hide the error from the admin.
     let data: unknown;
     try {
       data = JSON.parse(raw.trim());
