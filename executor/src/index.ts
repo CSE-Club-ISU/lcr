@@ -1,6 +1,6 @@
-import { executeCode } from './runner.js';
-import { initStdb, getConnection, getProblem } from './stdb.js';
-import type { ExecuteRequest } from './types.js';
+import { executeCode, runSandbox } from './runner.js';
+import { initStdb, getConnection, getProblem, getUser } from './stdb.js';
+import type { ExecuteRequest, SandboxRequest } from './types.js';
 
 function parseIntEnv(name: string, defaultVal: number): number {
   const raw = process.env[name];
@@ -36,6 +36,10 @@ function checkRateLimit(gameId: string): { allowed: boolean; retryAfterMs: numbe
   return { allowed: true, retryAfterMs: 0 };
 }
 
+// Sandbox mode: per-identity cooldown (prevents resource abuse when no game_id is present)
+const SANDBOX_COOLDOWN_MS = parseIntEnv('SANDBOX_RATE_LIMIT_COOLDOWN_MS', 5000);
+const sandboxRateLimitMap = new Map<string, number>(); // identity hex → eligible timestamp
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': CLIENT_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -54,8 +58,23 @@ function json(body: unknown, init?: { status?: number; headers?: Record<string, 
 }
 
 const VALID_LANGS = new Set(['python', 'java', 'cpp']);
-const VALID_MODES = new Set(['run', 'submit']);
+const VALID_MODES = new Set(['run', 'submit', 'sandbox']);
 const MAX_CODE_BYTES = 64 * 1024; // 64 KB
+
+function validateSandboxRequest(
+  body: Record<string, unknown>,
+): { req: SandboxRequest } | { error: string } {
+  const { lang, code, player_identity } = body;
+  if (!VALID_LANGS.has(lang as string))
+    return { error: `lang must be one of: ${[...VALID_LANGS].join(', ')}` };
+  if (typeof code !== 'string' || code.length === 0)
+    return { error: 'code must be a non-empty string' };
+  if (new TextEncoder().encode(code).length > MAX_CODE_BYTES)
+    return { error: 'code exceeds 64 KB limit' };
+  if (typeof player_identity !== 'string' || !player_identity)
+    return { error: 'player_identity is required' };
+  return { req: body as unknown as SandboxRequest };
+}
 
 function validateRequest(body: Record<string, unknown>): { req: ExecuteRequest } | { error: string } {
   const { lang, mode, problem_id, code, player_identity, game_id, solve_time } = body;
@@ -95,6 +114,43 @@ const server = Bun.serve({
         body = await req.json() as Record<string, unknown>;
       } catch {
         return json({ error: 'invalid JSON' }, { status: 400 });
+      }
+
+      // Route sandbox requests before the problem-lookup path
+      if ((body as Record<string, unknown>).mode === 'sandbox') {
+        const v = validateSandboxRequest(body);
+        if ('error' in v) return json({ error: v.error }, { status: 400 });
+
+        const identity = v.req.player_identity;
+
+        // Server-side guard: reject guests (github_id is empty for guest accounts)
+        const user = getUser(identity);
+        if (!user || !user.githubId) {
+          return json(
+            { error: 'Sandbox mode requires a GitHub-authenticated account' },
+            { status: 403 },
+          );
+        }
+
+        // Per-identity rate limit
+        const eligible = sandboxRateLimitMap.get(identity) ?? 0;
+        if (Date.now() < eligible) {
+          const retryAfter = Math.ceil((eligible - Date.now()) / 1000);
+          return json(
+            { error: 'Rate limit exceeded' },
+            { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+          );
+        }
+        sandboxRateLimitMap.set(identity, Date.now() + SANDBOX_COOLDOWN_MS);
+
+        try {
+          const result = await runSandbox(v.req);
+          return json(result);
+        } catch (err) {
+          sandboxRateLimitMap.delete(identity); // release on error so user can retry
+          console.error('Sandbox execution error:', err);
+          return json({ error: String(err) }, { status: 500 });
+        }
       }
 
       const validation = validateRequest(body);

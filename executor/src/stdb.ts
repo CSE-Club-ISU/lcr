@@ -1,8 +1,8 @@
 // SpacetimeDB connection manager for the executor.
-// Connects and fetches problem data.
+// Connects and fetches problem and user data.
 
 import { DbConnection } from './module_bindings/index.js';
-import type { Problem } from './module_bindings/types.js';
+import type { Problem, User } from './module_bindings/types.js';
 
 const SPACETIMEDB_URI = process.env.SPACETIMEDB_URI || 'ws://localhost:3000';
 const MODULE_NAME = 'lcr';
@@ -19,6 +19,7 @@ const SPACETIMEDB_TOKEN = await (async () => {
 
 let connection: DbConnection | null = null;
 let problemMap: Map<bigint, Problem> = new Map();
+let userMap: Map<string, User> = new Map(); // key = identity hex string
 
 export async function initStdb(): Promise<void> {
   console.log(`[STDB] Connecting to ${SPACETIMEDB_URI}/${MODULE_NAME}`);
@@ -44,13 +45,15 @@ export async function initStdb(): Promise<void> {
         .onApplied(() => {
           clearTimeout(timer);
           rebuildProblemMap();
+          rebuildUserMap();
           wireLiveUpdates();
+          wireUserUpdates();
           // Register this executor's identity so submit_result accepts our calls
           connection!.reducers.setExecutorIdentity({});
           console.log(`[STDB] Ready — ${problemMap.size} problems loaded`);
           resolve();
         })
-        .subscribe(['SELECT * FROM problem']);
+        .subscribe(['SELECT * FROM problem', 'SELECT * FROM user']);
     } catch (err) {
       clearTimeout(timer);
       reject(err);
@@ -59,9 +62,8 @@ export async function initStdb(): Promise<void> {
 }
 
 /**
- * Minimal interface describing the client-side problem table handle from
- * connection.db. The SDK's full type is a complex generic; this declares only
- * the parts we use so we can avoid `as any` while staying accurate.
+ * Minimal interface describing table handles from connection.db. The SDK's
+ * full type is a complex generic; this declares only the parts we use.
  */
 interface ProblemTableHandle extends Iterable<Problem> {
   onInsert(cb: (ctx: unknown, row: Problem) => void): void;
@@ -69,14 +71,28 @@ interface ProblemTableHandle extends Iterable<Problem> {
   onDelete(cb: (ctx: unknown, row: Problem) => void): void;
 }
 
-/** Typed view of connection.db exposing the problem table handle. */
-type ConnDb = { problem: ProblemTableHandle };
+interface UserTableHandle extends Iterable<User> {
+  onInsert(cb: (ctx: unknown, row: User) => void): void;
+  onUpdate(cb: (ctx: unknown, old: User, row: User) => void): void;
+  onDelete(cb: (ctx: unknown, row: User) => void): void;
+}
+
+/** Typed view of connection.db exposing the table handles we use. */
+type ConnDb = { problem: ProblemTableHandle; user: UserTableHandle };
 
 function rebuildProblemMap() {
   if (!connection) return;
   problemMap.clear();
   for (const problem of (connection.db as unknown as ConnDb).problem) {
     problemMap.set(problem.id, problem);
+  }
+}
+
+function rebuildUserMap() {
+  if (!connection) return;
+  userMap.clear();
+  for (const user of (connection.db as unknown as ConnDb).user) {
+    userMap.set(user.identity.toHexString(), user);
   }
 }
 
@@ -90,8 +106,21 @@ function wireLiveUpdates() {
   table.onDelete((_ctx, row) => { problemMap.delete(row.id); });
 }
 
+// Keep userMap in sync so github_id checks reflect the current user state.
+function wireUserUpdates() {
+  if (!connection) return;
+  const table = (connection.db as unknown as ConnDb).user;
+  table.onInsert((_ctx, row) => { userMap.set(row.identity.toHexString(), row); });
+  table.onUpdate((_ctx, _old, row) => { userMap.set(row.identity.toHexString(), row); });
+  table.onDelete((_ctx, row) => { userMap.delete(row.identity.toHexString()); });
+}
+
 export function getProblem(id: bigint): Problem | undefined {
   return problemMap.get(id);
+}
+
+export function getUser(identityHex: string): User | undefined {
+  return userMap.get(identityHex);
 }
 
 export function getConnection(): DbConnection | null {

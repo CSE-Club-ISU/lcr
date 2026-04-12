@@ -26,3 +26,17 @@ export interface ExecuteResult {
   compile_error?: string;
   runtime_error?: string;
 }
+
+export interface SandboxRequest {
+  mode: 'sandbox';
+  lang: Language;
+  code: string;
+  player_identity: string;
+}
+
+export interface SandboxResult {
+  success: boolean;
+  stdout?: string;
+  compile_error?: string;
+  runtime_error?: string;
+}
