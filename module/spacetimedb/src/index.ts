@@ -23,7 +23,13 @@ const user = table(
 );
 
 const problem = table(
-  { name: 'problem', public: true },
+  {
+    name: 'problem',
+    public: true,
+    indexes: [
+      { accessor: 'problem_is_approved', algorithm: 'btree', columns: ['is_approved'] },
+    ],
+  },
   {
     id:                   t.u64().primaryKey().autoInc(),
     title:                t.string(),
@@ -245,6 +251,10 @@ const draft_code = table(
   {
     name: 'draft_code',
     public: false,
+    indexes: [
+      { accessor: 'draft_code_game_id', algorithm: 'btree', columns: ['game_id'] },
+      { accessor: 'draft_code_player', algorithm: 'btree', columns: ['player_identity'] },
+    ],
   },
   {
     id:              t.u64().primaryKey().autoInc(),
@@ -373,6 +383,8 @@ function pickGameProblems(ctx: DbCtx, difficulty: string, count: number, seed: n
       ? ['easy', 'medium']
       : ['easy', 'medium', 'hard'];
 
+  // NOTE: problem table is intentionally small (admin-curated). Full scan is acceptable;
+  // if the problem set grows large, add an index on (is_approved, difficulty).
   const approved = [...ctx.db.problem.iter()].filter(
     p => p.is_approved && allowedDifficulties.includes(p.difficulty)
   );
@@ -864,6 +876,7 @@ export const set_executor_identity = spacetimedb.reducer(
     const senderHex = ctx.sender.toHexString();
 
     if (!existing) {
+      // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
       const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
       if (adminExists) {
         const caller = ctx.db.user.identity.find(ctx.sender);
@@ -900,11 +913,10 @@ export const save_draft = spacetimedb.reducer(
       throw new SenderError('Not a participant in this game');
     }
 
-    // Upsert: find existing draft for this player+game+problem+language (small table — iter is fine)
+    // Upsert: use game_id index to narrow search, then filter by player+problem+language.
     let found: DraftCodeRow | undefined;
-    for (const row of ctx.db.draft_code.iter()) {
-      if (row.game_id === game_id &&
-          row.player_identity.toHexString() === senderHex &&
+    for (const row of ctx.db.draft_code.draft_code_game_id.filter(game_id)) {
+      if (row.player_identity.toHexString() === senderHex &&
           row.problem_id === problem_id &&
           row.language === language) {
         found = row;
@@ -937,6 +949,7 @@ export const save_draft = spacetimedb.reducer(
 export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
   const caller = ctx.db.user.identity.find(ctx.sender);
   if (!caller?.is_admin) {
+    // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
     const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
     if (adminExists) throw new SenderError('Unauthorized');
   }
@@ -962,6 +975,7 @@ export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
 export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
   const caller = ctx.db.user.identity.find(ctx.sender);
   if (!caller?.is_admin) {
+    // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
     const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
     if (adminExists) throw new SenderError('Unauthorized');
   }
