@@ -3,6 +3,7 @@ import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SpacetimeDBProvider } from 'spacetimedb/react';
 import { DbConnection } from './module_bindings';
+import { SettingsContext, useSettingsState } from './hooks/useSettings';
 import App from './App';
 
 const SPACETIMEDB_URI = import.meta.env.VITE_SPACETIMEDB_URI ?? 'ws://localhost:3000';
@@ -10,6 +11,7 @@ const MODULE_NAME     = import.meta.env.VITE_MODULE_NAME ?? 'lcr';
 const TOKEN_KEY       = 'lcr_auth_token';
 
 function Root() {
+  const settingsState = useSettingsState();
   const connectionBuilder = useMemo(
     () =>
       DbConnection.builder()
@@ -32,9 +34,11 @@ function Root() {
   );
 
   return (
-    <SpacetimeDBProvider connectionBuilder={connectionBuilder}>
-      <App />
-    </SpacetimeDBProvider>
+    <SettingsContext.Provider value={settingsState}>
+      <SpacetimeDBProvider connectionBuilder={connectionBuilder}>
+        <App />
+      </SpacetimeDBProvider>
+    </SettingsContext.Provider>
   );
 }
 
