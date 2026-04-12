@@ -29,8 +29,13 @@ function loadFromDisk(): Store {
   if (!existsSync(STORE_FILE)) return { tokens: {}, codes: {} };
   try {
     const raw = JSON.parse(readFileSync(STORE_FILE, 'utf-8'));
-    if (!raw.tokens) return { tokens: raw, codes: {} }; // migrate old format
-    return raw;
+    const store: Store = !raw.tokens ? { tokens: raw, codes: {} } : raw;
+    // Prune expired codes on startup so stale entries don't accumulate
+    const now = Date.now();
+    for (const [k, v] of Object.entries(store.codes)) {
+      if (now > v.expiresAt) delete store.codes[k];
+    }
+    return store;
   } catch {
     return { tokens: {}, codes: {} };
   }

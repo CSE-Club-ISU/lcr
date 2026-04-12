@@ -168,6 +168,10 @@ const player_loadout_pref = table(
   }
 );
 
+// Singleton table (always id=0) that stores the executor service's SpacetimeDB identity.
+// Used by submit_result to verify the caller is the trusted executor, not a player client.
+// See: set_executor_identity reducer and executor/src/stdb.ts for how this is bootstrapped.
+//
 // Stores the executor service's SpacetimeDB identity so submit_result can
 // verify the caller is actually the executor, not a malicious client (S3 fix).
 const executor_config = table(
@@ -205,6 +209,14 @@ const match_history = table(
     player2_identity:    t.identity(),
     winner_identity:     t.identity().optional(),
     problem_ids:         t.string(),   // JSON array of problem id strings
+    // Denormalized from the problem table at match creation time.
+    // Tradeoff: problem titles/difficulties are snapshotted so match history
+    // stays accurate even if problems are later edited or deleted. The downside
+    // is that if a problem's title changes, old match_history rows show the old title.
+    // This is intentional — match results should reflect the state at time of play.
+    //
+    // Teaching note: this is the classic denormalization tradeoff. See also:
+    // https://en.wikipedia.org/wiki/Database_normalization#Normal_forms
     problem_titles:      t.string(),   // JSON array of titles (denormalized)
     difficulties:        t.string(),   // JSON array of difficulty strings
     player1_solve_time:  t.u32(),      // seconds; 0 = did not solve
@@ -746,7 +758,19 @@ export const forfeit = spacetimedb.reducer(
   }
 );
 
-// Called by the executor service after running submitted code
+// submit_result is called by the executor service (not by player clients).
+//
+// Auth flow:
+//   1. When the executor container starts, it calls set_executor_identity (which
+//      stores the executor's SpacetimeDB identity in the executor_config table).
+//   2. Every subsequent call to submit_result checks that ctx.sender matches
+//      the stored identity — if not, the call is rejected.
+//   3. This prevents a malicious player from calling submit_result directly to
+//      claim a win they didn't earn.
+//
+// Teaching note: this is a "trusted service" pattern. The executor is a separate
+// process that has its own SpacetimeDB identity (stored in a shared Docker volume
+// by init.sh). Only that identity may call submit_result.
 export const submit_result = spacetimedb.reducer(
   {
     game_id:         t.string(),

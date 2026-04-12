@@ -116,6 +116,7 @@ export default function ProblemScreen() {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       saveDraft({ gameId, problemId: BigInt(viewedProblemId), language: selectedLang, code: currentCode });
+      setDraftSavedAt(Date.now());
     }, DRAFT_DEBOUNCE_MS);
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
   }, [currentCode, viewedProblemId, gameId, selectedLang]);
@@ -127,6 +128,7 @@ export default function ProblemScreen() {
     setTestResults(null);
     setRunSummary(null);
     setError(null);
+    setDraftSavedAt(null);
   }
 
   const oppIdentity = isP1 ? game?.player2Identity : game?.player1Identity;
@@ -157,6 +159,7 @@ export default function ProblemScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
 
   // Clear execution state when switching problems
   useEffect(() => {
@@ -164,6 +167,7 @@ export default function ProblemScreen() {
     setRunSummary(null);
     setError(null);
     setQuizResult(null);
+    setDraftSavedAt(null);
   }, [viewedProblemId]);
 
   // Timer
@@ -497,7 +501,10 @@ export default function ProblemScreen() {
                   </span>
                 </div>
               ))}
-              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && (
+              {draftSavedAt && !error && !runSummary && !activeEffectLabels.length && !sabotageEffects.flash && !quizResult && (
+                <div className="text-text-faint text-xs">Draft saved.</div>
+              )}
+              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && !draftSavedAt && (
                 <div className="text-text-faint text-xs">Ready.</div>
               )}
             </div>
