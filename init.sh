@@ -43,6 +43,24 @@ echo "Token extracted: ${TOKEN:0:8}..."
 echo "Seeding problems..."
 bun /workspace/seed-problems.mjs "${SERVER}" "${DB_NAME}" "${TOKEN}"
 
+echo "Seeding powerups and quiz questions..."
+bun --eval "
+const res1 = await fetch('${SERVER}/v1/database/${DB_NAME}/call/seed_powerups', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ${TOKEN}', 'Content-Type': 'application/json' },
+  body: '[]',
+});
+if (!res1.ok) { console.error('seed_powerups failed:', res1.status, await res1.text()); process.exit(1); }
+console.log('  ✓ powerups');
+const res2 = await fetch('${SERVER}/v1/database/${DB_NAME}/call/seed_quiz_questions', {
+  method: 'POST',
+  headers: { 'Authorization': 'Bearer ${TOKEN}', 'Content-Type': 'application/json' },
+  body: '[]',
+});
+if (!res2.ok) { console.error('seed_quiz_questions failed:', res2.status, await res2.text()); process.exit(1); }
+console.log('  ✓ quiz questions');
+"
+
 # Write the token to the shared config volume so the executor can use it
 # as a stable identity across restarts. chmod 600 for defense-in-depth.
 echo -n "${TOKEN}" > "${CONFIG_DIR}/executor_token"

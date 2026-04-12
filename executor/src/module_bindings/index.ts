@@ -46,7 +46,9 @@ import LeaveQueueReducer from "./leave_queue_reducer";
 import LeaveRoomReducer from "./leave_room_reducer";
 import PromoteToAdminReducer from "./promote_to_admin_reducer";
 import SaveDraftReducer from "./save_draft_reducer";
+import SeedPowerupsReducer from "./seed_powerups_reducer";
 import SeedProblemReducer from "./seed_problem_reducer";
+import SeedQuizQuestionsReducer from "./seed_quiz_questions_reducer";
 import SendChatReducer from "./send_chat_reducer";
 import SetExecutorIdentityReducer from "./set_executor_identity_reducer";
 import SetLoadoutPrefReducer from "./set_loadout_pref_reducer";
@@ -256,7 +258,9 @@ const reducersSchema = __reducers(
   __reducerSchema("leave_room", LeaveRoomReducer),
   __reducerSchema("promote_to_admin", PromoteToAdminReducer),
   __reducerSchema("save_draft", SaveDraftReducer),
+  __reducerSchema("seed_powerups", SeedPowerupsReducer),
   __reducerSchema("seed_problem", SeedProblemReducer),
+  __reducerSchema("seed_quiz_questions", SeedQuizQuestionsReducer),
   __reducerSchema("send_chat", SendChatReducer),
   __reducerSchema("set_executor_identity", SetExecutorIdentityReducer),
   __reducerSchema("set_loadout_pref", SetLoadoutPrefReducer),

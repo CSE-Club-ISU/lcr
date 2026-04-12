@@ -855,6 +855,78 @@ export const save_draft = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
+// Powerup catalog + quiz seeding (admin / bootstrap)
+// ---------------------------------------------------------------------------
+
+// Seed the powerup catalog. Safe to re-run: clears and re-inserts.
+// Auth: admin OR no admin exists yet (bootstrap window).
+export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) {
+    const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+    if (adminExists) throw new SenderError('Unauthorized');
+  }
+  // Clear existing
+  for (const p of [...ctx.db.powerup.iter()]) ctx.db.powerup.id.delete(p.id);
+
+  const entries: Array<{ name: string; description: string; kind: string; target: string; cost: number; effect_data: string }> = [
+    { name: 'Firestrike',   description: '+50% damage on your next solve',                    kind: 'damage',   target: 'self',     cost: 20, effect_data: '{"mult_pct":50}' },
+    { name: 'Overload',     description: '+100% damage on your next solve',                    kind: 'damage',   target: 'self',     cost: 35, effect_data: '{"mult_pct":100}' },
+    { name: 'Firewall',     description: 'Block 20 incoming damage',                           kind: 'defense',  target: 'self',     cost: 20, effect_data: '{"shield":20}' },
+    { name: 'Shield Wall',  description: 'Block 40 incoming damage',                           kind: 'defense',  target: 'self',     cost: 35, effect_data: '{"shield":40}' },
+    { name: 'Line Shredder', description: 'Delete a random line in opponent\'s editor',         kind: 'sabotage', target: 'opponent', cost: 15, effect_data: '{"type":"delete_line"}' },
+    { name: 'Font Chaos',   description: 'Opponent\'s editor font size jumps for 5s',           kind: 'sabotage', target: 'opponent', cost: 10, effect_data: '{"type":"font_size_up","duration_ms":5000}' },
+    { name: 'Fog',          description: 'Blur opponent\'s editor for 3s',                      kind: 'sabotage', target: 'opponent', cost: 15, effect_data: '{"type":"font_blur","duration_ms":3000}' },
+    { name: 'Brain Freeze', description: 'Opponent\'s editor becomes read-only for 2s',         kind: 'sabotage', target: 'opponent', cost: 25, effect_data: '{"type":"cursor_freeze","duration_ms":2000}' },
+  ];
+  for (const e of entries) {
+    ctx.db.powerup.insert({ id: 0n, name: e.name, description: e.description, kind: e.kind, target: e.target, cost: e.cost, effect_data: e.effect_data });
+  }
+});
+
+// Seed ~20 quiz questions. Same auth as seed_powerups.
+export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) {
+    const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
+    if (adminExists) throw new SenderError('Unauthorized');
+  }
+  for (const q of [...ctx.db.quiz_question.iter()]) ctx.db.quiz_question.id.delete(q.id);
+
+  type Q = { question_type: string; prompt: string; options: string; answer: string };
+  const questions: Q[] = [
+    // MCQ
+    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack' },
+    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)' },
+    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort' },
+    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)' },
+    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order' },
+    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)' },
+    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue' },
+    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack' },
+
+    // True/False
+    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'A min-heap\'s root is the smallest element.',             options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'Dijkstra\'s algorithm works with negative edge weights.', options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false' },
+    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true' },
+
+    // Code fill-in — answer is the single token/value the user must type
+    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append' },
+    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final' },
+    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque' },
+    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len' },
+    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n' },
+    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue' },
+  ];
+  for (const q of questions) {
+    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Powerup loadout preferences
 // ---------------------------------------------------------------------------
 
