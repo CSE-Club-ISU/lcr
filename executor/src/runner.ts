@@ -10,6 +10,7 @@ const memoryLimit: Record<string, string> = {
 };
 
 export interface ProblemData {
+  kind: 'algorithm' | 'data_structure';
   method_name: string;
   test_cases: string[];        // JSON strings (sample or hidden based on mode)
   test_results: string[];      // Expected outputs

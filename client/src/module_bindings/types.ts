@@ -84,6 +84,7 @@ export const Problem = __t.object("Problem", {
   compareFuncCpp: __t.string(),
   createdBy: __t.identity(),
   isApproved: __t.bool(),
+  problemKind: __t.string(),
 });
 export type Problem = __Infer<typeof Problem>;
 

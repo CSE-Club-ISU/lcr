@@ -15,10 +15,11 @@ const navItems: NavItem[] = [
 interface Props {
   username: string;
   avatarUrl?: string;
+  isAdmin?: boolean;
   onSettingsClick?: () => void;
 }
 
-export default function Sidebar({ username, avatarUrl, onSettingsClick }: Props) {
+export default function Sidebar({ username, avatarUrl, isAdmin, onSettingsClick }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -54,6 +55,24 @@ export default function Sidebar({ username, avatarUrl, onSettingsClick }: Props)
           </button>
         );
       })}
+
+      {/* Admin-only nav */}
+      {isAdmin && (() => {
+        const active = isActive("/admin");
+        return (
+          <button
+            onClick={() => navigate("/admin")}
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px] border-none text-left w-full text-sm cursor-pointer transition-colors duration-100 ${
+              active
+                ? "bg-accent-soft text-accent font-bold border-l-[3px] border-l-gold-bright"
+                : "bg-transparent text-text-muted font-medium border-l-[3px] border-l-transparent"
+            }`}
+          >
+            <span className="text-base">🛡</span>
+            Admin
+          </button>
+        );
+      })()}
 
       {/* Settings button */}
       {onSettingsClick && (

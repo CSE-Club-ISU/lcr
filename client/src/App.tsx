@@ -8,8 +8,9 @@ import RoomPage         from './pages/RoomPage';
 import ProblemScreen    from './pages/ProblemScreen';
 import ResultsScreen    from './pages/ResultsScreen';
 import LeaderboardScreen from './pages/LeaderboardScreen';
-import AppLayout        from './components/layout/AppLayout';
-import RequireAuth      from './components/RequireAuth';
+import AdminPage         from './pages/AdminPage';
+import AppLayout         from './components/layout/AppLayout';
+import RequireAuth       from './components/RequireAuth';
 
 export default function App() {
   return (
@@ -26,8 +27,9 @@ export default function App() {
           <Route path="/play"          element={<MatchScreen />} />
           <Route path="/play/room/:code" element={<RoomPage />} />
           <Route path="/play/match"    element={<ProblemScreen />} />
-          <Route path="/results"       element={<ResultsScreen />} />
-          <Route path="/leaderboard"   element={<LeaderboardScreen />} />
+          <Route path="/results"     element={<ResultsScreen />} />
+          <Route path="/leaderboard" element={<LeaderboardScreen />} />
+          <Route path="/admin"       element={<AdminPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

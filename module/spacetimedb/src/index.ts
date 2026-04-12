@@ -42,6 +42,7 @@ const problem = table(
     compare_func_cpp:     t.string(),
     created_by:           t.identity(),
     is_approved:          t.bool(),
+    problem_kind:         t.string(),   // "algorithm" | "data_structure"
   }
 );
 
@@ -716,57 +717,102 @@ export const leave_queue = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
+// Admin reducers
+// ---------------------------------------------------------------------------
+
+export const promote_to_admin = spacetimedb.reducer(
+  { target: t.identity() },
+  (ctx, { target }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const user = ctx.db.user.identity.find(target);
+    if (!user) throw new SenderError('User not found');
+    ctx.db.user.identity.update({ ...user, is_admin: true });
+  }
+);
+
+// Bootstrap: callable by anyone, but only works if NO admin exists yet.
+// Run once after first login to make yourself admin; becomes a no-op after that.
+export const claim_first_admin = spacetimedb.reducer(
+  {},
+  (ctx) => {
+    const admins = [...ctx.db.user.iter()].filter(u => u.is_admin);
+    if (admins.length > 0) throw new SenderError('An admin already exists');
+    const user = ctx.db.user.identity.find(ctx.sender);
+    if (!user) throw new SenderError('User not found — connect first');
+    ctx.db.user.identity.update({ ...user, is_admin: true });
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Problem reducers
 // ---------------------------------------------------------------------------
 
-export const approve_problem = spacetimedb.reducer(
+export const delete_problem = spacetimedb.reducer(
   { id: t.u64() },
   (ctx, { id }) => {
     const caller = ctx.db.user.identity.find(ctx.sender);
     if (!caller?.is_admin) throw new SenderError('Unauthorized');
     const prob = ctx.db.problem.id.find(id);
     if (!prob) throw new SenderError('Problem not found');
-    ctx.db.problem.id.update({ ...prob, is_approved: true });
+    ctx.db.problem.id.delete(id);
   }
 );
 
-export const insert_problem = spacetimedb.reducer(
-  {
-    title:               t.string(),
-    description:         t.string(),
-    difficulty:          t.string(),
-    method_name:         t.string(),
-    sample_test_cases:   t.string(),
-    sample_test_results: t.string(),
-    hidden_test_cases:   t.string(),
-    hidden_test_results: t.string(),
-    boilerplate_python:  t.string(),
-    boilerplate_java:    t.string(),
-    boilerplate_cpp:     t.string(),
-    compare_func_python: t.string(),
-    compare_func_java:   t.string(),
-    compare_func_cpp:    t.string(),
-    is_approved:         t.bool(),
-  },
-  (ctx, args) => {
-    ctx.db.problem.insert({
-      id:                   0n,
-      title:                args.title,
-      description:          args.description,
-      difficulty:           args.difficulty,
-      method_name:          args.method_name,
-      sample_test_cases:    args.sample_test_cases,
-      sample_test_results:  args.sample_test_results,
-      hidden_test_cases:    args.hidden_test_cases,
-      hidden_test_results:  args.hidden_test_results,
-      boilerplate_python:   args.boilerplate_python,
-      boilerplate_java:     args.boilerplate_java,
-      boilerplate_cpp:      args.boilerplate_cpp,
-      compare_func_python:  args.compare_func_python,
-      compare_func_java:    args.compare_func_java,
-      compare_func_cpp:     args.compare_func_cpp,
-      created_by:           ctx.sender,
-      is_approved:          args.is_approved,
-    });
+const PROBLEM_ARGS = {
+  title:               t.string(),
+  description:         t.string(),
+  difficulty:          t.string(),
+  method_name:         t.string(),
+  sample_test_cases:   t.string(),
+  sample_test_results: t.string(),
+  hidden_test_cases:   t.string(),
+  hidden_test_results: t.string(),
+  boilerplate_python:  t.string(),
+  boilerplate_java:    t.string(),
+  boilerplate_cpp:     t.string(),
+  compare_func_python: t.string(),
+  compare_func_java:   t.string(),
+  compare_func_cpp:    t.string(),
+  problem_kind:        t.string(),
+};
+
+function validateAndInsertProblem(ctx: any, args: any) {
+  if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
+    throw new SenderError('Invalid problem_kind: must be "algorithm" or "data_structure"');
   }
-);
+  ctx.db.problem.insert({
+    id:                   0n,
+    title:                args.title,
+    description:          args.description,
+    difficulty:           args.difficulty,
+    method_name:          args.method_name,
+    sample_test_cases:    args.sample_test_cases,
+    sample_test_results:  args.sample_test_results,
+    hidden_test_cases:    args.hidden_test_cases,
+    hidden_test_results:  args.hidden_test_results,
+    boilerplate_python:   args.boilerplate_python,
+    boilerplate_java:     args.boilerplate_java,
+    boilerplate_cpp:      args.boilerplate_cpp,
+    compare_func_python:  args.compare_func_python,
+    compare_func_java:    args.compare_func_java,
+    compare_func_cpp:     args.compare_func_cpp,
+    created_by:           ctx.sender,
+    is_approved:          true,
+    problem_kind:         args.problem_kind,
+  });
+}
+
+// Called from the admin UI — requires admin user row.
+export const insert_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) throw new SenderError('Unauthorized');
+  validateAndInsertProblem(ctx, args);
+});
+
+// Called from seed-problems.mjs at deploy time via the server CLI token.
+// No auth check — access is controlled at the infrastructure level (only
+// init.sh has the token; the token is never exposed to clients).
+export const seed_problem = spacetimedb.reducer(PROBLEM_ARGS, (ctx, args) => {
+  validateAndInsertProblem(ctx, args);
+});

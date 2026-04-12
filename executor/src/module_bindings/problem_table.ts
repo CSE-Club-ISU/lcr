@@ -28,4 +28,5 @@ export default __t.row({
   compareFuncCpp: __t.string().name("compare_func_cpp"),
   createdBy: __t.identity().name("created_by"),
   isApproved: __t.bool().name("is_approved"),
+  problemKind: __t.string().name("problem_kind"),
 });

@@ -43,73 +43,51 @@ const problems = [
     compare_func_python: 'def compare(expected, actual): return sorted(expected) == sorted(actual)',
     compare_func_java: '',
     compare_func_cpp: '',
-    is_approved: true,
+    problem_kind: 'algorithm',
   },
   {
-    title: 'Reverse String',
+    title: 'Min Stack',
     description:
-      'Write a function that reverses a string. The input string is given as a list of characters.\n\n' +
-      'Return the reversed list.',
-    difficulty: 'easy',
-    method_name: 'reverse_string',
+      'Design a stack that supports push, pop, top, and retrieving the minimum element in constant time.\n\n' +
+      'Implement the MinStack class:\n' +
+      '- push(val) — pushes val onto the stack\n' +
+      '- pop() — removes the element on top of the stack\n' +
+      '- top() — returns the element on top of the stack\n' +
+      '- get_min() — retrieves the minimum element in the stack',
+    difficulty: 'medium',
+    method_name: 'MinStack',
     sample_test_cases:
-      JSON.stringify([['h', 'e', 'l', 'l', 'o']]) + '|' +
-      JSON.stringify([['H', 'a', 'n', 'n', 'a', 'h']]),
-    sample_test_results:
-      JSON.stringify(['o', 'l', 'l', 'e', 'h']) + '|' +
-      JSON.stringify(['h', 'a', 'n', 'n', 'a', 'H']),
+      JSON.stringify([['push', -2], ['push', 0], ['push', -3], ['get_min']]) + '|' +
+      JSON.stringify([['push', -2], ['push', 0], ['push', -3], ['get_min'], ['pop'], ['top'], ['get_min']]),
+    sample_test_results: '-3|-2',
     hidden_test_cases:
-      JSON.stringify([['h', 'e', 'l', 'l', 'o']]) + '|' +
-      JSON.stringify([['H', 'a', 'n', 'n', 'a', 'h']]) + '|' +
-      JSON.stringify([['a']]) + '|' +
-      JSON.stringify([['a', 'b']]),
-    hidden_test_results:
-      JSON.stringify(['o', 'l', 'l', 'e', 'h']) + '|' +
-      JSON.stringify(['h', 'a', 'n', 'n', 'a', 'H']) + '|' +
-      JSON.stringify(['a']) + '|' +
-      JSON.stringify(['b', 'a']),
-    boilerplate_python: 'def reverse_string(s: list) -> list:\n    # Your code here - return the reversed list\n    pass',
+      JSON.stringify([['push', -2], ['push', 0], ['push', -3], ['get_min']]) + '|' +
+      JSON.stringify([['push', -2], ['push', 0], ['push', -3], ['get_min'], ['pop'], ['top'], ['get_min']]) + '|' +
+      JSON.stringify([['push', 5], ['push', 3], ['push', 7], ['get_min'], ['pop'], ['get_min']]),
+    hidden_test_results: '-3|-2|3',
+    boilerplate_python:
+      'class MinStack:\n' +
+      '    def __init__(self):\n' +
+      '        pass\n\n' +
+      '    def push(self, val: int) -> None:\n' +
+      '        pass\n\n' +
+      '    def pop(self) -> None:\n' +
+      '        pass\n\n' +
+      '    def top(self) -> int:\n' +
+      '        pass\n\n' +
+      '    def get_min(self) -> int:\n' +
+      '        pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
     compare_func_python: 'def compare(expected, actual): return expected == actual',
     compare_func_java: '',
     compare_func_cpp: '',
-    is_approved: true,
-  },
-  {
-    title: 'FizzBuzz',
-    description:
-      'Given an integer n, return a list of strings from 1 to n where:\n' +
-      '- "FizzBuzz" if divisible by both 3 and 5\n' +
-      '- "Fizz" if divisible by 3\n' +
-      '- "Buzz" if divisible by 5\n' +
-      '- The number as a string otherwise',
-    difficulty: 'easy',
-    method_name: 'fizz_buzz',
-    sample_test_cases: '[3]|[5]|[15]',
-    sample_test_results:
-      JSON.stringify(['1', '2', 'Fizz']) + '|' +
-      JSON.stringify(['1', '2', 'Fizz', '4', 'Buzz']) + '|' +
-      JSON.stringify(['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']),
-    hidden_test_cases: '[3]|[5]|[15]|[1]|[10]',
-    hidden_test_results:
-      JSON.stringify(['1', '2', 'Fizz']) + '|' +
-      JSON.stringify(['1', '2', 'Fizz', '4', 'Buzz']) + '|' +
-      JSON.stringify(['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']) + '|' +
-      JSON.stringify(['1']) + '|' +
-      JSON.stringify(['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz']),
-    boilerplate_python: 'def fizz_buzz(n: int) -> list:\n    # Your code here\n    pass',
-    boilerplate_java: '',
-    boilerplate_cpp: '',
-    compare_func_python: 'def compare(expected, actual): return expected == actual',
-    compare_func_java: '',
-    compare_func_cpp: '',
-    is_approved: true,
+    problem_kind: 'data_structure',
   },
 ];
 
 console.log(`Seeding ${problems.length} problems to ${SERVER}/${DB_NAME}...`);
 for (const p of problems) {
-  await callReducer('insert_problem', p);
+  await callReducer('seed_problem', p);
 }
 console.log('Done!');
