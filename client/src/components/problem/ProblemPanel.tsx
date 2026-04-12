@@ -1,5 +1,6 @@
 import type { Problem } from '../../module_bindings/types';
 import type { ReactNode } from 'react';
+import { splitPipe } from '../../utils/parseJson';
 
 interface Props {
   problem: Problem | undefined;
@@ -9,12 +10,8 @@ interface Props {
 }
 
 export default function ProblemPanel({ problem, header, topRight, children }: Props) {
-  const sampleCases: string[] = problem?.sampleTestCases
-    ? problem.sampleTestCases.split('|').filter(Boolean)
-    : [];
-  const sampleResults: string[] = problem?.sampleTestResults
-    ? problem.sampleTestResults.split('|').filter(Boolean)
-    : [];
+  const sampleCases: string[] = splitPipe(problem?.sampleTestCases);
+  const sampleResults: string[] = splitPipe(problem?.sampleTestResults);
 
   return (
     <div className="card flex-[0_0_340px] p-5 overflow-y-auto flex flex-col gap-0">

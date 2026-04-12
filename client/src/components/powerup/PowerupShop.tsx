@@ -6,6 +6,7 @@ import { useTypedTable } from '../../utils/useTypedTable';
 import { identityEq } from '../../utils/identity';
 import type { Identity } from 'spacetimedb';
 import QuizPanel, { type QuizResult } from './QuizPanel';
+import { safeParseJson } from '../../utils/parseJson';
 
 const KIND_COLOR: Record<string, string> = {
   damage:   'text-red',
@@ -34,8 +35,7 @@ export default function PowerupShop({ game, myIdentity, currency, isP1, onQuizAn
 
   const loadoutIds: Set<string> = useMemo(() => {
     if (!myLoadout) return new Set();
-    try { return new Set(JSON.parse(myLoadout.powerupIds) as string[]); }
-    catch { return new Set(); }
+    return new Set(safeParseJson<string[]>(myLoadout.powerupIds, [], 'loadoutIds'));
   }, [myLoadout?.powerupIds]);
 
   const available = useMemo(
