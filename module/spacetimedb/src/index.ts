@@ -42,6 +42,7 @@ const problem = table(
     compare_func_cpp:     t.string(),
     created_by:           t.identity(),
     is_approved:          t.bool(),
+    problem_kind:         t.string(),   // "algorithm" | "data_structure"
   }
 );
 
@@ -747,8 +748,14 @@ export const insert_problem = spacetimedb.reducer(
     compare_func_java:   t.string(),
     compare_func_cpp:    t.string(),
     is_approved:         t.bool(),
+    problem_kind:        t.string(),
   },
   (ctx, args) => {
+    if (args.problem_kind !== 'algorithm' && args.problem_kind !== 'data_structure') {
+      throw new SenderError('Invalid problem_kind: must be "algorithm" or "data_structure"');
+    }
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    const approved = caller?.is_admin ? args.is_approved : false;
     ctx.db.problem.insert({
       id:                   0n,
       title:                args.title,
@@ -766,7 +773,8 @@ export const insert_problem = spacetimedb.reducer(
       compare_func_java:    args.compare_func_java,
       compare_func_cpp:     args.compare_func_cpp,
       created_by:           ctx.sender,
-      is_approved:          args.is_approved,
+      is_approved:          approved,
+      problem_kind:         args.problem_kind,
     });
   }
 );

@@ -44,6 +44,7 @@ const problems = [
     compare_func_java: '',
     compare_func_cpp: '',
     is_approved: true,
+    problem_kind: 'algorithm',
   },
   {
     title: 'Reverse String',
@@ -75,6 +76,7 @@ const problems = [
     compare_func_java: '',
     compare_func_cpp: '',
     is_approved: true,
+    problem_kind: 'algorithm',
   },
   {
     title: 'FizzBuzz',
@@ -105,6 +107,7 @@ const problems = [
     compare_func_java: '',
     compare_func_cpp: '',
     is_approved: true,
+    problem_kind: 'algorithm',
   },
 ];
 
