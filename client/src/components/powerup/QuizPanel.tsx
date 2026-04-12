@@ -3,6 +3,7 @@ import { useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../../module_bindings';
 import type { QuizQuestion, GameState } from '../../module_bindings/types';
 import { useTypedTable } from '../../utils/useTypedTable';
+import { safeParseJson } from '../../utils/parseJson';
 
 export type QuizResult =
   | { kind: 'correct'; reward: number }
@@ -68,7 +69,7 @@ export default function QuizPanel({ game, isP1, onAnswered }: Props) {
   }
 
   const opts: string[] = question.questionType === 'mcq'
-    ? (() => { try { return JSON.parse(question.options); } catch { return []; } })()
+    ? safeParseJson<string[]>(question.options, [], 'quiz options')
     : question.questionType === 'tf'
       ? ['true', 'false']
       : [];

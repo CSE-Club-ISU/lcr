@@ -7,6 +7,7 @@ import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
 import Pill from '../components/ui/Pill';
+import { safeParseJson } from '../utils/parseJson';
 
 export default function ResultsScreen() {
   const navigate = useNavigate();
@@ -121,7 +122,7 @@ export default function ResultsScreen() {
                 : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
             </div>
           )}
-          <div className="text-sm opacity-60 mt-1">{JSON.parse(match.problemTitles).join(', ')}</div>
+          <div className="text-sm opacity-60 mt-1">{safeParseJson<string[]>(match.problemTitles, [], 'problemTitles').join(', ')}</div>
         </div>
       </div>
 
@@ -150,7 +151,7 @@ export default function ResultsScreen() {
               {[
                 ['Solve Time', formatTime(p.solveTime)],
                 ['Language', p.language || '—'],
-                ['Difficulty', JSON.parse(match.difficulties)[0] ?? ''],
+                ['Difficulty', safeParseJson<string[]>(match.difficulties, [], 'difficulties')[0] ?? ''],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-[13px] text-text-muted">{k}</span>

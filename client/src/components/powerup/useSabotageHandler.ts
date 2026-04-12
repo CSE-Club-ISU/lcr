@@ -4,6 +4,7 @@ import { tables, reducers } from '../../module_bindings';
 import type { SabotageEvent } from '../../module_bindings/types';
 import { useTypedTable } from '../../utils/useTypedTable';
 import { identityEq } from '../../utils/identity';
+import { safeParseJson } from '../../utils/parseJson';
 import type { Identity } from 'spacetimedb';
 
 export interface SabotageEffectState {
@@ -50,11 +51,8 @@ export function useSabotageHandler(
       if (seen.current.has(key)) continue;
       seen.current.add(key);
 
-      let durationMs = 0;
-      try {
-        const data = JSON.parse(ev.effectData ?? '{}');
-        durationMs = Number(data.duration_ms ?? 0);
-      } catch { /* ignore */ }
+      const data = safeParseJson<Record<string, unknown>>(ev.effectData ?? '{}', {}, 'sabotage effectData');
+      const durationMs = Number(data.duration_ms ?? 0);
 
       switch (ev.effectType) {
         case 'delete_line':
