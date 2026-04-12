@@ -89,7 +89,7 @@ export default function Sidebar({ username, avatarUrl, isAdmin, onSettingsClick,
                 : "bg-transparent text-text-muted font-medium border-l-[3px] border-l-transparent"
               }`}
           >
-            <span className="text-base shrink-0">🛡</span>
+            <span className="text-base shrink-0">◈</span>
             {!collapsed && "Admin"}
           </button>
         );
