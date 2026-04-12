@@ -717,6 +717,21 @@ export const leave_queue = spacetimedb.reducer(
 );
 
 // ---------------------------------------------------------------------------
+// Admin reducers
+// ---------------------------------------------------------------------------
+
+export const promote_to_admin = spacetimedb.reducer(
+  { target: t.identity() },
+  (ctx, { target }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const user = ctx.db.user.identity.find(target);
+    if (!user) throw new SenderError('User not found');
+    ctx.db.user.identity.update({ ...user, is_admin: true });
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Problem reducers
 // ---------------------------------------------------------------------------
 
@@ -728,6 +743,17 @@ export const approve_problem = spacetimedb.reducer(
     const prob = ctx.db.problem.id.find(id);
     if (!prob) throw new SenderError('Problem not found');
     ctx.db.problem.id.update({ ...prob, is_approved: true });
+  }
+);
+
+export const delete_problem = spacetimedb.reducer(
+  { id: t.u64() },
+  (ctx, { id }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const prob = ctx.db.problem.id.find(id);
+    if (!prob) throw new SenderError('Problem not found');
+    ctx.db.problem.id.delete(id);
   }
 );
 
