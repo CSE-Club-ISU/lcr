@@ -73,6 +73,16 @@ export function createCode(data: Omit<PendingAuth, 'expiresAt'>): string {
   return code;
 }
 
+/**
+ * Wipes all in-memory state without touching disk. Only for tests.
+ * Prefer this over setting STORE_FILE before import — it's explicit and
+ * safe regardless of import order or eager side effects in dependencies.
+ */
+export function resetForTesting(): void {
+  store.tokens = {};
+  store.codes = {};
+}
+
 export function redeemCode(code: string): Omit<PendingAuth, 'expiresAt'> | undefined {
   const entry = store.codes[code];
   if (!entry) return undefined;

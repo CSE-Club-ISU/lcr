@@ -25,6 +25,7 @@ module/spacetimedb/.spacetime/
 # Editor
 .vscode/
 .idea/
+.claude/
 *.iml
 .DS_Store
 Thumbs.db
@@ -41,6 +42,7 @@ bun-debug.log*
 # Temp / test artifacts
 *.tmp
 /tmp/
+auth/token-store.json
 
 # BeatCode reference repos
 beatcode_client/
