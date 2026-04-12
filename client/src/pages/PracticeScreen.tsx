@@ -9,24 +9,6 @@ import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
-const STORAGE_KEY = 'lcr_practice';
-
-interface StoredState {
-  problemId: string;
-  code: string;
-  elapsedSec: number;
-}
-
-function loadStored(): StoredState | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) as StoredState : null;
-  } catch { return null; }
-}
-
-function saveStored(s: StoredState) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
-}
 
 interface TestResult {
   passed: boolean;
@@ -170,20 +152,11 @@ export default function PracticeScreen() {
     [problems],
   );
 
-  const stored = useMemo(() => loadStored(), []);
-
-  const [problemId, setProblemIdRaw] = useState<bigint | undefined>(
-    stored?.problemId ? BigInt(stored.problemId) : undefined,
-  );
-  const [elapsedSec, setElapsedSec] = useState<number>(stored?.elapsedSec ?? 0);
-  // Restored code — only valid for the stored problemId; cleared on problem switch
-  const [restoredCode] = useState<string>(stored?.code ?? '');
+  const [problemId, setProblemIdRaw] = useState<bigint | undefined>(undefined);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [code, setCode] = useState('');
   const [resetCount, setResetCount] = useState(0);
-  // Counts onChange calls for the current editor mount. CodeMirror fires once on mount with
-  // the initial value, so we only persist from the second call onward (actual user edits).
-  const editorChangeCountRef = useRef(0);
-  const baseRef = useRef<number>(stored?.elapsedSec ?? 0);
+  const baseRef = useRef(0);
 
   // Auto-select first problem if nothing stored or stored id is gone
   const seededRef = useRef(false);
@@ -200,27 +173,12 @@ export default function PracticeScreen() {
   );
 
   function selectProblem(p: Problem) {
-    editorChangeCountRef.current = 0;
     setProblemIdRaw(p.id);
     setCode('');
     setTestResults(null);
     setRunSummary(null);
     setError(null);
   }
-
-  // Persist code only after the user has actually typed (skip CodeMirror's initial onChange).
-  useEffect(() => {
-    if (problemId === undefined) return;
-    if (editorChangeCountRef.current < 2) return;
-    saveStored({ problemId: String(problemId), code, elapsedSec });
-  }, [code]);
-
-  // Always persist problemId and elapsedSec changes.
-  useEffect(() => {
-    if (problemId === undefined) return;
-    const stored = loadStored();
-    saveStored({ problemId: String(problemId), code: stored?.code ?? '', elapsedSec });
-  }, [problemId, elapsedSec]);
 
   // ── Execution state ──────────────────────────────────────────────────────────
 
@@ -269,17 +227,12 @@ export default function PracticeScreen() {
 
   function resetCode() {
     if (!problem) return;
-    editorChangeCountRef.current = 0;
     setResetCount(c => c + 1);
     setTestResults(null);
     setRunSummary(null);
     setError(null);
   }
 
-  function handleCodeChange(c: string) {
-    editorChangeCountRef.current += 1;
-    setCode(c);
-  }
 
   // ── Execute ──────────────────────────────────────────────────────────────────
 
@@ -370,12 +323,8 @@ export default function PracticeScreen() {
           {problem && (
             <CodeEditor
               key={`${String(problemId)}-${resetCount}`}
-              initialCode={
-                restoredCode && stored?.problemId === String(problemId)
-                  ? restoredCode
-                  : problem.boilerplatePython ?? ''
-              }
-              onChange={handleCodeChange}
+              initialCode={problem.boilerplatePython ?? ''}
+              onChange={setCode}
               vimMode={settings.vimMode}
             />
           )}
