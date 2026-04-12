@@ -25,6 +25,24 @@ async function callReducer(name, args) {
 }
 
 // ---------------------------------------------------------------------------
+// Stress-test helpers
+// These generate large hidden test cases that TLE naive O(n²) solutions.
+// All values are seeded for reproducibility.
+// ---------------------------------------------------------------------------
+
+function seededRand(seed) {
+  // Simple LCG
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+/** n integers in range [lo, hi) with a given seed */
+function randArray(n, lo, hi, seed = 42) {
+  const r = seededRand(seed);
+  return Array.from({ length: n }, () => Math.floor(r() * (hi - lo) + lo));
+}
+
+// ---------------------------------------------------------------------------
 // Problems
 // Target distribution: ~8 easy, ~5 medium, ~2 hard
 // Style: single method / isolated step — deliberately easier than average LeetCode
@@ -43,8 +61,14 @@ const problems = [
     method_name: 'two_sum',
     sample_test_cases: '[[2,7,11,15],9]|[[3,2,4],6]|[[3,3],6]',
     sample_test_results: '[0,1]|[1,2]|[0,1]',
-    hidden_test_cases: '[[2,7,11,15],9]|[[3,2,4],6]|[[3,3],6]|[[-1,-2,-3,-4,-5],-8]|[[1,2,3,4,5],9]',
-    hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]',
+    hidden_test_cases: (() => {
+      // Stress: 5k element array, answer at the ends (O(n²) brute force is ~25M ops)
+      const big = randArray(5000, 2, 4999, 1);
+      big[0] = 1; big[4999] = 9998; // ensure unique solution at indices 0 and 4999
+      const target = big[0] + big[4999];
+      return `[[2,7,11,15],9]|[[3,2,4],6]|[[3,3],6]|[[-1,-2,-3,-4,-5],-8]|[[1,2,3,4,5],9]|${JSON.stringify([big, target])}`;
+    })(),
+    hidden_test_results: '[0,1]|[1,2]|[0,1]|[2,4]|[3,4]|[0,4999]',
     boilerplate_python: 'def two_sum(nums: list, target: int) -> list:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -63,8 +87,15 @@ const problems = [
     method_name: 'reverse_string',
     sample_test_cases: '"hello"|"world"|"a"',
     sample_test_results: '"olleh"|"dlrow"|"a"',
-    hidden_test_cases: '"hello"|"world"|"a"|""|"abcde"|"racecar"',
-    hidden_test_results: '"olleh"|"dlrow"|"a"|""|"edcba"|"racecar"',
+    hidden_test_cases: (() => {
+      const big = 'abcdefghij'.repeat(2000); // 20k chars
+      return `"hello"|"world"|"a"|""|"abcde"|"racecar"|${JSON.stringify(big)}`;
+    })(),
+    hidden_test_results: (() => {
+      const big = 'abcdefghij'.repeat(2000);
+      const rev = JSON.stringify(big.split('').reverse().join(''));
+      return `"olleh"|"dlrow"|"a"|""|"edcba"|"racecar"|${rev}`;
+    })(),
     boilerplate_python: 'def reverse_string(s: str) -> str:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -103,8 +134,13 @@ const problems = [
     method_name: 'contains_duplicate',
     sample_test_cases: '[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]',
     sample_test_results: 'true|false|true',
-    hidden_test_cases: '[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]|[]|[1]|[1,2]',
-    hidden_test_results: 'true|false|true|false|false|false',
+    hidden_test_cases: (() => {
+      // Stress: 5k unique elements then same with a duplicate at end
+      const uniq = Array.from({ length: 5000 }, (_, i) => i);
+      const withDup = [...uniq]; withDup[4999] = 0;
+      return `[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]|[]|[1]|[1,2]|${JSON.stringify(uniq)}|${JSON.stringify(withDup)}`;
+    })(),
+    hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list) -> bool:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -123,8 +159,15 @@ const problems = [
     method_name: 'max_in_array',
     sample_test_cases: '[3,1,4,1,5,9]|[-3,-1,-4]|[7]',
     sample_test_results: '9|-1|7',
-    hidden_test_cases: '[3,1,4,1,5,9]|[-3,-1,-4]|[7]|[0,0,0]|[100,-100,50]|[1,2,3,4,5]',
-    hidden_test_results: '9|-1|7|0|100|5',
+    hidden_test_cases: (() => {
+      const big = randArray(10000, -1000000, 1000000, 7);
+      return `[3,1,4,1,5,9]|[-3,-1,-4]|[7]|[0,0,0]|[100,-100,50]|[1,2,3,4,5]|${JSON.stringify(big)}`;
+    })(),
+    hidden_test_results: (() => {
+      const big = randArray(10000, -1000000, 1000000, 7);
+      const max = Math.max(...big);
+      return `9|-1|7|0|100|5|${max}`;
+    })(),
     boilerplate_python: 'def max_in_array(nums: list) -> int:\n    # Your code here (don\'t use max())\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -166,8 +209,8 @@ const problems = [
     method_name: 'sum_of_digits',
     sample_test_cases: '123|9999|0',
     sample_test_results: '6|36|0',
-    hidden_test_cases: '123|9999|0|1|100|12345',
-    hidden_test_results: '6|36|0|1|1|15',
+    hidden_test_cases: '123|9999|0|1|100|12345|999999999',
+    hidden_test_results: '6|36|0|1|1|15|81',
     boilerplate_python: 'def sum_of_digits(n: int) -> int:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -187,8 +230,8 @@ const problems = [
     method_name: 'fib',
     sample_test_cases: '0|1|6|10',
     sample_test_results: '0|1|8|55',
-    hidden_test_cases: '0|1|2|3|6|10|15',
-    hidden_test_results: '0|1|1|2|8|55|610',
+    hidden_test_cases: '0|1|2|3|6|10|15|50',
+    hidden_test_results: '0|1|1|2|8|55|610|12586269025',
     boilerplate_python: 'def fib(n: int) -> int:\n    # Your code here (iterative, no recursion)\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -272,8 +315,16 @@ const problems = [
     method_name: 'is_anagram',
     sample_test_cases: '"anagram","nagaram"|"rat","car"|"a","a"',
     sample_test_results: 'true|false|true',
-    hidden_test_cases: '"anagram","nagaram"|"rat","car"|"a","a"|"",""|"ab","ba"|"abc","cba"|"abc","abcd"',
-    hidden_test_results: 'true|false|true|true|true|true|false',
+    hidden_test_cases: (() => {
+      // Stress: two 5k-char anagram strings
+      const chars = 'abcdefghijklmnopqrstuvwxyz';
+      const r = seededRand(99);
+      const arr = Array.from({ length: 5000 }, () => chars[Math.floor(r() * 26)]);
+      const s = arr.join('');
+      const shuffled = [...arr].sort(() => r() - 0.5).join('');
+      return `"anagram","nagaram"|"rat","car"|"a","a"|"",""|"ab","ba"|"abc","cba"|"abc","abcd"|${JSON.stringify(s)},${JSON.stringify(shuffled)}`;
+    })(),
+    hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -292,8 +343,13 @@ const problems = [
     method_name: 'binary_search',
     sample_test_cases: '[[-1,0,3,5,9,12],9]|[[-1,0,3,5,9,12],2]',
     sample_test_results: '4|-1',
-    hidden_test_cases: '[[-1,0,3,5,9,12],9]|[[-1,0,3,5,9,12],2]|[[1],1]|[[1],0]|[[1,2,3,4,5],3]|[[1,2,3,4,5],5]',
-    hidden_test_results: '4|-1|0|-1|2|4',
+    hidden_test_cases: (() => {
+      // Stress: sorted array of 10k elements, search near middle
+      const big = Array.from({ length: 10000 }, (_, i) => i * 2); // [0,2,4,...,19998]
+      const target = big[4999]; // element at index 4999
+      return `[[-1,0,3,5,9,12],9]|[[-1,0,3,5,9,12],2]|[[1],1]|[[1],0]|[[1,2,3,4,5],3]|[[1,2,3,4,5],5]|[${JSON.stringify(big)},${target}]`;
+    })(),
+    hidden_test_results: '4|-1|0|-1|2|4|4999',
     boilerplate_python: 'def binary_search(nums: list, target: int) -> int:\n    # Your code here (must be O(log n))\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
@@ -313,8 +369,15 @@ const problems = [
     method_name: 'reverse_list',
     sample_test_cases: '[[1,2,3,4,5]]|[[1,2]]|[[1]]',
     sample_test_results: '[5,4,3,2,1]|[2,1]|[1]',
-    hidden_test_cases: '[[1,2,3,4,5]]|[[1,2]]|[[1]]|[[]]|[[1,2,3]]',
-    hidden_test_results: '[5,4,3,2,1]|[2,1]|[1]|[]|[3,2,1]',
+    hidden_test_cases: (() => {
+      const big = Array.from({ length: 5000 }, (_, i) => i);
+      return `[[1,2,3,4,5]]|[[1,2]]|[[1]]|[[]]|[[1,2,3]]|[${JSON.stringify(big)}]`;
+    })(),
+    hidden_test_results: (() => {
+      const big = Array.from({ length: 5000 }, (_, i) => i);
+      const rev = JSON.stringify([...big].reverse());
+      return `[5,4,3,2,1]|[2,1]|[1]|[]|[3,2,1]|${rev}`;
+    })(),
     boilerplate_python:
       'def reverse_list(head: list) -> list:\n' +
       '    # Treat the list as a linked list and reverse it with pointers.\n' +
@@ -338,8 +401,8 @@ const problems = [
     method_name: 'climb_stairs',
     sample_test_cases: '1|2|3',
     sample_test_results: '1|2|3',
-    hidden_test_cases: '1|2|3|4|5|10',
-    hidden_test_results: '1|2|3|5|8|89',
+    hidden_test_cases: '1|2|3|4|5|10|40',
+    hidden_test_results: '1|2|3|5|8|89|102334155',
     boilerplate_python: 'def climb_stairs(n: int) -> int:\n    # Your code here\n    pass',
     boilerplate_java: '',
     boilerplate_cpp: '',
