@@ -523,7 +523,17 @@ function generateJavaDS(code: string, problem: ProblemData): string {
   let runBlock: string;
 
   if (sig) {
-    // Typed path: per-method if/else dispatch
+    // Typed path: per-method if/else dispatch.
+    // Constructor op: when the op name matches the class name, instantiate
+    // the object with typed args (e.g. LRUCache(capacity)).
+    const ctorParamExtracts = sig.constructor.map((t, i) =>
+      `              ${javaType(t)} _c${i} = ${javaExtract(t, `a[${i}]`)};`
+    ).join('\n');
+    const ctorCallArgs = sig.constructor.map((_, i) => `_c${i}`).join(', ');
+    const ctorBranch = sig.constructor.length > 0
+      ? `            if (m.equals("${cls}")) {\n${ctorParamExtracts}\n              obj = new ${cls}(${ctorCallArgs}); actual = null; }`
+      : `            if (m.equals("${cls}")) { obj = new ${cls}(); actual = null; }`;
+
     const branches = Object.entries(sig.methods).map(([name, ms]) => {
       const paramExtracts = ms.params.map((t, i) =>
         `              ${javaType(t)} _p${i} = ${javaExtract(t, `a[${i}]`)};`
@@ -537,13 +547,14 @@ function generateJavaDS(code: string, problem: ProblemData): string {
         return `            if (m.equals("${name}")) {\n${paramExtracts}\n              ${retJava} _r = obj.${name}(${callArgs}); actual = ${javaBox(ms.ret, '_r')}; }`;
       }
     });
-    const dispatchChain = branches.join('\n            else ');
+    const dispatchChain = [ctorBranch, ...branches].join('\n            else ');
 
     runBlock = `
           @SuppressWarnings("unchecked")
           java.util.List<java.util.List<Object>> ops =
             (java.util.List<java.util.List<Object>>) parse((String) td.get("input"));
-          ${cls} obj = new ${cls}();
+          // obj starts null; constructor op will initialize it
+          ${cls} obj = null;
           actual = null;
           for (java.util.List<Object> op : ops) {
             String m = (String) op.get(0);
@@ -669,6 +680,7 @@ ${paramDecls}
 #include <vector>
 #include <map>
 #include <set>
+#include <optional>
 #include <stdexcept>
 #include <algorithm>
 #include <climits>
@@ -730,6 +742,15 @@ function generateCppDS(code: string, problem: ProblemData): string {
   let runBlock: string;
 
   if (sig) {
+    // Constructor op: when op name matches class name, (re)construct the object.
+    const ctorParamDecls = sig.constructor.map((t, i) =>
+      `        ${cppType(t)} _c${i} = ${cppExtract(t, `a[${i}]`)};`
+    ).join('\n');
+    const ctorCallArgs = sig.constructor.map((_, i) => `_c${i}`).join(', ');
+    const ctorBranch = sig.constructor.length > 0
+      ? `      if (m == "${cls}") {\n${ctorParamDecls}\n        obj.emplace(${ctorCallArgs}); actual = nullptr; }`
+      : `      if (m == "${cls}") { obj.emplace(); actual = nullptr; }`;
+
     const branches = Object.entries(sig.methods).map(([name, ms]) => {
       const paramDecls = ms.params.map((t, i) =>
         `        ${cppType(t)} _p${i} = ${cppExtract(t, `a[${i}]`)};`
@@ -737,16 +758,17 @@ function generateCppDS(code: string, problem: ProblemData): string {
       const callArgs = ms.params.map((_, i) => `_p${i}`).join(', ');
 
       if (ms.ret === 'void') {
-        return `      if (m == "${name}") {\n${paramDecls}\n        obj.${name}(${callArgs}); actual = nullptr; }`;
+        return `      if (m == "${name}") {\n${paramDecls}\n        obj->${name}(${callArgs}); actual = nullptr; }`;
       } else {
-        return `      if (m == "${name}") {\n${paramDecls}\n        auto _r = obj.${name}(${callArgs}); actual = ${cppToJson(ms.ret, '_r')}; }`;
+        return `      if (m == "${name}") {\n${paramDecls}\n        auto _r = obj->${name}(${callArgs}); actual = ${cppToJson(ms.ret, '_r')}; }`;
       }
     });
-    const dispatchChain = branches.join('\n      else ');
+    const dispatchChain = [ctorBranch, ...branches].join('\n      else ');
 
+    // Use std::optional so we can defer construction until the ctor op.
     runBlock = `
       auto ops = json::parse(td["input"].get<std::string>());
-      ${cls} obj;
+      std::optional<${cls}> obj;
       actual = nullptr;
       for (auto& op : ops) {
         std::string m = op[0].get<std::string>();
@@ -774,6 +796,7 @@ function generateCppDS(code: string, problem: ProblemData): string {
 #include <vector>
 #include <map>
 #include <set>
+#include <optional>
 #include <stdexcept>
 #include <algorithm>
 #include <climits>
