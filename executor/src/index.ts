@@ -2,7 +2,17 @@ import { executeCode } from './runner.js';
 import { initStdb, getConnection, getProblem } from './stdb.js';
 import type { ExecuteRequest } from './types.js';
 
-const PORT = parseInt(process.env.EXECUTOR_PORT ?? '8000');
+function parseIntEnv(name: string, defaultVal: number): number {
+  const raw = process.env[name];
+  if (raw === undefined) return defaultVal;
+  const parsed = parseInt(raw, 10);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Invalid value for ${name}: "${raw}" is not an integer`);
+  }
+  return parsed;
+}
+
+const PORT = parseIntEnv('EXECUTOR_PORT', 8000);
 
 // Restrict CORS to the known client origin
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
@@ -13,7 +23,7 @@ const EXECUTOR_SECRET = process.env.EXECUTOR_SECRET ?? '';
 
 // S5: Rate limiting — max 1 in-flight execution per game_id, with a cooldown
 // after completion. Prevents a single game from spamming Docker containers.
-const COOLDOWN_MS = parseInt(process.env.RATE_LIMIT_COOLDOWN_MS ?? '5000');
+const COOLDOWN_MS = parseIntEnv('RATE_LIMIT_COOLDOWN_MS', 5000);
 
 // game_id → timestamp when it becomes eligible for the next submission
 const rateLimitMap = new Map<string, number>();
