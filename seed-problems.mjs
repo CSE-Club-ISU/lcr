@@ -176,13 +176,13 @@ const problems = [
       'Given a list of integers `nums`, return `True` if any value appears more than once, `False` otherwise.',
     difficulty: 'easy',
     method_name: 'contains_duplicate',
-    sample_test_cases: '[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]',
+    sample_test_cases: '[[1,2,3,1]]|[[1,2,3,4]]|[[1,1,1,3,3,4,3,2,4,2]]',
     sample_test_results: 'true|false|true',
     hidden_test_cases: (() => {
       // Stress: 5k unique elements then same with a duplicate at end
       const uniq = Array.from({ length: 5000 }, (_, i) => i);
       const withDup = [...uniq]; withDup[4999] = 0;
-      return `[1,2,3,1]|[1,2,3,4]|[1,1,1,3,3,4,3,2,4,2]|[]|[1]|[1,2]|${JSON.stringify(uniq)}|${JSON.stringify(withDup)}`;
+      return `[[1,2,3,1]]|[[1,2,3,4]]|[[1,1,1,3,3,4,3,2,4,2]]|[[]]|[[1]]|[[1,2]]|[${JSON.stringify(uniq)}]|[${JSON.stringify(withDup)}]`;
     })(),
     hidden_test_results: 'true|false|true|false|false|false|false|true',
     boilerplate_python: 'def contains_duplicate(nums: list[int]) -> bool:\n    # Your code here\n    pass',
@@ -209,13 +209,13 @@ const problems = [
       'Do not use the built-in `max()` function.',
     difficulty: 'easy',
     method_name: 'max_in_array',
-    sample_test_cases: '[3,1,4,1,5,9]|[-3,-1,-4]|[7]',
+    sample_test_cases: '[[3,1,4,1,5,9]]|[[-3,-1,-4]]|[[7]]',
     sample_test_results: '9|-1|7',
     ...(() => {
       const big = randArray(10000, -1000000, 1000000, 7);
       const max = Math.max(...big);
       return {
-        hidden_test_cases: `[3,1,4,1,5,9]|[-3,-1,-4]|[7]|[0,0,0]|[100,-100,50]|[1,2,3,4,5]|${JSON.stringify(big)}`,
+        hidden_test_cases: `[[3,1,4,1,5,9]]|[[-3,-1,-4]]|[[7]]|[[0,0,0]]|[[100,-100,50]]|[[1,2,3,4,5]]|[${JSON.stringify(big)}]`,
         hidden_test_results: `9|-1|7|0|100|5|${max}`,
       };
     })(),
@@ -425,7 +425,7 @@ const problems = [
       'Example: `"anagram"`, `"nagaram"` → `True`; `"rat"`, `"car"` → `False`',
     difficulty: 'medium',
     method_name: 'is_anagram',
-    sample_test_cases: '"anagram","nagaram"|"rat","car"|"a","a"',
+    sample_test_cases: '["anagram","nagaram"]|["rat","car"]|["a","a"]',
     sample_test_results: 'true|false|true',
     hidden_test_cases: (() => {
       // Stress: two 5k-char anagram strings (Fisher-Yates for a real shuffle)
@@ -434,7 +434,7 @@ const problems = [
       const arr = Array.from({ length: 5000 }, () => chars[Math.floor(r() * 26)]);
       const s = arr.join('');
       const shuffled = shuffle(arr, r).join('');
-      return `"anagram","nagaram"|"rat","car"|"a","a"|"",""|"ab","ba"|"abc","cba"|"abc","abcd"|${JSON.stringify(s)},${JSON.stringify(shuffled)}`;
+      return `["anagram","nagaram"]|["rat","car"]|["a","a"]|["",""]|["ab","ba"]|["abc","cba"]|["abc","abcd"]|[${JSON.stringify(s)},${JSON.stringify(shuffled)}]`;
     })(),
     hidden_test_results: 'true|false|true|true|true|true|false|true',
     boilerplate_python: 'def is_anagram(s: str, t: str) -> bool:\n    # Your code here\n    pass',
