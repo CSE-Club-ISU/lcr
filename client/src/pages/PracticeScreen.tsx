@@ -3,6 +3,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
+import { difficultyColor } from '../utils/difficulty';
 import { useSettings } from '../hooks/useSettings';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
@@ -10,14 +11,11 @@ import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor from '../components/problem/CodeEditor';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import SandboxTab from '../components/practice/SandboxTab';
+import QuizModeTab from '../components/practice/QuizModeTab';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
 
-
-function difficultyColor(d: string): 'green' | 'yellow' | 'red' {
-  return d === 'easy' ? 'green' : d === 'hard' ? 'red' : 'yellow';
-}
 
 // ── Problem picker dropdown ──────────────────────────────────────────────────
 
@@ -129,11 +127,12 @@ function ProblemPicker({ problems, selected, onSelect }: ProblemPickerProps) {
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
-type PracticeTab = 'coding' | 'sandbox';
+type PracticeTab = 'coding' | 'sandbox' | 'quiz';
 
 const TAB_LABELS: Record<PracticeTab, string> = {
   coding:  'Coding',
   sandbox: 'Sandbox',
+  quiz:    'Quiz Mode',
 };
 
 export default function PracticeScreen() {
@@ -225,7 +224,6 @@ export default function PracticeScreen() {
   const timeStr = `${mins}:${secs}`;
 
   // ── Editor ───────────────────────────────────────────────────────────────────
-
 
   function resetCode() {
     if (!problem) return;
@@ -411,6 +409,13 @@ export default function PracticeScreen() {
 
       {/* Sandbox tab */}
       {activeTab === 'sandbox' && <SandboxTab />}
+
+      {/* Quiz tab */}
+      {activeTab === 'quiz' && (
+        <div className="card flex-1 min-h-0 overflow-hidden p-6">
+          <QuizModeTab />
+        </div>
+      )}
     </div>
   );
 }

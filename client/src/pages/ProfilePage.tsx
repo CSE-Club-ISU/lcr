@@ -5,24 +5,21 @@ import { tables, reducers } from '../module_bindings';
 import type { User, MatchHistory } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import { formatTime } from '../utils/formatTime';
 import Avatar from '../components/ui/Avatar';
 import StatCard from '../components/ui/StatCard';
 import ActivityHeatmap from '../components/ui/ActivityHeatmap';
+import { safeParseJson } from '../utils/parseJson';
 
 // ── Setup form (first-time users) ────────────────────────────────────────
 function SetupForm({ onSaved }: { onSaved: () => void }) {
-  const ctx = useSpacetimeDB();
-  const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
+  const myUser = useCurrentUser();
 
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
-
-  const githubProfile = (() => {
-    try { return JSON.parse(localStorage.getItem('lcr_github_profile') ?? '{}'); } catch { return {}; }
-  })();
+  const githubProfile = safeParseJson<Record<string, string>>(
+    localStorage.getItem('lcr_github_profile'), {}, 'github profile'
+  );
 
   const [username, setUsername] = useState(githubProfile.username ?? '');
   const [firstName, setFirstName] = useState(githubProfile.name?.split(' ')[0] ?? '');
@@ -259,11 +256,11 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
                     />
                     <div>
                       <span className="font-semibold text-sm text-text">vs {oppName}</span>
-                      <span className="text-xs text-text-muted ml-2">{JSON.parse(m.problemTitles)[0] ?? ''}</span>
+                      <span className="text-xs text-text-muted ml-2">{safeParseJson<string[]>(m.problemTitles, [], 'problemTitles')[0] ?? ''}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-xs text-text-faint capitalize">{JSON.parse(m.difficulties)[0] ?? ''}</span>
+                    <span className="text-xs text-text-faint capitalize">{safeParseJson<string[]>(m.difficulties, [], 'difficulties')[0] ?? ''}</span>
                     <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
                     <span
                       className="text-[13px] font-bold w-12 text-right"
@@ -288,10 +285,7 @@ export default function ProfilePage() {
   const ctx = useSpacetimeDB();
   const [users] = useTypedTable<User>(tables.user);
   const setProfile = useReducer(reducers.setProfile);
-
-  const myUser = ctx.identity
-    ? users.find(u => identityEq(u.identity, ctx.identity))
-    : undefined;
+  const myUser = useCurrentUser();
 
   // Auto-populate profile from GitHub data on first login so the user
   // doesn't have to fill in a form they already completed before.
@@ -300,17 +294,15 @@ export default function ProfilePage() {
 
     const raw = localStorage.getItem('lcr_github_profile');
     if (!raw) return;
-    try {
-      const gh = JSON.parse(raw) as Record<string, string>;
-      if (!gh.username) return;
-      setProfile({
-        username:  gh.username,
-        firstName: gh.name?.split(' ')[0] ?? '',
-        lastName:  gh.name?.split(' ').slice(1).join(' ') ?? '',
-        githubId:  gh.githubId ?? '',
-        avatarUrl: gh.avatarUrl ?? '',
-      });
-    } catch { /* ignore */ }
+    const gh = safeParseJson<Record<string, string>>(raw, {}, 'github profile (auto-populate)');
+    if (!gh.username) return;
+    setProfile({
+      username:  gh.username,
+      firstName: gh.name?.split(' ')[0] ?? '',
+      lastName:  gh.name?.split(' ').slice(1).join(' ') ?? '',
+      githubId:  gh.githubId ?? '',
+      avatarUrl: gh.avatarUrl ?? '',
+    });
   }, [ctx.isActive, myUser]);
 
   // Clear GitHub profile from localStorage once it's been saved to SpacetimeDB

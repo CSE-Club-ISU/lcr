@@ -4,6 +4,7 @@ import { tables, reducers } from '../module_bindings';
 import type { Powerup, PlayerLoadoutPref } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
+import { safeParseJson } from '../utils/parseJson';
 
 const MAX_LOADOUT = 5;
 
@@ -29,10 +30,7 @@ export default function LoadoutPage() {
 
   useEffect(() => {
     if (!myPref) return;
-    try {
-      const ids = JSON.parse(myPref.powerupIds) as string[];
-      setSelected(new Set(ids));
-    } catch { /* ignore */ }
+    setSelected(new Set(safeParseJson<string[]>(myPref.powerupIds, [], 'loadout powerupIds')));
   }, [myPref?.powerupIds]);
 
   const toggle = (id: string) => {

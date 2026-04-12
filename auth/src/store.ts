@@ -29,8 +29,13 @@ function loadFromDisk(): Store {
   if (!existsSync(STORE_FILE)) return { tokens: {}, codes: {} };
   try {
     const raw = JSON.parse(readFileSync(STORE_FILE, 'utf-8'));
-    if (!raw.tokens) return { tokens: raw, codes: {} }; // migrate old format
-    return raw;
+    const store: Store = !raw.tokens ? { tokens: raw, codes: {} } : raw;
+    // Prune expired codes on startup so stale entries don't accumulate
+    const now = Date.now();
+    for (const [k, v] of Object.entries(store.codes)) {
+      if (now > v.expiresAt) delete store.codes[k];
+    }
+    return store;
   } catch {
     return { tokens: {}, codes: {} };
   }
@@ -66,6 +71,16 @@ export function createCode(data: Omit<PendingAuth, 'expiresAt'>): string {
   store.codes[code] = { ...data, expiresAt: now + 60_000 };
   persist();
   return code;
+}
+
+/**
+ * Wipes all in-memory state without touching disk. Only for tests.
+ * Prefer this over setting STORE_FILE before import — it's explicit and
+ * safe regardless of import order or eager side effects in dependencies.
+ */
+export function resetForTesting(): void {
+  store.tokens = {};
+  store.codes = {};
 }
 
 export function redeemCode(code: string): Omit<PendingAuth, 'expiresAt'> | undefined {

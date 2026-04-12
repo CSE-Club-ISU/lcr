@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react';
+import { safeParseJson } from '../utils/parseJson';
 
 const STORAGE_KEY = 'lcr_settings';
 
@@ -9,9 +10,7 @@ export interface Settings {
 const defaults: Settings = { vimMode: false };
 
 function load(): Settings {
-  try {
-    return { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') };
-  } catch { return defaults; }
+  return { ...defaults, ...safeParseJson<Partial<Settings>>(localStorage.getItem(STORAGE_KEY), {}, 'settings') };
 }
 
 type UpdateFn = (patch: Partial<Settings>) => void;

@@ -1,285 +1,10 @@
-import { schema, table, t, SenderError } from 'spacetimedb/server';
-
-// ---------------------------------------------------------------------------
-// Tables
-// ---------------------------------------------------------------------------
-
-const user = table(
-  { name: 'user', public: true },
-  {
-    identity:        t.identity().primaryKey(),
-    username:        t.string(),
-    first_name:      t.string(),
-    last_name:       t.string(),
-    github_id:       t.string(),
-    avatar_url:      t.string(),
-    is_admin:        t.bool(),
-    // Hidden stats — ELO is never shown in UI, tracked internally only
-    elo_rating:      t.i32(),
-    total_wins:      t.u32(),
-    total_matches:   t.u32(),
-    current_streak:  t.u32(),
-  }
-);
-
-const problem = table(
-  { name: 'problem', public: true },
-  {
-    id:                   t.u64().primaryKey().autoInc(),
-    title:                t.string(),
-    description:          t.string(),
-    difficulty:           t.string(),   // "easy" | "medium" | "hard"
-    method_name:          t.string(),
-    sample_test_cases:    t.string(),   // JSON string
-    sample_test_results:  t.string(),   // JSON string
-    hidden_test_cases:    t.string(),   // JSON string — executor only
-    hidden_test_results:  t.string(),   // JSON string — executor only
-    boilerplate_python:   t.string(),
-    boilerplate_java:     t.string(),
-    boilerplate_cpp:      t.string(),
-    created_by:           t.identity(),
-    is_approved:          t.bool(),
-    problem_kind:         t.string(),   // "algorithm" | "data_structure"
-    param_types:          t.string(),   // algo: JSON array e.g. '["int[]","int"]'; empty = generic
-    return_type:          t.string(),   // algo: e.g. "int[]", "void"; empty = generic
-    method_signatures:    t.string(),   // data_structure: JSON object of method→{params,return}; empty = generic
-  }
-);
-
-const room = table(
-  { name: 'room', public: true },
-  {
-    code:             t.string().primaryKey(),
-    host_identity:    t.identity(),
-    guest_identity:   t.identity().optional(),
-    host_ready:       t.bool(),
-    guest_ready:      t.bool(),
-    status:           t.string(),   // "waiting" | "in_game"
-    settings:         t.string(),   // JSON: { problem_count, starting_hp, difficulty }
-  }
-);
-
-const game_state = table(
-  { name: 'game_state', public: true },
-  {
-    id:                     t.string().primaryKey(),
-    room_code:              t.string(),
-    player1_identity:       t.identity(),
-    player2_identity:       t.identity(),
-    player1_hp:             t.i32(),
-    player2_hp:             t.i32(),
-    player1_sp:             t.i32(),
-    player2_sp:             t.i32(),
-    player1_mp:             t.i32(),
-    player2_mp:             t.i32(),
-    player1_solved_ids:     t.string(),   // JSON array of solved problem id strings
-    player2_solved_ids:     t.string(),
-    player1_abilities:      t.string(),   // JSON array of ability ids
-    player2_abilities:      t.string(),
-    problem_ids:            t.string(),   // JSON array of problem ids (as strings), sorted easy→hard
-    status:                 t.string(),   // "in_progress" | "finished"
-    start_time:             t.timestamp(),
-    winner_identity:        t.identity().optional(),
-    // Powerup state
-    // Currency model: available = floor((now - start_time) / POWERUP_TICK_SEC) + quiz_bonus - spent
-    player1_spent:          t.u32(),   // currency already spent on powerups
-    player2_spent:          t.u32(),
-    player1_quiz_bonus:     t.u32(),   // currency earned from quizzes (added to passive accrual)
-    player2_quiz_bonus:     t.u32(),
-    player1_last_quiz_at:   t.timestamp(),   // rate limit cooldown
-    player2_last_quiz_at:   t.timestamp(),
-    player1_shield:         t.i32(),   // pending damage reduction (flat)
-    player2_shield:         t.i32(),
-    player1_dmg_bonus:      t.i32(),   // pending flat bonus damage on next solve
-    player2_dmg_bonus:      t.i32(),
-    player1_dmg_mult_pct:   t.i32(),   // pending pct multiplier on next solve (100 = +100%)
-    player2_dmg_mult_pct:   t.i32(),
-  }
-);
-
-// Powerup catalog (seeded once)
-const powerup = table(
-  { name: 'powerup', public: true },
-  {
-    id:           t.u64().primaryKey().autoInc(),
-    name:         t.string(),
-    description:  t.string(),
-    kind:         t.string(),   // "damage" | "defense" | "sabotage"
-    target:       t.string(),   // "self" | "opponent"
-    cost:         t.u32(),
-    effect_data:  t.string(),   // JSON effect config, e.g. { amount: 20 } or { type: "delete_line" }
-  }
-);
-
-// Quiz questions (seeded)
-const quiz_question = table(
-  { name: 'quiz_question', public: true },
-  {
-    id:             t.u64().primaryKey().autoInc(),
-    question_type:  t.string(),   // "mcq" | "tf" | "code_fill"
-    prompt:         t.string(),
-    options:        t.string(),   // JSON array for MCQ, "[]" otherwise
-    answer:         t.string(),   // canonical correct answer
-  }
-);
-
-// Per-game loadout: which powerups the player may buy mid-match
-const powerup_loadout = table(
-  {
-    name: 'powerup_loadout',
-    public: true,
-    indexes: [
-      { accessor: 'loadout_game_id', algorithm: 'btree', columns: ['game_id'] },
-    ],
-  },
-  {
-    id:              t.u64().primaryKey().autoInc(),
-    game_id:         t.string(),
-    player_identity: t.identity(),
-    powerup_ids:     t.string(),   // JSON array of powerup id strings
-  }
-);
-
-// Ephemeral sabotage effects — client picks up and applies, then calls clear_sabotage_event
-const sabotage_event = table(
-  {
-    name: 'sabotage_event',
-    public: true,
-    indexes: [
-      { accessor: 'sabotage_target', algorithm: 'btree', columns: ['target_identity'] },
-    ],
-  },
-  {
-    id:               t.u64().primaryKey().autoInc(),
-    game_id:          t.string(),
-    target_identity:  t.identity(),
-    effect_type:      t.string(),   // "delete_line" | "font_size_up" | "font_blur" | "cursor_freeze"
-    effect_data:      t.string(),   // JSON, e.g. { duration_ms: 3000 }
-    created_at:       t.timestamp(),
-  }
-);
-
-// Pre-match loadout selection (persists across matches for UX convenience)
-const player_loadout_pref = table(
-  { name: 'player_loadout_pref', public: true },
-  {
-    identity:    t.identity().primaryKey(),
-    powerup_ids: t.string(),   // JSON array
-  }
-);
-
-// Stores the executor service's SpacetimeDB identity so submit_result can
-// verify the caller is actually the executor, not a malicious client (S3 fix).
-const executor_config = table(
-  { name: 'executor_config', public: false },
-  {
-    id:                t.u32().primaryKey(),   // singleton row — always id=0
-    executor_identity: t.identity(),
-  }
-);
-
-const chat_message = table(
-  { name: 'chat_message', public: true },
-  {
-    id:              t.u64().primaryKey().autoInc(),
-    game_id:         t.string(),
-    sender_identity: t.identity(),
-    text:            t.string(),
-    sent:            t.timestamp(),
-  }
-);
-
-const match_history = table(
-  {
-    name: 'match_history',
-    public: true,
-    indexes: [
-      { accessor: 'match_history_p1', algorithm: 'btree', columns: ['player1_identity'] },
-      { accessor: 'match_history_p2', algorithm: 'btree', columns: ['player2_identity'] },
-    ],
-  },
-  {
-    id:                  t.u64().primaryKey().autoInc(),
-    room_code:           t.string(),
-    player1_identity:    t.identity(),
-    player2_identity:    t.identity(),
-    winner_identity:     t.identity().optional(),
-    problem_ids:         t.string(),   // JSON array of problem id strings
-    problem_titles:      t.string(),   // JSON array of titles (denormalized)
-    difficulties:        t.string(),   // JSON array of difficulty strings
-    player1_solve_time:  t.u32(),      // seconds; 0 = did not solve
-    player2_solve_time:  t.u32(),
-    player1_language:    t.string(),
-    player2_language:    t.string(),
-    player1_accepted:    t.bool(),
-    player2_accepted:    t.bool(),
-    played_at:           t.timestamp(),
-  }
-);
-
-// Records every code submission attempt (pass or fail) during a game.
-const submission = table(
-  {
-    name: 'submission',
-    public: true,
-    indexes: [
-      { accessor: 'submission_game_id', algorithm: 'btree', columns: ['game_id'] },
-    ],
-  },
-  {
-    id:              t.u64().primaryKey().autoInc(),
-    game_id:         t.string(),
-    player_identity: t.identity(),
-    problem_id:      t.u64(),
-    passed:          t.u32(),
-    total:           t.u32(),
-    solve_time:      t.u32(),      // seconds
-    language:        t.string(),
-    submitted_at:    t.timestamp(),
-  }
-);
-
-// Persists a player's in-progress code draft for a specific problem in a game.
-// Non-public so only the owning player's subscription sees it.
-const draft_code = table(
-  {
-    name: 'draft_code',
-    public: false,
-  },
-  {
-    id:              t.u64().primaryKey().autoInc(),
-    game_id:         t.string(),
-    player_identity: t.identity(),
-    problem_id:      t.u64(),
-    language:        t.string(),
-    code:            t.string(),
-    updated_at:      t.timestamp(),
-  }
-);
-
-// Queue for difficulty-based matchmaking
-const queue = table(
-  {
-    name: 'queue',
-    public: true,
-    indexes: [
-      { accessor: 'queue_difficulty', algorithm: 'btree', columns: ['difficulty'] },
-    ],
-  },
-  {
-    identity:      t.identity().primaryKey(),
-    difficulty:    t.string(),   // "easy" | "medium" | "hard"
-    problem_count: t.u32(),      // 1 | 2 | 3
-    queued_at:     t.timestamp(),
-  }
-);
-
-// ---------------------------------------------------------------------------
-// Schema
-// ---------------------------------------------------------------------------
-
-const spacetimedb = schema({ user, problem, room, game_state, chat_message, match_history, executor_config, submission, queue, draft_code, powerup, quiz_question, powerup_loadout, sabotage_event, player_loadout_pref });
+import spacetimedb from './schema';
+import { t, SenderError } from 'spacetimedb/server';
 export default spacetimedb;
+
+// ---------------------------------------------------------------------------
+// Reducers
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -373,6 +98,8 @@ function pickGameProblems(ctx: DbCtx, difficulty: string, count: number, seed: n
       ? ['easy', 'medium']
       : ['easy', 'medium', 'hard'];
 
+  // NOTE: problem table is intentionally small (admin-curated). Full scan is acceptable;
+  // if the problem set grows large, add an index on (is_approved, difficulty).
   const approved = [...ctx.db.problem.iter()].filter(
     p => p.is_approved && allowedDifficulties.includes(p.difficulty)
   );
@@ -864,6 +591,7 @@ export const set_executor_identity = spacetimedb.reducer(
     const senderHex = ctx.sender.toHexString();
 
     if (!existing) {
+      // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
       const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
       if (adminExists) {
         const caller = ctx.db.user.identity.find(ctx.sender);
@@ -900,11 +628,10 @@ export const save_draft = spacetimedb.reducer(
       throw new SenderError('Not a participant in this game');
     }
 
-    // Upsert: find existing draft for this player+game+problem+language (small table — iter is fine)
+    // Upsert: use game_id index to narrow search, then filter by player+problem+language.
     let found: DraftCodeRow | undefined;
-    for (const row of ctx.db.draft_code.iter()) {
-      if (row.game_id === game_id &&
-          row.player_identity.toHexString() === senderHex &&
+    for (const row of ctx.db.draft_code.draft_code_game_id.filter(game_id)) {
+      if (row.player_identity.toHexString() === senderHex &&
           row.problem_id === problem_id &&
           row.language === language) {
         found = row;
@@ -937,6 +664,7 @@ export const save_draft = spacetimedb.reducer(
 export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
   const caller = ctx.db.user.identity.find(ctx.sender);
   if (!caller?.is_admin) {
+    // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
     const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
     if (adminExists) throw new SenderError('Unauthorized');
   }
@@ -962,41 +690,42 @@ export const seed_powerups = spacetimedb.reducer({}, (ctx) => {
 export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
   const caller = ctx.db.user.identity.find(ctx.sender);
   if (!caller?.is_admin) {
+    // Bootstrap check: runs once at deploy time — infrequent, not a hot path.
     const adminExists = [...ctx.db.user.iter()].some(u => u.is_admin);
     if (adminExists) throw new SenderError('Unauthorized');
   }
   for (const q of [...ctx.db.quiz_question.iter()]) ctx.db.quiz_question.id.delete(q.id);
 
-  type Q = { question_type: string; prompt: string; options: string; answer: string };
+  type Q = { question_type: string; prompt: string; options: string; answer: string; explanation: string };
   const questions: Q[] = [
     // MCQ
-    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack' },
-    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)' },
-    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort' },
-    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)' },
-    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order' },
-    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)' },
-    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue' },
-    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack' },
+    { question_type: 'mcq', prompt: 'Which data structure uses LIFO (last in, first out)?', options: '["Queue","Stack","Heap","Tree"]', answer: 'Stack', explanation: 'A Stack operates LIFO: the last item pushed is the first popped. A Queue is FIFO. Heaps and Trees are non-linear structures with different semantics.' },
+    { question_type: 'mcq', prompt: 'Big-O of binary search on a sorted array?',              options: '["O(1)","O(log n)","O(n)","O(n log n)"]', answer: 'O(log n)', explanation: 'Binary search halves the search space at each step, giving O(log n) time. It requires the array to be sorted.' },
+    { question_type: 'mcq', prompt: 'Which sort is NOT comparison-based?',                     options: '["Quicksort","Merge sort","Radix sort","Heapsort"]', answer: 'Radix sort', explanation: 'Radix sort distributes elements into buckets by digit/character — no element comparisons needed. Quicksort, Merge sort, and Heapsort all compare elements.' },
+    { question_type: 'mcq', prompt: 'Average case complexity of hash table lookup?',           options: '["O(1)","O(log n)","O(n)","O(n^2)"]', answer: 'O(1)', explanation: 'A hash table computes the bucket index directly from the key, giving O(1) average-case lookup. Worst case (all collisions) is O(n).' },
+    { question_type: 'mcq', prompt: 'Which traversal visits root, left, right?',               options: '["Pre-order","In-order","Post-order","Level-order"]', answer: 'Pre-order', explanation: 'Pre-order visits: root → left → right. In-order is left → root → right (gives sorted output for BST). Post-order is left → right → root.' },
+    { question_type: 'mcq', prompt: 'Worst-case time of quicksort?',                           options: '["O(n)","O(n log n)","O(n^2)","O(2^n)"]', answer: 'O(n^2)', explanation: "Quicksort's worst case occurs when the pivot is always the min or max (e.g., a sorted array with a naive first-element pivot). Average case is O(n log n)." },
+    { question_type: 'mcq', prompt: 'Which data structure best implements BFS?',               options: '["Stack","Queue","Heap","Set"]', answer: 'Queue', explanation: "BFS explores nodes level-by-level. A Queue's FIFO property ensures nodes are processed in the order they were discovered." },
+    { question_type: 'mcq', prompt: 'What does DFS typically use?',                            options: '["Queue","Stack","Heap","Array"]', answer: 'Stack', explanation: 'DFS uses a Stack (or recursion, which uses the call stack implicitly). LIFO lets you backtrack to the previous path when you hit a dead end.' },
 
     // True/False
-    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'A min-heap\'s root is the smallest element.',             options: '[]', answer: 'true' },
-    { question_type: 'tf', prompt: 'Dijkstra\'s algorithm works with negative edge weights.', options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true' },
-    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false' },
-    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true' },
+    { question_type: 'tf', prompt: 'A linked list supports O(1) random access.',              options: '[]', answer: 'false', explanation: 'A linked list requires traversing from the head to reach an element, giving O(n) access. Only arrays support O(1) random access by index.' },
+    { question_type: 'tf', prompt: "A min-heap's root is the smallest element.",              options: '[]', answer: 'true',  explanation: 'By definition, every parent in a min-heap is ≤ its children, so the root is always the minimum element.' },
+    { question_type: 'tf', prompt: "Dijkstra's algorithm works with negative edge weights.",  options: '[]', answer: 'false', explanation: "Dijkstra's requires non-negative edge weights. With negative weights it can give wrong answers. Use Bellman-Ford for graphs with negative edges." },
+    { question_type: 'tf', prompt: 'Merge sort is a stable sort.',                            options: '[]', answer: 'true',  explanation: 'Merge sort preserves the relative order of equal elements during the merge step. Quicksort and Heapsort are generally not stable.' },
+    { question_type: 'tf', prompt: 'Every binary tree is a binary search tree.',              options: '[]', answer: 'false', explanation: 'A BST requires left < node < right for all nodes. A plain binary tree only requires at most two children — no ordering constraint.' },
+    { question_type: 'tf', prompt: 'Hash collisions can never be fully avoided.',             options: '[]', answer: 'true',  explanation: 'By the pigeonhole principle, if more keys exist than buckets, at least one collision must occur. Good hash functions minimize but cannot eliminate collisions.' },
 
     // Code fill-in — answer is the single token/value the user must type
-    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append' },
-    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final' },
-    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque' },
-    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len' },
-    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n' },
-    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue' },
+    { question_type: 'code_fill', prompt: 'In Python, the method to add to the end of a list: my_list.___(x)', options: '[]', answer: 'append', explanation: 'list.append(x) adds x to the end in O(1) amortized time. It is the idiomatic way to build a list; list.insert(len(list), x) works too but is slower.' },
+    { question_type: 'code_fill', prompt: 'In Java, keyword to declare a constant: ___ int MAX = 10;',           options: '[]', answer: 'final',  explanation: 'The final keyword in Java makes a variable a constant — it can only be assigned once. The C++ equivalent is const.' },
+    { question_type: 'code_fill', prompt: 'In C++, STL container for a double-ended queue: std::___',             options: '[]', answer: 'deque',  explanation: 'std::deque (double-ended queue) supports O(1) push/pop at both ends. More flexible than std::queue but uses more memory than std::vector.' },
+    { question_type: 'code_fill', prompt: 'In Python, the built-in for the length of a list:',                    options: '[]', answer: 'len',    explanation: 'len() is a Python built-in that returns the number of items in any sequence or collection: list, string, tuple, dict, set, etc.' },
+    { question_type: 'code_fill', prompt: 'Big-O of searching an unsorted array of n elements (in the form O(?)) answer just the ?:', options: '[]', answer: 'n', explanation: 'Searching an unsorted array requires checking each element in the worst case, giving O(n). Sorting first would allow O(log n) binary search.' },
+    { question_type: 'code_fill', prompt: 'The data structure with FIFO ordering:',                              options: '[]', answer: 'queue',  explanation: 'A queue enforces FIFO: the first element added is the first removed. It is used in BFS, task scheduling, and stream buffering.' },
   ];
   for (const q of questions) {
-    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer });
+    ctx.db.quiz_question.insert({ id: 0n, question_type: q.question_type, prompt: q.prompt, options: q.options, answer: q.answer, explanation: q.explanation });
   }
 });
 

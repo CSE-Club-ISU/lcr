@@ -46,6 +46,8 @@ function isRoomSettingsV1(raw: Record<string, unknown>): raw is RoomSettings {
   );
 }
 
+// Intentional inline JSON.parse: this function handles legacy format migration
+// and schema validation, so it needs the raw parsed object before any fallback.
 export function parseRoomSettings(json: string): RoomSettings {
   try {
     const raw = JSON.parse(json) as Record<string, unknown>;
