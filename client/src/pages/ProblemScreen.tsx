@@ -9,7 +9,6 @@ import { useSettings } from '../hooks/useSettings';
 import { usePowerupCurrency } from '../hooks/usePowerupCurrency';
 import type { TestResult, ExecuteResponse } from '../utils/executor-types';
 import Pill from '../components/ui/Pill';
-import ProblemPanel from '../components/problem/ProblemPanel';
 import CodeEditor, { type CodeEditorHandle } from '../components/problem/CodeEditor';
 import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
@@ -68,6 +67,7 @@ export default function ProblemScreen() {
 
   // Currently viewed problem index (navigation)
   const [viewIndex, setViewIndex] = useState(0);
+  const [panelTab, setPanelTab] = useState<'problem' | 'powerups'>('problem');
 
   // When a new problem is solved, stay on current view (don't auto-advance)
   const viewedProblemId = problemIds[viewIndex] ?? '';
@@ -266,9 +266,9 @@ export default function ProblemScreen() {
     return 'bg-red';
   }
 
-  const problemHeader = (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 flex-wrap">
+  const navBar = (
+    <div className="px-3 py-2 flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">
         {problemIds.map((pid, idx) => {
           const prob = problems.find(p => p.id === BigInt(pid));
           const solved = mySolvedIds.has(pid);
@@ -279,7 +279,7 @@ export default function ProblemScreen() {
               key={pid}
               onClick={() => setViewIndex(idx)}
               className={[
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
+                'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all cursor-pointer',
                 active
                   ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border bg-transparent text-text-muted hover:text-text hover:bg-surface',
@@ -293,6 +293,17 @@ export default function ProblemScreen() {
           );
         })}
       </div>
+      <button
+        onClick={() => setPanelTab(panelTab === 'problem' ? 'powerups' : 'problem')}
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-text-muted hover:text-accent transition-all cursor-pointer"
+      >
+        {panelTab === 'problem' ? 'powerups →' : 'problem →'}
+      </button>
+    </div>
+  );
+
+  const titleBar = (
+    <div className="px-4 py-3 shrink-0">
       {viewedProblem ? (
         <div className="flex items-center gap-2 min-w-0">
           <Pill label={viewedProblem.difficulty} color={difficultyColor(viewedProblem.difficulty)} />
@@ -313,8 +324,8 @@ export default function ProblemScreen() {
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
       {/* Top bar */}
-      <div className="card px-5 py-3 mb-3 flex items-center justify-end gap-4">
-        {/* HP bars */}
+      <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
+        {/* Left: HP bars + Energy */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col gap-1 w-28">
             <div className="flex justify-between text-[10px] text-text-muted">
@@ -340,14 +351,13 @@ export default function ProblemScreen() {
               />
             </div>
           </div>
+          <div className="flex items-center gap-2 shrink-0 px-3 py-1 rounded-lg border border-border bg-surface">
+            <span className="text-[11px] text-text-muted uppercase tracking-wider">Energy</span>
+            <span className="font-extrabold text-accent text-lg leading-none">{currency}</span>
+          </div>
         </div>
 
-        {/* Powerup currency */}
-        <div className="flex items-center gap-2 shrink-0 px-3 py-1 rounded-lg border border-border bg-surface">
-          <span className="text-[11px] text-text-muted uppercase tracking-wider">Energy</span>
-          <span className="font-extrabold text-accent text-lg leading-none">{currency}</span>
-        </div>
-
+        {/* Right: time + actions */}
         <div className="flex items-center gap-5 shrink-0">
           <div className="text-center">
             <div className="text-[11px] text-text-muted">TIME LEFT</div>
@@ -379,16 +389,46 @@ export default function ProblemScreen() {
 
       {/* Main split */}
       <div className="flex gap-3 flex-1 min-h-0">
-        <ProblemPanel problem={viewedProblem} header={problemHeader} />
+        <div className="card flex-[0_0_340px] flex flex-col min-h-0 overflow-hidden">
+          {navBar}
+          {panelTab === 'problem' && titleBar}
+          <div className="p-5 overflow-y-auto flex-1 min-h-0">
+            {panelTab === 'powerups' && game ? (
+              <PowerupShop
+                game={game}
+                myIdentity={ctx.identity ?? undefined}
+                currency={currency}
+              />
+            ) : viewedProblem ? (
+              <div className="flex flex-col gap-0">
+                <div className="text-sm text-text leading-[1.7] whitespace-pre-wrap">
+                  {viewedProblem.description}
+                </div>
+                {(() => {
+                  const cases = viewedProblem.sampleTestCases?.split('|').filter(Boolean) ?? [];
+                  const results = viewedProblem.sampleTestResults?.split('|').filter(Boolean) ?? [];
+                  if (cases.length === 0) return null;
+                  return (
+                    <div className="flex flex-col gap-3 mt-5">
+                      {cases.map((input, i) => (
+                        <div key={i} className="bg-surface-alt rounded-lg p-3.5">
+                          <div className="text-xs font-bold text-text-muted mb-2">EXAMPLE {i + 1}</div>
+                          <code className="font-mono text-[13px] block">
+                            Input: {input}<br />
+                            Output: {results[i] ?? '?'}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="text-text-muted text-sm">Loading problem…</div>
+            )}
+          </div>
+        </div>
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          {game && (
-            <PowerupShop
-              game={game}
-              myIdentity={ctx.identity ?? undefined}
-              currency={currency}
-              layout="horizontal"
-            />
-          )}
           <CodeEditor
             ref={editorRef}
             key={`${viewedProblemId}:${selectedLang}-${resetCount}`}
@@ -404,9 +444,9 @@ export default function ProblemScreen() {
             }}
           />
 
-          {/* Sabotage / test results / errors */}
-          {(activeEffectLabels.length > 0 || sabotageEffects.flash || testResults || error || runSummary) && (
-            <div className="card px-4 py-3 text-sm shrink-0 max-h-40 overflow-y-auto">
+          {/* Permanent status + action bar */}
+          <div className="card shrink-0 flex flex-col">
+            <div className="px-4 py-3 text-sm max-h-40 overflow-y-auto min-h-[44px]">
               {activeEffectLabels.length > 0 && (
                 <div className="text-orange text-xs font-semibold mb-1">
                   Sabotage active: {activeEffectLabels.join(', ')}
@@ -433,31 +473,33 @@ export default function ProblemScreen() {
                   </span>
                 </div>
               ))}
+              {!activeEffectLabels.length && !sabotageEffects.flash && !error && !runSummary && !testResults && (
+                <div className="text-text-faint text-xs">Ready.</div>
+              )}
             </div>
-          )}
-
-          <div className="flex gap-2.5 shrink-0">
-            <button
-              onClick={resetCode}
-              disabled={!viewedProblem}
-              className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
-            >
-              ↺ Reset
-            </button>
-            <button
-              onClick={runTests}
-              disabled={!viewedProblem || running}
-              className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
-            >
-              {running ? 'Running…' : '▷ Run Tests'}
-            </button>
-            <button
-              onClick={submit}
-              disabled={submitting || isSolved || !viewedProblem}
-              className="flex-1 py-[11px] rounded-[10px] border-none bg-accent text-white font-bold text-sm cursor-pointer disabled:opacity-50"
-            >
-              {isSolved ? '✓ Solved' : submitting ? 'Submitting…' : '↑ Submit'}
-            </button>
+            <div className="flex gap-2 px-3 py-2 border-t border-border shrink-0">
+              <button
+                onClick={resetCode}
+                disabled={!viewedProblem}
+                className="py-1.5 px-3 rounded-md border border-border bg-transparent text-text-muted font-semibold text-xs cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
+              >
+                ↺ Reset
+              </button>
+              <button
+                onClick={runTests}
+                disabled={!viewedProblem || running}
+                className="flex-1 py-1.5 rounded-md border border-border bg-surface text-text font-semibold text-xs cursor-pointer hover:bg-surface-alt disabled:opacity-50"
+              >
+                {running ? 'Running…' : '▷ Run Tests'}
+              </button>
+              <button
+                onClick={submit}
+                disabled={submitting || isSolved || !viewedProblem}
+                className="flex-1 py-1.5 rounded-md border-none bg-accent text-white font-semibold text-xs cursor-pointer disabled:opacity-50"
+              >
+                {isSolved ? '✓ Solved' : submitting ? 'Submitting…' : '↑ Submit'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

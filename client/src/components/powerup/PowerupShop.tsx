@@ -16,10 +16,9 @@ interface Props {
   game: GameState;
   myIdentity: Identity | undefined;
   currency: number;
-  layout?: 'vertical' | 'horizontal';
 }
 
-export default function PowerupShop({ game, myIdentity, currency, layout = 'vertical' }: Props) {
+export default function PowerupShop({ game, myIdentity, currency }: Props) {
   const [powerups]  = useTypedTable<Powerup>(tables.powerup);
   const [loadouts]  = useTypedTable<PowerupLoadout>(tables.powerup_loadout);
   const usePowerup  = useReducer(reducers.usePowerup);
@@ -43,43 +42,35 @@ export default function PowerupShop({ game, myIdentity, currency, layout = 'vert
 
   if (available.length === 0) {
     return (
-      <div className="card p-3 text-xs text-text-muted">
+      <div className="text-xs text-text-muted">
         No powerups in loadout. <span className="text-text-faint">Select some on the Loadout page before your next match.</span>
       </div>
     );
   }
 
-  const isHorizontal = layout === 'horizontal';
-
   return (
-    <div className={`card p-3 flex flex-col gap-2 ${isHorizontal ? 'w-full' : ''}`}>
-      <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Powerups</div>
-      <div className={isHorizontal ? 'flex flex-row gap-1.5 flex-wrap' : 'flex flex-col gap-1.5'}>
-        {available.map(p => {
-          const canAfford = currency >= p.cost;
-          return (
-            <button
-              key={p.id.toString()}
-              disabled={!canAfford}
-              onClick={() => usePowerup({ gameId: game.id, powerupId: p.id })}
-              title={p.description}
-              className={[
-                'flex items-center gap-2 px-3 py-2 rounded-md border text-left transition-all',
-                isHorizontal ? 'justify-between shrink-0' : 'justify-between',
-                canAfford
-                  ? 'border-border bg-surface hover:border-accent cursor-pointer'
-                  : 'border-border bg-surface opacity-40 cursor-not-allowed',
-              ].join(' ')}
-            >
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-text truncate">{p.name}</span>
-                <span className={`text-[10px] ${KIND_COLOR[p.kind] ?? 'text-text-muted'}`}>{p.kind}</span>
-              </div>
-              <span className="text-xs font-bold text-accent shrink-0 ml-2">{p.cost}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-col gap-1">
+      {available.map(p => {
+        const canAfford = currency >= p.cost;
+        return (
+          <button
+            key={p.id.toString()}
+            disabled={!canAfford}
+            onClick={() => usePowerup({ gameId: game.id, powerupId: p.id })}
+            title={p.description}
+            className={[
+              'flex items-center justify-between gap-2 px-2 py-2 rounded-md text-left transition-all',
+              canAfford ? 'hover:bg-bg cursor-pointer' : 'opacity-40 cursor-not-allowed',
+            ].join(' ')}
+          >
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-text truncate">{p.name}</span>
+              <span className={`text-[10px] ${KIND_COLOR[p.kind] ?? 'text-text-muted'}`}>{p.kind}</span>
+            </div>
+            <span className="text-xs font-bold text-accent shrink-0 ml-2">{p.cost}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
