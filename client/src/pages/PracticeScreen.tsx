@@ -283,44 +283,6 @@ export default function PracticeScreen() {
 
   return (
     <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
-      {/* Top bar (coding only) */}
-      {activeTab === 'coding' && <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          {problem && (
-            <>
-              <Pill label={problem.difficulty} color={difficultyColor(problem.difficulty)} />
-              <span className="font-bold text-[15px] text-text truncate">{problem.title}</span>
-            </>
-          )}
-          {!problem && <span className="text-text-muted text-sm">Loading…</span>}
-        </div>
-
-        <ProblemPicker
-          problems={approvedProblems}
-          selected={problem}
-          onSelect={selectProblem}
-        />
-
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-center">
-            <div className="text-[11px] text-text-muted">TIME</div>
-            <div className="font-extrabold text-lg tracking-tight text-text font-mono">{timeStr}</div>
-          </div>
-          <button
-            onClick={toggleTimer}
-            className="text-[12px] text-text border border-border bg-surface rounded-lg px-3 py-1 cursor-pointer hover:bg-surface-alt w-16"
-          >
-            {isRunning ? 'Pause' : 'Start'}
-          </button>
-          <button
-            onClick={resetTimer}
-            className="text-[12px] text-text-faint border border-border bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:text-text"
-          >
-            Reset
-          </button>
-        </div>
-      </div>}
-
       {/* Tab bar */}
       <div className="flex gap-1 mb-3 border-b border-border shrink-0">
         {(['coding', 'quiz'] as const).map(tab => (
@@ -341,6 +303,43 @@ export default function PracticeScreen() {
 
       {/* Coding tab */}
       {activeTab === 'coding' && (
+        <>
+        <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {problem && (
+              <>
+                <Pill label={problem.difficulty} color={difficultyColor(problem.difficulty)} />
+                <span className="font-bold text-[15px] text-text truncate">{problem.title}</span>
+              </>
+            )}
+            {!problem && <span className="text-text-muted text-sm">Loading…</span>}
+          </div>
+
+          <ProblemPicker
+            problems={approvedProblems}
+            selected={problem}
+            onSelect={selectProblem}
+          />
+
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-center">
+              <div className="text-[11px] text-text-muted">TIME</div>
+              <div className="font-extrabold text-lg tracking-tight text-text font-mono">{timeStr}</div>
+            </div>
+            <button
+              onClick={toggleTimer}
+              className="text-[12px] text-text border border-border bg-surface rounded-lg px-3 py-1 cursor-pointer hover:bg-surface-alt w-16"
+            >
+              {isRunning ? 'Pause' : 'Start'}
+            </button>
+            <button
+              onClick={resetTimer}
+              className="text-[12px] text-text-faint border border-border bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:text-text"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
         <div className="flex gap-3 flex-1 min-h-0">
           <ProblemPanel problem={problem} />
           <div className="flex-1 flex flex-col gap-3 min-h-0">
@@ -398,6 +397,7 @@ export default function PracticeScreen() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Quiz tab */}

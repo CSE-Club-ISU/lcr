@@ -26,10 +26,18 @@ export default function QuizModeTab() {
     setSubmitted('');
   }, [currentIndex]);
 
-  if (loading || sorted.length === 0) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-        {loading ? 'Loading questions…' : 'No quiz questions available.'}
+        Loading questions…
+      </div>
+    );
+  }
+
+  if (sorted.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-text-muted text-sm">
+        No quiz questions available. An admin needs to run seed_quiz_questions.
       </div>
     );
   }
