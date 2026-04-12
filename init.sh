@@ -34,15 +34,12 @@ if [ -z "$PUBLISH_TOKEN" ]; then
   exit 1
 fi
 
-# Write token to a temporary config so spacetime CLI can use it
-TEMP_CONFIG_DIR="/tmp/spacetime-publish-config"
-mkdir -p "$TEMP_CONFIG_DIR"
-cat > "$TEMP_CONFIG_DIR/cli.toml" << EOF
-spacetimedb_token = "${PUBLISH_TOKEN}"
-EOF
+# Write token to a temporary config file for the spacetime CLI
+TEMP_CONFIG="/tmp/spacetime-publish.toml"
+echo "spacetimedb_token = \"${PUBLISH_TOKEN}\"" > "$TEMP_CONFIG"
 
 echo "Publishing module to SpacetimeDB..."
-SPACETIME_CONFIG_DIR="$TEMP_CONFIG_DIR" spacetime publish "${DB_NAME}" \
+spacetime --config-path "$TEMP_CONFIG" publish "${DB_NAME}" \
   --server "${SERVER}" \
   --module-path /tmp/spacetimedb-build \
   --delete-data=always \
