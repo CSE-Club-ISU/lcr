@@ -4,7 +4,7 @@ import { useSpacetimeDB } from 'spacetimedb/react';
 import { tables } from '../module_bindings';
 import type { MatchHistory, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
-import { resolveUser } from '../utils/identity';
+import { identityEq, resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
 import Pill from '../components/ui/Pill';
 
@@ -111,7 +111,7 @@ export default function ResultsScreen() {
           {timeDelta !== null && (
             <div className="text-sm opacity-80 mt-1.5">
               {iWon
-                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUser(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
+                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUserById(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
                 : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
             </div>
           )}
