@@ -14,7 +14,7 @@ import { useSabotageHandler } from '../components/powerup/useSabotageHandler';
 import { type Language, getBoilerplate, loadSavedLang, saveLang } from '../utils/languages';
 import { parseRoomSettings } from '../types/roomSettings';
 import PowerupShop from '../components/powerup/PowerupShop';
-import QuizPanel from '../components/powerup/QuizPanel';
+import type { QuizResult } from '../components/powerup/QuizPanel';
 
 const EXECUTOR_URL = import.meta.env.VITE_EXECUTOR_URL ?? 'http://localhost:8000';
 const EXECUTOR_SECRET = import.meta.env.VITE_EXECUTOR_SECRET ?? '';
@@ -69,7 +69,7 @@ export default function ProblemScreen() {
 
   // Currently viewed problem index (navigation)
   const [viewIndex, setViewIndex] = useState(0);
-  const [panelTab, setPanelTab] = useState<'problem' | 'powerups' | 'quiz'>('problem');
+  const [panelTab, setPanelTab] = useState<'problem' | 'powerups'>('problem');
 
   // When a new problem is solved, stay on current view (don't auto-advance)
   const viewedProblemId = problemIds[viewIndex] ?? '';
@@ -156,12 +156,14 @@ export default function ProblemScreen() {
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
 
   // Clear execution state when switching problems
   useEffect(() => {
     setTestResults(null);
     setRunSummary(null);
     setError(null);
+    setQuizResult(null);
   }, [viewedProblemId]);
 
   // Timer
@@ -213,6 +215,7 @@ export default function ProblemScreen() {
     setError(null);
     setTestResults(null);
     setRunSummary(null);
+    setQuizResult(null);
     try {
       const res = await fetch(`${EXECUTOR_URL}/execute`, {
         method: 'POST',
@@ -305,13 +308,10 @@ export default function ProblemScreen() {
         })}
       </div>
       <button
-        onClick={() => setPanelTab(
-          panelTab === 'problem' ? 'powerups' :
-          panelTab === 'powerups' ? 'quiz' : 'problem'
-        )}
+        onClick={() => setPanelTab(panelTab === 'problem' ? 'powerups' : 'problem')}
         className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-text-muted hover:text-accent transition-all cursor-pointer"
       >
-        {panelTab === 'problem' ? 'powerups →' : panelTab === 'powerups' ? 'quiz →' : 'problem →'}
+        {panelTab === 'problem' ? 'powerups →' : 'problem →'}
       </button>
     </div>
   );
@@ -413,9 +413,9 @@ export default function ProblemScreen() {
                 game={game}
                 myIdentity={ctx.identity ?? undefined}
                 currency={currency}
+                isP1={isP1}
+                onQuizAnswered={setQuizResult}
               />
-            ) : panelTab === 'quiz' && game ? (
-              <QuizPanel game={game} isP1={isP1} />
             ) : viewedProblem ? (
               <div className="flex flex-col gap-0">
                 <div className="text-sm text-text leading-[1.7] whitespace-pre-wrap">
@@ -474,9 +474,16 @@ export default function ProblemScreen() {
                   {sabotageEffects.flash.message}
                 </div>
               )}
+              {quizResult && (
+                <div className={`text-xs font-semibold mb-1 ${quizResult.kind === 'correct' ? 'text-green' : 'text-red'}`}>
+                  {quizResult.kind === 'correct'
+                    ? `Quiz: Correct! +${quizResult.reward} Energy`
+                    : `Quiz: Wrong — answer was "${quizResult.correctAnswer}"`}
+                </div>
+              )}
               {error && <pre className="text-red text-xs whitespace-pre-wrap">{error}</pre>}
               {runSummary && (
-                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-orange'}`}>
+                <div className={`font-semibold mb-2 ${testResults?.every(r => r.passed) ? 'text-green' : 'text-red'}`}>
                   {runSummary}
                 </div>
               )}
@@ -486,11 +493,11 @@ export default function ProblemScreen() {
                   <span className="text-text-muted">
                     in: <span className="text-text">{r.input}</span>
                     {' → '}expected: <span className="text-text">{r.expected}</span>
-                    {' → '}got: <span className={r.passed ? 'text-text' : 'text-red'}>{r.actual || r.error}</span>
+                    {' → '}got: <span className={r.passed ? 'text-text-muted' : 'text-red'}>{r.actual || r.error}</span>
                   </span>
                 </div>
               ))}
-              {!activeEffectLabels.length && !sabotageEffects.flash && !error && !runSummary && !testResults && (
+              {!activeEffectLabels.length && !sabotageEffects.flash && !quizResult && !error && !runSummary && !testResults && (
                 <div className="text-text-faint text-xs">Ready.</div>
               )}
             </div>

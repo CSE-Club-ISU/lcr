@@ -1006,10 +1006,13 @@ export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
 
 const QUIZ_COOLDOWN_SEC = 30;
 const QUIZ_REWARD = 10;
+const MAX_QUIZ_ANSWER_BYTES = 200;
 
 export const answer_quiz = spacetimedb.reducer(
   { game_id: t.string(), question_id: t.u64(), answer: t.string() },
   (ctx, { game_id, question_id, answer }) => {
+    if (answer.length > MAX_QUIZ_ANSWER_BYTES) throw new SenderError('Answer too large');
+
     const game = ctx.db.game_state.id.find(game_id);
     if (!game || game.status !== 'in_progress') throw new SenderError('Game not in progress');
 
