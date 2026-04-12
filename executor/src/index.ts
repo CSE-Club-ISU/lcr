@@ -98,6 +98,7 @@ const server = Bun.serve({
         const compareFunc = ((problem as any)[compareFuncKey] || 'def compare(a, b): return a == b') as string;
 
         const problemData = {
+          kind: ((problem as any).problemKind || 'algorithm') as 'algorithm' | 'data_structure',
           method_name: problem.methodName,
           test_cases: testCases,
           test_results: testResults,
