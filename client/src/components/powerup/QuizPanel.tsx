@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../../module_bindings';
 import type { QuizQuestion, GameState } from '../../module_bindings/types';
@@ -37,13 +37,21 @@ export default function QuizPanel({ game, isP1, onAnswered }: Props) {
   const secsSinceLast = Math.floor((Date.now() - Number(lastAtMicros / 1000n)) / 1000);
   const cooldownRemaining = neverAnswered ? 0 : Math.max(0, COOLDOWN_SEC - secsSinceLast);
 
-  const [seed, setSeed] = useState(0);
-  useEffect(() => { setSeed(s => s + 1); }, [lastAtMicros]);
+  // Pick a random index whenever the pool changes or the cooldown resets
+  // (i.e. after the user just answered). Avoid showing the same question twice
+  // in a row when there are at least two to choose from.
+  const [questionIdx, setQuestionIdx] = useState<number>(() => 0);
+  useEffect(() => {
+    if (questions.length === 0) return;
+    setQuestionIdx(prev => {
+      if (questions.length === 1) return 0;
+      let next = Math.floor(Math.random() * questions.length);
+      if (next === prev) next = (next + 1) % questions.length;
+      return next;
+    });
+  }, [questions.length, lastAtMicros]);
 
-  const question: QuizQuestion | undefined = useMemo(() => {
-    if (questions.length === 0) return undefined;
-    return questions[(seed + Number(lastAtMicros % BigInt(questions.length))) % questions.length];
-  }, [questions, seed, lastAtMicros]);
+  const question: QuizQuestion | undefined = questions[questionIdx];
 
   const [selected, setSelected] = useState<string>('');
   const [typed, setTyped] = useState('');

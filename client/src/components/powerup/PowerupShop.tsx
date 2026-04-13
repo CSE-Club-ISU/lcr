@@ -51,7 +51,9 @@ export default function PowerupShop({ game, myIdentity, currency, isP1, onQuizAn
         isP1={isP1}
         onAnswered={result => {
           onQuizAnswered(result);
-          setShowQuiz(false);
+          // On wrong answer the user probably wants to bail to the shop;
+          // on correct they should see the cooldown + next question cycle in.
+          if (result.kind === 'wrong') setShowQuiz(false);
         }}
       />
     );

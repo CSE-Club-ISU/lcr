@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
 import { tables, reducers } from '../module_bindings';
-import type { Problem, User } from '../module_bindings/types';
+import type { Problem, QuizQuestion, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq } from '../utils/identity';
 
@@ -689,13 +689,307 @@ function CreateTab() {
 }
 
 // ---------------------------------------------------------------------------
+// Quiz questions tab
+// ---------------------------------------------------------------------------
+
+interface QuizJson {
+  question_type: 'mcq' | 'tf' | 'code_fill';
+  prompt: string;
+  options: string[];     // [] for tf/code_fill, 2+ strings for mcq
+  answer: string;
+  explanation: string;
+}
+
+function validateQuizJson(obj: Record<string, unknown>): string {
+  if (obj.question_type !== 'mcq' && obj.question_type !== 'tf' && obj.question_type !== 'code_fill') {
+    return '"question_type" must be "mcq", "tf", or "code_fill"';
+  }
+  if (typeof obj.prompt !== 'string' || !obj.prompt.trim()) return 'Missing "prompt"';
+  if (typeof obj.answer !== 'string' || !obj.answer.trim()) return 'Missing "answer"';
+  if (typeof obj.explanation !== 'string') return '"explanation" must be a string';
+  const opts = obj.options;
+  if (!Array.isArray(opts)) return '"options" must be an array (use [] for tf / code_fill)';
+  if (obj.question_type === 'mcq') {
+    if (opts.length < 2) return 'MCQ requires at least 2 options';
+    if (!opts.every(o => typeof o === 'string')) return '"options" must all be strings';
+    if (!opts.includes(obj.answer)) return 'For MCQ, "answer" must be one of the options';
+  }
+  if (obj.question_type === 'tf') {
+    const a = (obj.answer as string).trim().toLowerCase();
+    if (a !== 'true' && a !== 'false') return 'For tf, "answer" must be "true" or "false"';
+  }
+  return '';
+}
+
+const QUIZ_SCHEMA_EXAMPLE = `{
+  "question_type": "mcq",
+  "prompt": "Which data structure uses LIFO (last in, first out)?",
+  "options": ["Queue", "Stack", "Heap", "Tree"],
+  "answer": "Stack",
+  "explanation": "A Stack operates LIFO: the last item pushed is the first popped."
+}`;
+
+const QUIZ_LLM_PROMPT = `Generate a quiz question in the following JSON format for a competitive coding app's in-game bonus quiz. Output only valid JSON (or a JSON array for multiple questions), no extra text.
+
+Schema:
+{
+  "question_type": "mcq" | "tf" | "code_fill",
+  "prompt": string,                 // the question text shown to the player
+  "options": string[],              // for mcq: 2+ choices (must contain the answer). For tf or code_fill: []
+  "answer": string,                 // mcq: the correct option (exact string match). tf: "true" or "false". code_fill: the single token/word expected.
+  "explanation": string             // short justification shown after answering
+}
+
+Rules:
+- Keep prompts concise and clearly unambiguous.
+- For "tf", "answer" MUST be the string "true" or "false".
+- For "mcq", include exactly one correct option in "options" and set it as "answer".
+- For "code_fill", the answer should be a single token (e.g. "append", "final", "len").
+- Prefer questions that test data-structures, algorithms, complexity, and standard language features (Python / Java / C++).
+
+MCQ example:
+${QUIZ_SCHEMA_EXAMPLE}
+
+True/False example:
+{
+  "question_type": "tf",
+  "prompt": "A linked list supports O(1) random access.",
+  "options": [],
+  "answer": "false",
+  "explanation": "A linked list requires traversal from the head to reach an element — O(n) access."
+}
+
+Code-fill example:
+{
+  "question_type": "code_fill",
+  "prompt": "In Python, the method to add to the end of a list: my_list.___(x)",
+  "options": [],
+  "answer": "append",
+  "explanation": "list.append(x) adds x to the end in O(1) amortized time."
+}
+
+Now generate: `;
+
+function QuizTab() {
+  const [questions] = useTypedTable<QuizQuestion>(tables.quiz_question);
+  const insertQuiz = useReducer(reducers.insertQuizQuestion);
+  const deleteQuiz = useReducer(reducers.deleteQuizQuestion);
+
+  const [raw, setRaw] = useState('');
+  const [parsed, setParsed] = useState<QuizJson[] | null>(null);
+  const [parseError, setParseError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [submitCount, setSubmitCount] = useState(0);
+  const [promptCopied, setPromptCopied] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'mcq' | 'tf' | 'code_fill'>('all');
+
+  const filtered = useMemo(
+    () => typeFilter === 'all' ? questions : questions.filter(q => q.questionType === typeFilter),
+    [questions, typeFilter]
+  );
+
+  function handleParse() {
+    setParseError('');
+    setParsed(null);
+    setSubmitted(false);
+    let data: unknown;
+    try {
+      data = JSON.parse(raw.trim());
+    } catch (e) {
+      setParseError(`Invalid JSON: ${(e as Error).message}`);
+      return;
+    }
+    const items: Record<string, unknown>[] = Array.isArray(data) ? data : [data as Record<string, unknown>];
+    for (let i = 0; i < items.length; i++) {
+      const err = validateQuizJson(items[i]);
+      if (err) { setParseError(`Question ${i + 1}: ${err}`); return; }
+    }
+    setParsed(items as unknown as QuizJson[]);
+  }
+
+  function handleSubmit() {
+    if (!parsed) return;
+    for (const q of parsed) {
+      insertQuiz({
+        questionType: q.question_type,
+        prompt:       q.prompt,
+        options:      JSON.stringify(q.options ?? []),
+        answer:       q.answer,
+        explanation:  q.explanation ?? '',
+      });
+    }
+    setSubmitCount(parsed.length);
+    setSubmitted(true);
+    setRaw('');
+    setParsed(null);
+  }
+
+  function handleDelete(q: QuizQuestion) {
+    if (!window.confirm(`Delete this quiz question? This cannot be undone.\n\n"${q.prompt.slice(0, 120)}${q.prompt.length > 120 ? '…' : ''}"`)) return;
+    deleteQuiz({ id: q.id });
+  }
+
+  function handleCopyPrompt() {
+    navigator.clipboard.writeText(QUIZ_LLM_PROMPT)
+      .then(() => { setPromptCopied(true); setTimeout(() => setPromptCopied(false), 2000); })
+      .catch(err => console.error('Clipboard write failed:', err));
+  }
+
+  const filterBtnCls = (active: boolean) =>
+    `px-2.5 py-1 rounded-[7px] border text-[12px] font-semibold cursor-pointer transition-all ${
+      active ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-transparent text-text-muted hover:text-text'
+    }`;
+
+  return (
+    <div className="flex flex-col gap-6 max-w-[860px]">
+      {/* Existing questions */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-text">Existing questions</span>
+          <span className="text-[12px] text-text-muted">
+            {filtered.length} / {questions.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {(['all', 'mcq', 'tf', 'code_fill'] as const).map(t => (
+            <button key={t} onClick={() => setTypeFilter(t)} className={filterBtnCls(typeFilter === t)}>
+              {t === 'all' ? 'All' : t === 'mcq' ? 'MCQ' : t === 'tf' ? 'T/F' : 'Fill'}
+            </button>
+          ))}
+        </div>
+
+        {questions.length === 0 && (
+          <div className="text-text-muted text-sm">No quiz questions yet — paste some JSON below.</div>
+        )}
+
+        {filtered.length > 0 && (
+          <div className="flex flex-col rounded-[12px] overflow-hidden border border-border">
+            <div className="grid grid-cols-[80px_1fr_140px_80px] gap-4 px-4 py-2.5 bg-surface-alt text-[11px] font-bold text-text-muted uppercase tracking-wide">
+              <span>Type</span>
+              <span>Prompt</span>
+              <span>Answer</span>
+              <span></span>
+            </div>
+            {filtered.map((q, i) => (
+              <div
+                key={q.id.toString()}
+                className={`grid grid-cols-[80px_1fr_140px_80px] gap-4 px-4 py-3 items-center text-sm ${
+                  i % 2 === 0 ? 'bg-surface' : 'bg-surface/60'
+                } border-t border-border`}
+              >
+                <span className="text-[11px] font-bold text-text-muted uppercase">
+                  {q.questionType === 'mcq' ? 'MCQ' : q.questionType === 'tf' ? 'T/F' : 'Fill'}
+                </span>
+                <span className="text-text truncate">{q.prompt}</span>
+                <span className="font-mono text-[12px] text-text-muted truncate">{q.answer}</span>
+                <button
+                  onClick={() => handleDelete(q)}
+                  className="px-2 py-0.5 rounded-[6px] text-[12px] border border-border text-text-muted bg-transparent cursor-pointer hover:border-red hover:text-red justify-self-end"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Schema reference + LLM prompt */}
+      <details className="text-sm">
+        <summary className="cursor-pointer text-text-muted hover:text-text select-none">
+          Show JSON schema reference
+        </summary>
+        <div className="mt-2 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-text-muted">Copy a ready-made prompt to paste into any LLM, then describe the topic.</span>
+            <button
+              onClick={handleCopyPrompt}
+              className="shrink-0 px-3 py-1 rounded-[7px] border border-border bg-transparent text-[12px] font-semibold cursor-pointer hover:border-gold-bright hover:text-text text-text-muted transition-colors"
+            >
+              {promptCopied ? '✓ Copied!' : 'Copy LLM prompt'}
+            </button>
+          </div>
+          <pre className="p-4 bg-surface-alt rounded-[10px] text-[12px] font-mono text-text overflow-x-auto whitespace-pre-wrap border border-border">
+            {QUIZ_LLM_PROMPT}
+          </pre>
+        </div>
+      </details>
+
+      {/* Paste area */}
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-semibold text-text">Paste JSON</label>
+        <textarea
+          className="input-field font-mono text-[13px] resize-y min-h-[200px] leading-relaxed"
+          placeholder={QUIZ_SCHEMA_EXAMPLE}
+          value={raw}
+          onChange={e => { setRaw(e.target.value); setParsed(null); setParseError(''); setSubmitted(false); }}
+          spellCheck={false}
+        />
+      </div>
+
+      <div className="flex gap-3 items-center">
+        <button
+          className="btn-primary px-4 py-2 text-sm"
+          onClick={handleParse}
+          disabled={!raw.trim()}
+        >
+          Parse
+        </button>
+        {parseError && <span className="text-red text-[13px]">{parseError}</span>}
+      </div>
+
+      {/* Preview */}
+      {parsed && (
+        <div className="flex flex-col gap-3">
+          <div className="text-sm font-semibold text-text">
+            Preview — {parsed.length} question{parsed.length !== 1 ? 's' : ''}
+          </div>
+          {parsed.map((q, i) => (
+            <div key={i} className="card p-4 flex flex-col gap-2 text-sm border border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-text-muted uppercase bg-surface-alt px-2 py-0.5 rounded-full">
+                  {q.question_type === 'mcq' ? 'MCQ' : q.question_type === 'tf' ? 'T/F' : 'Code Fill'}
+                </span>
+                <span className="font-medium text-text">{q.prompt}</span>
+              </div>
+              {q.options.length > 0 && (
+                <div className="text-[12px] text-text-muted">
+                  Options: {q.options.map(o => `"${o}"`).join(', ')}
+                </div>
+              )}
+              <div className="text-[12px]">
+                <span className="text-text-muted">Answer:</span>{' '}
+                <span className="font-mono text-accent">{q.answer}</span>
+              </div>
+              {q.explanation && (
+                <div className="text-[12px] text-text-muted italic">{q.explanation}</div>
+              )}
+            </div>
+          ))}
+
+          <button className="btn-primary px-5 py-2.5 text-sm self-start" onClick={handleSubmit}>
+            Submit {parsed.length} question{parsed.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      )}
+
+      {submitted && (
+        <div className="text-green text-sm font-semibold">
+          ✓ {submitCount} question{submitCount !== 1 ? 's' : ''} submitted.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main AdminPage
 // ---------------------------------------------------------------------------
 
 export default function AdminPage() {
   const ctx = useSpacetimeDB();
   const [users] = useTypedTable<User>(tables.user);
-  const [tab, setTab] = useState<'problems' | 'create'>('problems');
+  const [tab, setTab] = useState<'problems' | 'create' | 'quiz'>('problems');
 
   const myUser = ctx.identity
     ? users.find(u => identityEq(u.identity, ctx.identity))
@@ -722,7 +1016,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-border pb-3">
-        {(['problems', 'create'] as const).map(t => (
+        {(['problems', 'create', 'quiz'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -732,13 +1026,14 @@ export default function AdminPage() {
                 : 'bg-transparent text-text-muted font-medium'
             }`}
           >
-            {t === 'problems' ? 'Problems' : 'Create'}
+            {t === 'problems' ? 'Problems' : t === 'create' ? 'Create' : 'Quiz'}
           </button>
         ))}
       </div>
 
       {tab === 'problems' && <ProblemsTab />}
       {tab === 'create'   && <CreateTab />}
+      {tab === 'quiz'     && <QuizTab />}
     </div>
   );
 }
