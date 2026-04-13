@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSpacetimeDB } from 'spacetimedb/react';
+import { RotateCcw, ArrowLeft } from 'lucide-react';
 import { tables } from '../module_bindings';
 import type { MatchHistory, User } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
 import { identityEq, resolveUser } from '../utils/identity';
 import { formatTime } from '../utils/formatTime';
-import Pill from '../components/ui/Pill';
+import Avatar from '../components/ui/Avatar';
 import { safeParseJson } from '../utils/parseJson';
 
 export default function ResultsScreen() {
@@ -20,12 +21,10 @@ export default function ResultsScreen() {
   const [allHistory] = useTypedTable<MatchHistory>(tables.match_history);
   const [users]      = useTypedTable<User>(tables.user);
 
-  // Find the match for this game (room_code === gameId)
   const match = allHistory
     .filter(m => m.roomCode === gameId)
     .sort((a, b) => Number(b.playedAt.microsSinceUnixEpoch - a.playedAt.microsSinceUnixEpoch))[0];
 
-  // Timeout fallback if match data never arrives
   useEffect(() => {
     if (match) return;
     const t = setTimeout(() => setTimedOut(true), 10000);
@@ -37,22 +36,14 @@ export default function ResultsScreen() {
 
   if (!match) {
     return (
-      <div className="flex flex-col items-center gap-6 mt-20">
-        {timedOut ? (
-          <>
-            <div className="text-text-muted">Match data unavailable.</div>
-            <button className="btn-secondary" onClick={() => navigate('/profile')}>
-              Back to Dashboard
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="text-text-muted">Loading results…</div>
-            <button className="btn-secondary" onClick={() => navigate('/profile')}>
-              Back to Dashboard
-            </button>
-          </>
-        )}
+      <div className="flex flex-col items-center gap-6 mt-24">
+        <span className="eyebrow-italic">
+          {timedOut ? 'Match data unavailable.' : 'Loading results…'}
+        </span>
+        <button className="btn-ghost" onClick={() => navigate('/profile')}>
+          <ArrowLeft size={14} strokeWidth={1.75} />
+          Back to dashboard
+        </button>
       </div>
     );
   }
@@ -68,12 +59,17 @@ export default function ResultsScreen() {
   const myTime   = myIsP1 ? match.player1SolveTime : match.player2SolveTime;
   const oppTime  = myIsP1 ? match.player2SolveTime : match.player1SolveTime;
 
-  const timeDelta = myTime > 0 && oppTime > 0
-    ? Math.abs(myTime - oppTime)
-    : null;
+  const timeDelta = myTime > 0 && oppTime > 0 ? Math.abs(myTime - oppTime) : null;
 
-  const GRAD_P1 = '#C0272D, #F5C518';
-  const GRAD_P2 = '#2563EB, #818CF8';
+  const outcome: 'victory' | 'defeat' | 'draw' = isDraw ? 'draw' : iWon ? 'victory' : 'defeat';
+  const outcomeColor =
+    outcome === 'victory' ? 'var(--color-accent)' :
+    outcome === 'defeat'  ? 'var(--color-text-faint)' :
+                            'var(--color-text-muted)';
+  const outcomeWord =
+    outcome === 'victory' ? 'Victory' :
+    outcome === 'defeat'  ? 'Defeat'  :
+                            'Draw';
 
   const players = [
     {
@@ -82,7 +78,6 @@ export default function ResultsScreen() {
       solveTime: match.player1SolveTime,
       language: match.player1Language,
       isWinner: !isDraw && !!match.winnerIdentity && identityEq(match.player1Identity, match.winnerIdentity),
-      grad: GRAD_P1,
     },
     {
       user: p2,
@@ -90,94 +85,129 @@ export default function ResultsScreen() {
       solveTime: match.player2SolveTime,
       language: match.player2Language,
       isWinner: !isDraw && !!match.winnerIdentity && identityEq(match.player2Identity, match.winnerIdentity),
-      grad: GRAD_P2,
     },
   ];
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Result banner */}
-      <div
-        className="rounded-2xl px-8 py-7 flex items-center justify-between text-white"
-        style={{
-          background: isDraw
-            ? 'linear-gradient(135deg, #3f3f46 0%, #18181b 100%)'
-            : iWon
-              ? 'linear-gradient(135deg, #166534 0%, #0a1a0a 100%)'
-              : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-        }}
-      >
-        <div>
-          <div className="text-xs font-semibold opacity-80 tracking-widest mb-1">MATCH RESULT</div>
-          <div className="text-4xl font-black tracking-tight leading-none">
-            {isDraw ? 'Draw' : iWon ? 'Win' : 'Loss'}
-          </div>
-          {isDraw && (
-            <div className="text-sm opacity-80 mt-1.5">Time expired with the match tied.</div>
-          )}
-          {!isDraw && timeDelta !== null && (
-            <div className="text-sm opacity-80 mt-1.5">
-              {iWon
-                ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUserById(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'opponent'}`
-                : `${winner?.username ?? 'Opponent'} solved it ${formatTime(timeDelta)} faster`}
-            </div>
-          )}
-          <div className="text-sm opacity-60 mt-1">{safeParseJson<string[]>(match.problemTitles, [], 'problemTitles').join(', ')}</div>
-        </div>
-      </div>
+    <div className="flex flex-col gap-14 enter-fade">
+      {/* Hero outcome */}
+      <section className="pt-4">
+        <span className="label-eyebrow">Match result</span>
+        <h1
+          className="m-0 mt-2"
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontStyle: outcome === 'victory' ? 'italic' : 'normal',
+            fontWeight: 400,
+            fontSize: 'clamp(72px, 10vw, 128px)',
+            letterSpacing: '-0.03em',
+            lineHeight: 0.95,
+            color: outcomeColor,
+            fontVariationSettings: '"opsz" 144',
+          }}
+        >
+          {outcomeWord}.
+        </h1>
+        {!isDraw && timeDelta !== null && (
+          <p className="text-[14px] text-text-muted mt-4 max-w-[540px]">
+            {iWon
+              ? `You solved it ${formatTime(timeDelta)} faster than ${resolveUserById(myIsP1 ? match.player2Identity : match.player1Identity)?.username ?? 'your opponent'}.`
+              : `${winner?.username ?? 'Your opponent'} finished ${formatTime(timeDelta)} ahead.`}
+          </p>
+        )}
+        {isDraw && (
+          <p className="text-[14px] text-text-muted mt-4">Time expired with the match tied.</p>
+        )}
+        <hr className="rule-gold mt-8" />
+      </section>
 
-      {/* Side-by-side comparison */}
-      <div className="grid grid-cols-2 gap-4">
-        {players.map((p, i) => (
-          <div key={i} className={`card p-6 ${p.isWinner ? 'border-green' : ''}`}>
-            <div className="flex items-center gap-3 mb-5">
-              <div
-                className="w-10 h-10 rounded-[10px] flex items-center justify-center text-lg font-extrabold text-white"
-                style={{ background: `linear-gradient(135deg, ${p.grad})` }}
-              >
-                {(p.user?.username?.[0] ?? '?').toUpperCase()}
-              </div>
-              <div>
-                <div className="font-bold text-text">
-                  {p.user?.username ?? 'Unknown'}
-                  {p.user && identityEq(p.user.identity, ctx.identity) && (
-                    <span className="text-[11px] text-accent ml-1.5">(you)</span>
-                  )}
-                </div>
-                <Pill label={p.accepted ? 'Accepted' : 'Not solved'} color={p.accepted ? 'green' : 'red'} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {[
-                ['Solve Time', formatTime(p.solveTime)],
-                ['Language', p.language || '—'],
-                ['Difficulty', safeParseJson<string[]>(match.difficulties, [], 'difficulties')[0] ?? ''],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <span className="text-[13px] text-text-muted">{k}</span>
-                  <span className="text-[13px] font-semibold text-text capitalize">{v}</span>
-                </div>
-              ))}
-            </div>
+      {/* Problem + comparison */}
+      <section className="flex flex-col gap-8">
+        <div>
+          <span className="label-eyebrow">Problem</span>
+          <div
+            className="text-text mt-2"
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              fontSize: 28,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {safeParseJson<string[]>(match.problemTitles, [], 'problemTitles').join(' · ') || '—'}
           </div>
-        ))}
-      </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-10">
+          {players.map((p, i) => {
+            const isYou = p.user && identityEq(p.user.identity, ctx.identity);
+            return (
+              <div key={i} className="flex flex-col gap-5">
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    src={p.user?.avatarUrl}
+                    username={p.user?.username ?? '?'}
+                    size="lg"
+                    ring={p.isWinner}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-text"
+                        style={{
+                          fontFamily: 'var(--font-serif)',
+                          fontStyle: 'italic',
+                          fontSize: 22,
+                          letterSpacing: '-0.01em',
+                        }}
+                      >
+                        {p.user?.username ?? 'Unknown'}
+                      </span>
+                      {isYou && <span className="label-eyebrow text-accent">you</span>}
+                    </div>
+                    <span
+                      className="text-[11px] mono-tabular tracking-wider uppercase"
+                      style={{
+                        color: p.accepted ? 'var(--color-green)' : 'var(--color-text-faint)',
+                      }}
+                    >
+                      {p.accepted ? '● Accepted' : '○ Not solved'}
+                    </span>
+                  </div>
+                </div>
+
+                <hr className="rule-hairline" />
+
+                <dl className="flex flex-col gap-3 m-0">
+                  {[
+                    ['Solve time', formatTime(p.solveTime)],
+                    ['Language', p.language || '—'],
+                    ['Difficulty', safeParseJson<string[]>(match.difficulties, [], 'difficulties')[0] ?? '—'],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between items-baseline">
+                      <dt className="label-eyebrow m-0">{k}</dt>
+                      <dd className="m-0 mono-tabular text-[13px] text-text capitalize">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          onClick={() => navigate('/profile')}
-          className="flex-1 py-3 rounded-[10px] border border-border bg-surface font-bold text-sm cursor-pointer text-text"
-        >
-          Back to Dashboard
+      <section className="flex items-center gap-3 pt-4">
+        <button onClick={() => navigate('/play')} className="btn-editorial group">
+          <RotateCcw size={14} strokeWidth={1.75} />
+          Play again
         </button>
-        <button
-          onClick={() => navigate('/play')}
-          className="flex-1 py-3 rounded-[10px] border-none bg-accent font-bold text-sm cursor-pointer text-white"
-        >
-          &#9654; Play Again
+        <button onClick={() => navigate('/profile')} className="btn-ghost">
+          <ArrowLeft size={14} strokeWidth={1.75} />
+          Dashboard
         </button>
-      </div>
+      </section>
     </div>
   );
 }

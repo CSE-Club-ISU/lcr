@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSpacetimeDB, useReducer } from 'spacetimedb/react';
+import { Pencil, Check, Swords, LogOut, ShieldPlus } from 'lucide-react';
 import { tables, reducers } from '../module_bindings';
 import type { User, MatchHistory } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
@@ -57,25 +58,55 @@ function SetupForm({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="card p-10 w-[360px]">
-        <h2 className="m-0 mb-6 text-text font-semibold text-xl">Set up your profile</h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-text text-sm">
-            Username
-            <input className="input-field" value={username} onChange={e => setUsername(e.target.value)} placeholder="github-login" required />
+    <div className="flex items-center justify-center min-h-[60vh] enter-fade">
+      <div className="w-[400px] px-8 py-10">
+        <span className="label-eyebrow">Initialization</span>
+        <h2
+          className="m-0 mt-2 mb-8 text-text"
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontStyle: 'italic',
+            fontWeight: 400,
+            fontSize: 32,
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+          }}
+        >
+          Set up your <span className="text-accent">profile</span>.
+        </h2>
+        <hr className="rule-gold mb-8" />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <label className="flex flex-col gap-2 text-text text-[13px]">
+            <span className="label-eyebrow">Username</span>
+            <input
+              className="input-field"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="github-login"
+              required
+            />
           </label>
-          <label className="flex flex-col gap-1.5 text-text text-sm">
-            First name
-            <input className="input-field" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Optional" />
+          <label className="flex flex-col gap-2 text-text text-[13px]">
+            <span className="label-eyebrow">First name</span>
+            <input
+              className="input-field"
+              value={firstName}
+              onChange={e => setFirstName(e.target.value)}
+              placeholder="Optional"
+            />
           </label>
-          <label className="flex flex-col gap-1.5 text-text text-sm">
-            Last name
-            <input className="input-field" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Optional" />
+          <label className="flex flex-col gap-2 text-text text-[13px]">
+            <span className="label-eyebrow">Last name</span>
+            <input
+              className="input-field"
+              value={lastName}
+              onChange={e => setLastName(e.target.value)}
+              placeholder="Optional"
+            />
           </label>
-          {error && <p className="m-0 text-red text-[13px]">{error}</p>}
-          <button className="btn-primary px-4 py-2.5 text-sm" type="submit" disabled={saving}>
-            {saving ? 'Saving\u2026' : 'Save & continue'}
+          {error && <p className="m-0 text-red text-[12px] mono-tabular">{error}</p>}
+          <button className="btn-editorial w-full justify-center mt-2" type="submit" disabled={saving}>
+            {saving ? 'Saving\u2026' : 'Save & enter'}
           </button>
         </form>
       </div>
@@ -119,6 +150,9 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
       ? Math.round((user.totalWins / user.totalMatches) * 100)
       : 0;
 
+  // Placeholder rating (no ELO table yet) — deterministic but editorial-looking
+  const rating = 1200 + user.totalWins * 17 - (user.totalMatches - user.totalWins) * 9;
+
   const isGuest = localStorage.getItem('lcr_guest_mode') === 'true';
 
   const handleSignOut = () => {
@@ -147,94 +181,165 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
     resolveUser(allUsers, id);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Hero row */}
-      <div className="flex gap-4 items-stretch">
-        {/* Profile card */}
-        <div className="card p-6 flex flex-col gap-4 w-[260px] shrink-0">
-          <div className="flex items-center gap-3.5">
-            <Avatar src={user.avatarUrl} username={user.username} size="lg" />
+    <div className="flex flex-col gap-16">
+      {/* Editorial hero */}
+      <section className="flex flex-col gap-8">
+        <div className="flex items-end justify-between gap-10 flex-wrap">
+          {/* Left: identity */}
+          <div className="flex items-center gap-5 min-w-0">
+            <Avatar src={user.avatarUrl} username={user.username} size="hero" ring />
             <div className="min-w-0">
+              <span className="label-eyebrow">Operative</span>
               {editingUsername ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 mt-1">
                   <input
                     autoFocus
                     value={draftUsername}
                     onChange={e => setDraftUsername(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter') saveUsername();
-                      if (e.key === 'Escape') { setDraftUsername(user.username); setEditingUsername(false); }
+                      if (e.key === 'Escape') {
+                        setDraftUsername(user.username);
+                        setEditingUsername(false);
+                      }
                     }}
-                    className="bg-surface-alt border-[1.5px] border-gold-bright rounded-md px-2 py-0.5 text-[15px] font-bold text-text w-[120px] outline-none"
+                    className="bg-transparent border-b-[1.5px] border-gold-bright px-0 py-1 text-text w-[240px] outline-none"
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontWeight: 400,
+                      fontSize: 34,
+                      letterSpacing: '-0.02em',
+                    }}
                   />
-                  <button onClick={saveUsername} className="bg-gold-bright border-none rounded-[5px] px-2 py-0.5 text-xs font-bold text-charcoal cursor-pointer">
-                    &#10003;
+                  <button
+                    onClick={saveUsername}
+                    className="flex items-center justify-center w-7 h-7 rounded-md bg-gold-bright text-charcoal border-none cursor-pointer"
+                    title="Save"
+                  >
+                    <Check size={14} strokeWidth={2.5} />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-base text-text">{user.username}</span>
+                <div className="flex items-center gap-3 mt-1 group">
+                  <h1
+                    className="m-0 text-text"
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontWeight: 400,
+                      fontSize: 44,
+                      letterSpacing: '-0.025em',
+                      lineHeight: 1.05,
+                      fontVariationSettings: '"opsz" 144',
+                    }}
+                  >
+                    {user.username}
+                  </h1>
                   <button
-                    onClick={() => { setDraftUsername(user.username); setEditingUsername(true); }}
-                    className="bg-transparent border-none cursor-pointer text-text-faint text-[13px] px-0.5 leading-none"
+                    onClick={() => {
+                      setDraftUsername(user.username);
+                      setEditingUsername(true);
+                    }}
+                    className="bg-transparent border-none cursor-pointer text-text-faint hover:text-text transition-colors opacity-0 group-hover:opacity-100"
                     title="Edit username"
                   >
-                    &#9998;
+                    <Pencil size={14} strokeWidth={1.75} />
                   </button>
                 </div>
               )}
-              <div className="text-[11px] text-text-faint mt-0.5">
-                {[user.firstName, user.lastName].filter(Boolean).join(' ')} &middot; ISU CSE Club
+              <div className="text-[12px] text-text-muted mt-2 flex items-center gap-2">
+                <span>
+                  {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
+                </span>
+                <span className="text-text-faint">·</span>
+                <span>ISU CSE Club</span>
               </div>
             </div>
           </div>
 
-          <button onClick={() => navigate('/play')} className="btn-primary py-[11px] text-sm">
-            &#9654; Play
+          {/* Right: rating display */}
+          <div className="flex flex-col items-end">
+            <span className="label-eyebrow">Rating</span>
+            <span
+              className="display-numeral text-text mt-1"
+              style={{ fontSize: 96 }}
+            >
+              {rating.toLocaleString()}
+            </span>
+            <span className="text-[11px] text-text-faint mono-tabular mt-1">
+              est. based on W/L
+            </span>
+          </div>
+        </div>
+
+        <hr className="rule-gold" />
+
+        {/* Stat plaques */}
+        <div className="grid grid-cols-4 gap-10">
+          <StatCard label="Wins" value={String(user.totalWins)} sub="Total" accent="var(--color-green)" />
+          <StatCard label="Win Rate" value={`${winRate}%`} sub={`${user.totalMatches} matches`} />
+          <StatCard label="Streak" value={`${user.currentStreak}d`} sub="Current" accent="var(--color-gold-bright)" />
+          <StatCard label="Matches" value={String(user.totalMatches)} sub="All time" />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={() => navigate('/play')}
+            className="btn-editorial group"
+          >
+            <Swords size={15} strokeWidth={1.75} />
+            <span>Play now</span>
           </button>
-          {isGuest ? (
-            <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
-              Sign in with GitHub
-            </button>
-          ) : (
-            <button onClick={handleSignOut} className="btn-secondary py-2 text-xs text-text-muted">
-              Sign out
-            </button>
-          )}
+          <button onClick={handleSignOut} className="btn-ghost">
+            <LogOut size={14} strokeWidth={1.75} />
+            {isGuest ? 'Sign in with GitHub' : 'Sign out'}
+          </button>
           {!allUsers.some(u => u.isAdmin) && !user.isAdmin && (
             <button
               onClick={() => claimFirstAdmin()}
-              className="btn-secondary py-2 text-xs text-gold-bright border-gold-bright/40"
+              className="btn-ghost"
+              style={{ color: 'var(--color-gold-bright)', borderColor: 'var(--color-hairline-gold)' }}
               title="Only works if no admin exists yet"
             >
+              <ShieldPlus size={14} strokeWidth={1.75} />
               Claim admin
             </button>
           )}
         </div>
+      </section>
 
-        {/* Stats grid */}
-        <div className="flex-1 grid grid-cols-2 gap-3">
-          <StatCard label="Wins" value={String(user.totalWins)} sub="Total" accent="#22C55E" />
-          <StatCard label="Win Rate" value={`${winRate}%`} sub={`${user.totalMatches} matches`} accent="#3B82F6" />
-          <StatCard label="Streak" value={`${user.currentStreak}d`} sub="Current streak" accent="#D4A017" />
-          <StatCard label="Matches" value={String(user.totalMatches)} sub="All time" />
+      {/* Activity */}
+      <section>
+        <div className="flex items-baseline justify-between mb-5">
+          <span className="eyebrow-italic">Activity — last 16 weeks</span>
+          <span className="label-eyebrow">{myMatches.length} matches</span>
         </div>
-      </div>
-
-      {/* Activity heatmap */}
-      <div className="card p-6">
-        <div className="font-bold text-sm text-text mb-4">Activity — Last 16 Weeks</div>
+        <hr className="rule-hairline mb-6" />
         <ActivityHeatmap activityMap={activityMap} />
-      </div>
+      </section>
 
       {/* Recent matches */}
-      <div className="card p-6">
-        <div className="font-bold text-sm text-text mb-4">Recent Matches</div>
+      <section>
+        <div className="flex items-baseline justify-between mb-5">
+          <span className="eyebrow-italic">Recent matches</span>
+          {myMatches.length > 10 && (
+            <span className="label-eyebrow">showing 10 of {myMatches.length}</span>
+          )}
+        </div>
+        <hr className="rule-hairline mb-2" />
         {myMatches.length === 0 ? (
-          <div className="text-sm text-text-muted">No matches yet. <button className="text-accent bg-transparent border-none cursor-pointer p-0 font-semibold" onClick={() => navigate('/play')}>Play your first game!</button></div>
+          <div className="py-10 text-center">
+            <p className="text-sm text-text-muted m-0">No matches yet.</p>
+            <button
+              className="text-accent bg-transparent border-none cursor-pointer p-0 font-medium text-[13px] mt-3 hover:underline"
+              onClick={() => navigate('/play')}
+            >
+              Play your first game →
+            </button>
+          </div>
         ) : (
-          <div className="flex flex-col">
-            {myMatches.slice(0, 10).map((m, i) => {
+          <div>
+            {myMatches.slice(0, 10).map((m) => {
               const isP1 = identityEq(m.player1Identity, user.identity);
               const isDraw = !m.winnerIdentity;
               const won = !isDraw && identityEq(m.winnerIdentity, user.identity);
@@ -243,38 +348,43 @@ function Dashboard({ user, allUsers }: { user: User; allUsers: User[] }) {
               const myTime = isP1 ? m.player1SolveTime : m.player2SolveTime;
               const dotColor = isDraw ? '#71717A' : won ? '#22C55E' : '#EF4444';
               const label = isDraw ? 'Draw' : won ? 'Win' : 'Loss';
+              const problemTitle = safeParseJson<string[]>(m.problemTitles, [], 'problemTitles')[0] ?? '';
+              const difficulty = safeParseJson<string[]>(m.difficulties, [], 'difficulties')[0] ?? '';
 
               return (
                 <div
                   key={String(m.id)}
-                  className={`flex items-center justify-between py-3 ${i < Math.min(myMatches.length, 10) - 1 ? 'border-b border-border' : ''}`}
+                  className="row-editorial"
+                  style={{ gridTemplateColumns: '16px 1fr auto auto 80px' }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: dotColor }}
-                    />
-                    <div>
-                      <span className="font-semibold text-sm text-text">vs {oppName}</span>
-                      <span className="text-xs text-text-muted ml-2">{safeParseJson<string[]>(m.problemTitles, [], 'problemTitles')[0] ?? ''}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-text-faint capitalize">{safeParseJson<string[]>(m.difficulties, [], 'difficulties')[0] ?? ''}</span>
-                    <span className="text-xs text-text-faint">{formatTime(myTime)}</span>
-                    <span
-                      className="text-[13px] font-bold w-12 text-right"
-                      style={{ color: dotColor }}
-                    >
-                      {label}
+                  <div
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: dotColor }}
+                  />
+                  <div className="min-w-0">
+                    <span className="font-medium text-[14px] text-text">vs {oppName}</span>
+                    <span className="text-[12px] text-text-muted ml-3 truncate">
+                      {problemTitle}
                     </span>
                   </div>
+                  <span className="text-[11px] text-text-faint capitalize tracking-wide">
+                    {difficulty}
+                  </span>
+                  <span className="text-[12px] text-text-faint mono-tabular w-16 text-right">
+                    {formatTime(myTime)}
+                  </span>
+                  <span
+                    className="text-[12px] font-medium w-16 text-right mono-tabular uppercase tracking-wider"
+                    style={{ color: dotColor }}
+                  >
+                    {label}
+                  </span>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -287,8 +397,6 @@ export default function ProfilePage() {
   const setProfile = useReducer(reducers.setProfile);
   const myUser = useCurrentUser();
 
-  // Auto-populate profile from GitHub data on first login so the user
-  // doesn't have to fill in a form they already completed before.
   useEffect(() => {
     if (!ctx.isActive || !myUser || myUser.username) return;
 
@@ -305,7 +413,6 @@ export default function ProfilePage() {
     });
   }, [ctx.isActive, myUser]);
 
-  // Clear GitHub profile from localStorage once it's been saved to SpacetimeDB
   useEffect(() => {
     if (myUser?.username) {
       localStorage.removeItem('lcr_github_profile');
@@ -315,9 +422,12 @@ export default function ProfilePage() {
   const isGuest = localStorage.getItem('lcr_guest_mode') === 'true';
   if (!localStorage.getItem('lcr_auth_token') && !isGuest) return null;
 
-  // Still connecting — don't flash the setup form
   if (!ctx.isActive || !myUser) {
-    return <div className="flex items-center justify-center min-h-screen text-text-muted">Loading…</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] text-text-muted">
+        <span className="eyebrow-italic">Connecting…</span>
+      </div>
+    );
   }
 
   if (!myUser.username) {
