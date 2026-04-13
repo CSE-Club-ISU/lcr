@@ -61,6 +61,11 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        VITE_SPACETIMEDB_URI: ${VITE_SPACETIMEDB_URI:-ws://localhost:3000}
+        VITE_AUTH_SERVER_URL: ${VITE_AUTH_SERVER_URL:-http://localhost:4000}
+        VITE_EXECUTOR_URL:    ${VITE_EXECUTOR_URL:-http://localhost:8000}
+        VITE_MODULE_NAME:     ${VITE_MODULE_NAME:-lcr}
     ports:
       - "80:80"
     depends_on:
