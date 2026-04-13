@@ -139,6 +139,27 @@ function javaStringLiteralBody(s: string): string {
   return JSON.stringify(s).slice(1, -1);
 }
 
+/**
+ * Build Java source that reconstructs a (possibly huge) string at runtime.
+ * Java bytecode limits each String constant to 65535 UTF-8 bytes. For large
+ * embedded test JSON we emit a sequence of `sb.append("...")` calls, each
+ * carrying a safely-sized escaped chunk.
+ */
+function javaChunkedStringBuilder(varName: string, s: string): string {
+  // Conservative chunk size in characters — keeps UTF-8 byte count below the
+  // 65535 JVM constant-pool limit even when every char escapes to \uXXXX.
+  const MAX_CHARS = 10000;
+  const chunks: string[] = [];
+  for (let i = 0; i < s.length; i += MAX_CHARS) {
+    chunks.push(s.slice(i, i + MAX_CHARS));
+  }
+  if (chunks.length === 0) chunks.push('');
+  const appends = chunks
+    .map((c) => `    ${varName}.append("${javaStringLiteralBody(c)}");`)
+    .join('\n');
+  return `StringBuilder ${varName} = new StringBuilder();\n${appends}`;
+}
+
 // Minimal hand-rolled JSON parser + serializer + typed extraction/boxing helpers.
 const JAVA_JSON_UTIL = `
   // ── Minimal JSON parser ──────────────────────────────────────────────────
@@ -438,7 +459,7 @@ function generateJavaAlgo(code: string, problem: ProblemData): string {
     input: tc,
     expected: problem.test_results[i],
   }));
-  const testJson = javaStringLiteralBody(JSON.stringify(testData));
+  const testJsonBuilder = javaChunkedStringBuilder('_tsb', JSON.stringify(testData));
   const method = problem.method_name;
 
   const sig = parseAlgoSignature(problem.param_types ?? '', problem.return_type ?? '');
@@ -486,7 +507,8 @@ ${code.split('\n').map(l => '  ' + l).join('\n')}
 
 ${JAVA_JSON_UTIL}
   public static void main(String[] args_) throws Exception {
-    String testJson = "${testJson}";
+    ${testJsonBuilder}
+    String testJson = _tsb.toString();
     @SuppressWarnings("unchecked")
     List<Map<String,Object>> tests = (List<Map<String,Object>>) parse(testJson);
     List<Map<String,Object>> results = new ArrayList<>();
@@ -523,7 +545,7 @@ function generateJavaDS(code: string, problem: ProblemData): string {
     input: tc,
     expected: problem.test_results[i],
   }));
-  const testJson = javaStringLiteralBody(JSON.stringify(testData));
+  const testJsonBuilder = javaChunkedStringBuilder('_tsb', JSON.stringify(testData));
   const cls = problem.method_name;
 
   const sig = parseDSSignature(problem.method_signatures ?? '');
@@ -593,7 +615,8 @@ ${code.split('\n').map(l => '  ' + l).join('\n')}
 
 ${JAVA_JSON_UTIL}
   public static void main(String[] args_) throws Exception {
-    String testJson = "${testJson}";
+    ${testJsonBuilder}
+    String testJson = _tsb.toString();
     @SuppressWarnings("unchecked")
     List<Map<String,Object>> tests = (List<Map<String,Object>>) parse(testJson);
     List<Map<String,Object>> results = new ArrayList<>();
