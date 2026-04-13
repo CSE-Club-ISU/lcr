@@ -263,6 +263,17 @@ const JAVA_JSON_UTIL = `
   // Deep equality via canonical serialization
   static boolean compare(Object a, Object b) { return stringify(a).equals(stringify(b)); }
 
+  // Normalize a parsed input value into an args list. Test cases for single-arg
+  // methods may be encoded as bare scalars (e.g. "0") instead of arrays ("[0]");
+  // wrap them so the typed extraction path always sees a List.
+  @SuppressWarnings("unchecked")
+  static java.util.List<Object> toArgsList(Object o) {
+    if (o instanceof java.util.List) return (java.util.List<Object>) o;
+    var l = new java.util.ArrayList<Object>(1);
+    l.add(o);
+    return l;
+  }
+
   // ── Scalar extraction helpers ────────────────────────────────────────────
   static int toInt(Object o) { return Math.toIntExact((Long) o); }
   static long toLong(Object o) { return (Long) o; }
@@ -444,8 +455,7 @@ function generateJavaAlgo(code: string, problem: ProblemData): string {
 
     if (sig.ret === 'void') {
       runBlock = `
-          @SuppressWarnings("unchecked")
-          java.util.List<Object> argsList = (java.util.List<Object>) parse((String) td.get("input"));
+          java.util.List<Object> argsList = toArgsList(parse((String) td.get("input")));
 ${paramDecls}
           new solution().${method}(${callArgs});
           actual = null;`;
@@ -453,8 +463,7 @@ ${paramDecls}
     } else {
       const retJava = javaReturnType(sig.ret);
       runBlock = `
-          @SuppressWarnings("unchecked")
-          java.util.List<Object> argsList = (java.util.List<Object>) parse((String) td.get("input"));
+          java.util.List<Object> argsList = toArgsList(parse((String) td.get("input")));
 ${paramDecls}
           ${retJava} _r = new solution().${method}(${callArgs});
           actual = ${javaBox(sig.ret, '_r')};`;
@@ -463,8 +472,7 @@ ${paramDecls}
   } else {
     // Generic path (legacy): Object... args
     runBlock = `
-          @SuppressWarnings("unchecked")
-          java.util.List<Object> argsList = (java.util.List<Object>) parse((String) td.get("input"));
+          java.util.List<Object> argsList = toArgsList(parse((String) td.get("input")));
           actual = ${method}(argsList.toArray());`;
     boxActual = 'actual';
   }
@@ -657,12 +665,14 @@ function generateCppAlgo(code: string, problem: ProblemData): string {
     if (sig.ret === 'void') {
       runBlock = `
       json args = json::parse(td["input"].get<std::string>());
+      if (!args.is_array()) { json wrapped = json::array(); wrapped.push_back(args); args = wrapped; }
 ${paramDecls}
       ${method}(${callArgs});
       actual = nullptr;`;
     } else {
       runBlock = `
       json args = json::parse(td["input"].get<std::string>());
+      if (!args.is_array()) { json wrapped = json::array(); wrapped.push_back(args); args = wrapped; }
 ${paramDecls}
       auto _r = ${method}(${callArgs});
       actual = ${cppToJson(sig.ret, '_r')};`;
