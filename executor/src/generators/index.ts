@@ -34,9 +34,9 @@ export function getDockerImage(lang: Language): string {
 
 export function getTimeLimitMs(lang: Language): number {
   switch (lang) {
-    case 'python': return parseInt(process.env.DOCKER_PYTHON_TIME_LIMIT_MS ?? '5000');
-    case 'java':   return parseInt(process.env.DOCKER_JAVA_TIME_LIMIT_MS   ?? '8000');
-    case 'cpp':    return parseInt(process.env.DOCKER_CPP_TIME_LIMIT_MS    ?? '5000');
+    case 'python': return parseInt(process.env.DOCKER_PYTHON_TIME_LIMIT_MS ?? '8000');
+    case 'java':   return parseInt(process.env.DOCKER_JAVA_TIME_LIMIT_MS   ?? '12000');
+    case 'cpp':    return parseInt(process.env.DOCKER_CPP_TIME_LIMIT_MS    ?? '10000');
   }
 }
 
