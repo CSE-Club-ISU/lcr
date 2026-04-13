@@ -55,10 +55,10 @@ export default function AppLayout() {
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
       <div
-        className="flex-1 py-7 px-7 overflow-y-auto transition-[margin] duration-200"
-        style={{ marginLeft: sidebarCollapsed ? 56 : 220 }}
+        className="flex-1 py-10 px-10 overflow-y-auto transition-[margin] duration-200"
+        style={{ marginLeft: sidebarCollapsed ? 56 : 232 }}
       >
-        <div className="max-w-[960px] mx-auto">
+        <div className="max-w-[1120px] mx-auto enter-fade">
           <Breadcrumb />
           <Outlet />
         </div>

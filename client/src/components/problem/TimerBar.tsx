@@ -1,18 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * Countdown timer that displays remaining match time.
- *
- * Teaching note: extracting the timer into its own component means ProblemScreen
- * doesn't need to know about setSeconds, lastExpireAttemptRef, or the tick math.
- * The component just receives what it needs and manages its own local state.
- * Game expiry (calling the server reducer) is the caller's responsibility via onExpire.
+ * Countdown timer for the live match.
+ * Editorial treatment: mono tabular numerals; warm text → gold warning at 60s
+ * → cardinal pulse at 10s. No panic motion.
  */
 
 interface TimerBarProps {
   startTimeMicros: bigint;  // game.startTime.microsSinceUnixEpoch
   status: string;            // game.status
-  onExpire: () => void;      // called when timer hits 0; caller owns expireGame
+  onExpire: () => void;      // called when timer hits 0
 }
 
 export default function TimerBar({ startTimeMicros, status, onExpire }: TimerBarProps) {
@@ -27,8 +24,6 @@ export default function TimerBar({ startTimeMicros, status, onExpire }: TimerBar
       const elapsed = Math.floor((now - startMs) / 1000);
       const remaining = Math.max(0, maxSeconds - elapsed);
       setSeconds(remaining);
-      // Once the clock hits 0, notify the caller. Retry every 10s in case the
-      // server's elapsed check rejects due to clock skew.
       if (remaining === 0 && status === 'in_progress' && now - lastExpireAttemptRef.current > 10_000) {
         lastExpireAttemptRef.current = now;
         onExpire();
@@ -43,12 +38,25 @@ export default function TimerBar({ startTimeMicros, status, onExpire }: TimerBar
   const secs = String(seconds % 60).padStart(2, '0');
   const timeStr = `${mins}:${secs}`;
 
+  const urgent = seconds <= 10 && seconds > 0;
+  const warning = seconds <= 60 && !urgent;
+
+  const color =
+    urgent  ? 'var(--color-accent)' :
+    warning ? 'var(--color-gold-bright)' :
+              'var(--color-text)';
+
+  const cls = urgent ? 'timer-pulse-urgent' : warning ? 'timer-pulse-soft' : '';
+
   return (
-    <div className="text-center">
-      <div className="text-[11px] text-text-muted">TIME LEFT</div>
-      <div className={`font-extrabold text-lg tracking-tight ${seconds < 300 ? 'text-red' : 'text-text'}`}>
+    <div className="flex flex-col items-end">
+      <span className="label-eyebrow">Time left</span>
+      <span
+        className={`mono-tabular tracking-tight ${cls}`}
+        style={{ fontSize: 22, color, lineHeight: 1.1, fontFeatureSettings: '"tnum","zero"' }}
+      >
         {timeStr}
-      </div>
+      </span>
     </div>
   );
 }

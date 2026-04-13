@@ -3,21 +3,41 @@ interface Props {
   value: string;
   sub?: string;
   accent?: string;
+  /**
+   * Visual treatment.
+   * - 'plaque' (default): no card chrome, label above Fraunces numeral. Editorial.
+   * - 'card': legacy surface+border+rounded treatment for call sites that rely on it.
+   */
+  variant?: 'plaque' | 'card';
 }
 
-export default function StatCard({ label, value, sub, accent }: Props) {
+export default function StatCard({ label, value, sub, accent, variant = 'plaque' }: Props) {
+  if (variant === 'card') {
+    return (
+      <div className="bg-surface border border-border rounded-xl px-5 py-[18px] flex flex-col gap-1">
+        <span className="label-eyebrow">{label}</span>
+        <span
+          className="display-numeral"
+          style={{ fontSize: 32, color: accent ?? 'var(--color-text)' }}
+        >
+          {value}
+        </span>
+        {sub && <span className="text-xs text-text-faint mt-1">{sub}</span>}
+      </div>
+    );
+  }
+
+  // 'plaque' — editorial default
   return (
-    <div className="bg-surface border border-border rounded-xl px-5 py-[18px] flex flex-col gap-1">
-      <span className="text-xs text-text-muted font-medium tracking-wider uppercase">
-        {label}
-      </span>
+    <div className="flex flex-col gap-2 py-2">
+      <span className="label-eyebrow">{label}</span>
       <span
-        className="text-[28px] font-extrabold tracking-tight leading-tight"
-        style={accent ? { color: accent } : undefined}
+        className="display-numeral"
+        style={{ fontSize: 40, color: accent ?? 'var(--color-text)' }}
       >
         {value}
       </span>
-      {sub && <span className="text-xs text-text-faint">{sub}</span>}
+      {sub && <span className="text-[11px] text-text-faint tracking-wide">{sub}</span>}
     </div>
   );
 }

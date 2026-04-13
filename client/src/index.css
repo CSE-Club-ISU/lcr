@@ -3,6 +3,7 @@
 @theme {
   /* Backgrounds */
   --color-bg: #0F0D0D;
+  --color-bg-deep: #080706;
   --color-surface: #1A1614;
   --color-surface-alt: #221E1C;
   --color-charcoal: #2D2B2B;
@@ -16,10 +17,11 @@
   --color-text-muted: #8A7F78;
   --color-text-faint: #4F4744;
 
-  /* Primary accent: ISU crimson */
+  /* Primary accent: ISU cardinal */
   --color-accent: #C0272D;
   --color-accent-soft: #2A1214;
   --color-accent-hover: #A01E23;
+  --color-blood: #6B0F13;
 
   /* Secondary accent: ISU gold */
   --color-gold: #D4A017;
@@ -38,28 +40,63 @@
   --color-purple: #A78BFA;
   --color-purple-soft: #1A1030;
 
-  /* Font */
-  --font-sans: 'DM Sans', 'Outfit', sans-serif;
+  /* Fonts */
+  --font-sans: 'Geist', 'DM Sans', 'Outfit', system-ui, sans-serif;
+  --font-serif: 'Fraunces', 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Consolas', monospace;
+
+  /* Hairlines */
+  --color-hairline: rgba(240, 235, 229, 0.08);
+  --color-hairline-strong: rgba(240, 235, 229, 0.14);
+  --color-hairline-gold: rgba(245, 197, 24, 0.22);
+  --color-hairline-cardinal: rgba(192, 39, 45, 0.28);
+
+  /* Restrained shadow scale */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 18px rgba(0, 0, 0, 0.35);
+  --shadow-hero: 0 24px 80px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-glow-gold: 0 0 24px rgba(245, 197, 24, 0.15);
 }
 
 @layer base {
   body {
     @apply bg-bg text-text font-sans;
     margin: 0;
+    background-image:
+      radial-gradient(ellipse 1100px 600px at 50% -10%, rgba(192, 39, 45, 0.07), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 100%, rgba(245, 197, 24, 0.03), transparent 60%);
+    background-attachment: fixed;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Tighter editorial feel for headings */
+  h1, h2, h3 {
+    font-feature-settings: "ss01";
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(192, 39, 45, 0.35);
+    color: #F0EBE5;
+  }
+
+  /* Thin, editorial scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(240, 235, 229, 0.08); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(240, 235, 229, 0.16); }
 }
 
-/* Make CodeMirror fill its flex container instead of sizing to content */
-.cm-editor {
-  height: 100%;
-}
-.cm-scroller {
-  overflow: auto;
-}
+/* CodeMirror container sizing */
+.cm-editor { height: 100%; }
+.cm-scroller { overflow: auto; font-family: var(--font-mono) !important; }
 
 @layer components {
+  /* Legacy buttons (kept for call-site compatibility) */
   .btn-primary {
-    @apply px-8 py-3 font-semibold text-[15px] text-white bg-accent border-none rounded-lg cursor-pointer transition-colors duration-150 hover:bg-accent-hover;
+    @apply px-8 py-3 font-semibold text-[15px] text-white bg-accent border-none rounded-lg cursor-pointer transition-all duration-150 hover:bg-accent-hover;
   }
 
   .btn-accent {
@@ -81,4 +118,199 @@
   .chip {
     @apply px-[10px] py-1 bg-surface-alt rounded-full text-[13px] text-text-muted;
   }
+
+  /* --- Editorial Minimal additions --- */
+
+  /* Oversized display numerals: Fraunces, tight, editorial */
+  .display-numeral {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    font-feature-settings: "ss01", "lnum", "tnum";
+  }
+
+  /* Editorial page titles */
+  .display-title {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-style: italic;
+    font-variation-settings: "opsz" 144;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+  }
+
+  /* Monospaced tabular numbers (ratings, HP, timers) */
+  .mono-tabular {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    letter-spacing: -0.02em;
+  }
+
+  /* Small caps label for plaque-style meta text */
+  .label-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  /* Hairline rules */
+  .rule-hairline {
+    border: 0;
+    border-top: 1px solid var(--color-hairline);
+  }
+  .rule-hairline-strong {
+    border: 0;
+    border-top: 1px solid var(--color-hairline-strong);
+  }
+  .rule-gold {
+    border: 0;
+    border-top: 1px solid var(--color-hairline-gold);
+  }
+
+  /* Primary CTA: cardinal, with gold hairline above and gentle lift */
+  .btn-editorial {
+    @apply inline-flex items-center gap-2 px-7 py-3 text-sm font-medium text-white bg-accent rounded-md cursor-pointer;
+    transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(192, 39, 45, 0.5);
+  }
+  .btn-editorial:hover {
+    background-color: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(192, 39, 45, 0.55), 0 8px 24px rgba(192, 39, 45, 0.18);
+  }
+
+  /* Ghost CTA: hairline-only */
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-text rounded-md cursor-pointer;
+    border: 1px solid var(--color-hairline-strong);
+    background: transparent;
+    transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  }
+  .btn-ghost:hover {
+    border-color: rgba(240, 235, 229, 0.28);
+    background: rgba(240, 235, 229, 0.02);
+  }
+
+  /* Hero surface: used for login + combat + profile hero */
+  .surface-hero {
+    position: relative;
+    isolation: isolate;
+  }
+  .surface-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.94  0 0 0 0 0.92  0 0 0 0 0.9  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity: 0.7;
+    mix-blend-mode: overlay;
+  }
+
+  /* Editorial data-table row */
+  .row-editorial {
+    display: grid;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-hairline);
+    transition: background-color 140ms ease;
+  }
+  .row-editorial:hover {
+    background: rgba(240, 235, 229, 0.02);
+  }
+  .row-editorial:last-child { border-bottom: none; }
+
+  /* Plaque: label-above-numeral, no card chrome */
+  .plaque {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .plaque-value {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    font-feature-settings: "lnum", "tnum";
+  }
+
+  /* Gold wordmark period (for "LCR.") */
+  .wordmark-period {
+    color: var(--color-gold-bright);
+  }
+
+  /* Editorial section heading: small italic serif, hairline underline */
+  .eyebrow-italic {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+  }
+
+  /* Sweep line for queue anticipation state — single horizontal element */
+  .queue-sweep {
+    position: relative;
+    overflow: hidden;
+    height: 1px;
+    background: var(--color-hairline);
+  }
+  .queue-sweep::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 35%;
+    background: linear-gradient(90deg, transparent, var(--color-gold-bright), transparent);
+    animation: queue-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  /* HP bar flash on damage */
+  .hp-flash {
+    animation: hp-flash 380ms ease-out;
+  }
+
+  /* Timer tension */
+  .timer-pulse-soft {
+    animation: timer-pulse 1.2s ease-in-out infinite;
+  }
+  .timer-pulse-urgent {
+    animation: timer-pulse 0.7s ease-in-out infinite;
+    color: var(--color-accent);
+  }
+
+  /* Inline page enter (staggered via animation-delay in JSX) */
+  .enter-fade {
+    animation: enter-fade 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes queue-sweep {
+  0%   { transform: translateX(-40%); }
+  100% { transform: translateX(285%); }
+}
+
+@keyframes hp-flash {
+  0%   { box-shadow: inset 0 0 0 999px rgba(192, 39, 45, 0.55); }
+  100% { box-shadow: inset 0 0 0 999px transparent; }
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+@keyframes enter-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
