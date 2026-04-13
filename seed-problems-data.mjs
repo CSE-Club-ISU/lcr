@@ -2183,4 +2183,384 @@ export const problems = [
     problem_kind: 'algorithm',
   },
 
+  {
+    title: 'Longest Common Prefix',
+    description:
+      'Write a function to find the longest common prefix string amongst an array of strings. If there is no common prefix, return an empty string "".\n\n' +
+      'Example: `["flower","flow","flight"] → "fl"`.  `["dog","racecar","car"] → ""`.',
+    difficulty: 'medium',
+    method_name: 'longest_common_prefix',
+    sample_test_cases: '[["flower","flow","flight"]]|[["dog","racecar","car"]]|[["a"]]',
+    sample_test_results: '"fl"|""|"a"',
+    hidden_test_cases: '[["flower","flow","flight"]]|[["dog","racecar","car"]]|[["a"]]|[["",""]]|[["abc","abc","abc"]]|[["a","b"]]|[["abcd","abcde"]]|[["","a"]]',
+    hidden_test_results: '"fl"|""|"a"|""|"abc"|""|"abcd"|""',
+    boilerplate_python: 'def longest_common_prefix(strs: list[str]) -> str:\n    # Your code here\n    pass',
+    boilerplate_java: 'public String longest_common_prefix(String[] strs) {\n    // Your code here\n    return "";\n}',
+    boilerplate_cpp: 'string longest_common_prefix(vector<string> strs) {\n    // Your code here\n    return "";\n}',
+    param_types: '["string[]"]',
+    return_type: 'string',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Longest Substring Without Repeat',
+    description:
+      'Given a string `s`, find the length of the longest contiguous substring that contains no repeating characters.\n\n' +
+      'Example: `"abcabcbb" → 3` (substring "abc"), `"bbbbb" → 1` ("b"), `"" → 0`.',
+    difficulty: 'medium',
+    method_name: 'longest_substring_no_repeat',
+    sample_test_cases: '"abcabcbb"|"bbbbb"|"pwwkew"',
+    sample_test_results: '3|1|3',
+    hidden_test_cases: '"abcabcbb"|"bbbbb"|"pwwkew"|""|"au"|"dvdf"|"aab"|"abcdefghijklmnopqrstuvwxyz"',
+    hidden_test_results: '3|1|3|0|2|3|2|26',
+    boilerplate_python: 'def longest_substring_no_repeat(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long longest_substring_no_repeat(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long longest_substring_no_repeat(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'String Compression',
+    description:
+      'Compress a string by returning a new string where consecutive identical characters are represented as the character followed by its count.\n\n' +
+      'Example: `"aabbcccc" → "a2b2c4"`, `"abc" → "abc"` (no compression needed).',
+    difficulty: 'medium',
+    method_name: 'compress_string',
+    sample_test_cases: '"aabbcccc"|"abc"|"a"',
+    sample_test_results: '"a2b2c4"|"abc"|"a"',
+    hidden_test_cases: '"aabbcccc"|"abc"|"a"|"aaaaaaaaaa"|""|"aabbcc"|"abcd"',
+    hidden_test_results: '"a2b2c4"|"abc"|"a"|"a10"|""|"a2b2c2"|"abcd"',
+    boilerplate_python: 'def compress_string(s: str) -> str:\n    # Your code here\n    pass',
+    boilerplate_java: 'public String compress_string(String s) {\n    // Your code here\n    return "";\n}',
+    boilerplate_cpp: 'string compress_string(string s) {\n    // Your code here\n    return "";\n}',
+    param_types: '["string"]',
+    return_type: 'string',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Isomorphic Strings',
+    description:
+      'Two strings `s` and `t` are isomorphic if the characters in `s` can be replaced to get `t`, with one-to-one character mapping (bijection).\n\n' +
+      'Example: `"egg" and "add"` (e→a, g→d) are isomorphic; `"badc" and "baba"` are not.',
+    difficulty: 'medium',
+    method_name: 'isomorphic_strings',
+    sample_test_cases: '["egg","add"]|["badc","baba"]|["a","b"]',
+    sample_test_results: 'true|false|true',
+    hidden_test_cases: '["egg","add"]|["badc","baba"]|["a","b"]|["aa","ab"]|["ab","aa"]|["",""]|["abb","cdc"]|["bcgb","bdeg"]',
+    hidden_test_results: 'true|false|true|false|false|true|true|false',
+    boilerplate_python: 'def isomorphic_strings(s: str, t: str) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java: 'public boolean isomorphic_strings(String s, String t) {\n    // Your code here\n    return false;\n}',
+    boilerplate_cpp: 'bool isomorphic_strings(string s, string t) {\n    // Your code here\n    return false;\n}',
+    param_types: '["string","string"]',
+    return_type: 'bool',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Word Pattern',
+    description:
+      'Given a pattern (single-char tokens) and a list of words, return `true` if the words follow the pattern with bijection mapping (each pattern char maps to exactly one word and vice versa).\n\n' +
+      'Example: `pattern="abba", words=["redbluebluered"] → true`.',
+    difficulty: 'medium',
+    method_name: 'word_pattern',
+    sample_test_cases: '["abba",["red","blue","blue","red"]]|["abba",["red","blue","blue","green"]]|["aaaa",["cat","cat","cat","cat"]]',
+    sample_test_results: 'true|false|true',
+    hidden_test_cases: '["abba",["red","blue","blue","red"]]|["abba",["red","blue","blue","green"]]|["aaaa",["cat","cat","cat","cat"]]|["abab",["a","b","a","b"]]|["abc",["dog"]]|["a",["a"]]|["ab",["a","b"]]',
+    hidden_test_results: 'true|false|true|true|false|true|true',
+    boilerplate_python: 'def word_pattern(pattern: str, words: list[str]) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java: 'public boolean word_pattern(String pattern, String[] words) {\n    // Your code here\n    return false;\n}',
+    boilerplate_cpp: 'bool word_pattern(string pattern, vector<string> words) {\n    // Your code here\n    return false;\n}',
+    param_types: '["string","string[]"]',
+    return_type: 'bool',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Rotate String',
+    description:
+      'Given two strings `s` and `goal`, return `true` if and only if `s` can become `goal` by some number of shifts (rotation).\n\n' +
+      'Example: `s="abcde", goal="cdeab"` → true (rotate left by 2).  `s="abcde", goal="abced"` → false.',
+    difficulty: 'medium',
+    method_name: 'rotate_string',
+    sample_test_cases: '["abcde","cdeab"]|["abcde","abced"]|["a","a"]',
+    sample_test_results: 'true|false|true',
+    hidden_test_cases: '["abcde","cdeab"]|["abcde","abced"]|["a","a"]|["",""]|["a","b"]|["aa","aa"]|["abc","acb"]|["waterbottle","erbottlewat"]',
+    hidden_test_results: 'true|false|true|true|false|true|false|true',
+    boilerplate_python: 'def rotate_string(s: str, goal: str) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java: 'public boolean rotate_string(String s, String goal) {\n    // Your code here\n    return false;\n}',
+    boilerplate_cpp: 'bool rotate_string(string s, string goal) {\n    // Your code here\n    return false;\n}',
+    param_types: '["string","string"]',
+    return_type: 'bool',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'String to Integer',
+    description:
+      'Implement a function `atoi` that converts a string to a 32-bit signed integer.\n\n' +
+      'Rules: skip leading whitespace, parse optional sign (+/-), read digits until non-digit, clamp to [-2^31, 2^31-1].',
+    difficulty: 'medium',
+    method_name: 'atoi',
+    sample_test_cases: '"42"|"   -42"|"4193 with words"|"words and 987"',
+    sample_test_results: '42|-42|4193|0',
+    hidden_test_cases: '"42"|"   -42"|"4193 with words"|"words and 987"|"+0"|"+-42"|"00000000000000000000000000000001"|"-91283472332"',
+    hidden_test_results: '42|-42|4193|0|0|0|1|-2147483648',
+    boilerplate_python: 'def atoi(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long atoi(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long atoi(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'First Unique Character',
+    description:
+      'Given a string `s`, find the index of the first character that appears only once. If no such character exists, return -1.\n\n' +
+      'Example: `"leetcode" → 0` (l), `"loveleetcode" → 2` (v), `"aabb" → -1`.',
+    difficulty: 'medium',
+    method_name: 'first_unique_char',
+    sample_test_cases: '"leetcode"|"loveleetcode"|"aabb"',
+    sample_test_results: '0|2|-1',
+    hidden_test_cases: '"leetcode"|"loveleetcode"|"aabb"|"a"|""|"aa"|"abcde"|"aabaa"',
+    hidden_test_results: '0|2|-1|0|-1|-1|0|-1',
+    boilerplate_python: 'def first_unique_char(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long first_unique_char(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long first_unique_char(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Group Anagrams Count',
+    description:
+      'Given an array of strings, return the number of groups where strings in each group are anagrams of each other.\n\n' +
+      'Example: `["eat","tea","ate","bat"] → 2` (group 1: eat,tea,ate; group 2: bat).',
+    difficulty: 'medium',
+    method_name: 'group_anagrams_count',
+    sample_test_cases: '[["eat","tea","ate","bat"]]|[["a"]]|[["",""]]',
+    sample_test_results: '2|1|1',
+    hidden_test_cases: '[["eat","tea","ate","bat"]]|[["a"]]|[["",""]]|[["ab","ba"]]|[["a","b","c"]]|[["aab","aab"]]|[["listen","silent","enlist","hello"]]',
+    hidden_test_results: '2|1|1|1|3|1|2',
+    boilerplate_python: 'def group_anagrams_count(strs: list[str]) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long group_anagrams_count(String[] strs) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long group_anagrams_count(vector<string> strs) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string[]"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Unique Paths',
+    description:
+      'A robot starts at the top-left corner of an `m × n` grid and wants to reach the bottom-right corner. It can only move right or down. How many unique paths are there?\n\n' +
+      'DP: `paths[i][j] = paths[i-1][j] + paths[i][j-1]`.',
+    difficulty: 'medium',
+    method_name: 'unique_paths',
+    sample_test_cases: '[3,7]|[3,3]|[1,1]',
+    sample_test_results: '28|6|1',
+    hidden_test_cases: '[3,7]|[3,3]|[1,1]|[1,10]|[10,1]|[2,2]|[3,2]|[4,5]',
+    hidden_test_results: '28|6|1|1|1|2|3|35',
+    boilerplate_python: 'def unique_paths(m: int, n: int) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long unique_paths(long m, long n) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long unique_paths(long long m, long long n) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["long","long"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Trapping Rain Water',
+    description:
+      'Given an elevation map `heights`, compute how much rain water can be trapped after it rains.\n\n' +
+      'Water at index i = min(maxLeft[i], maxRight[i]) - heights[i].  Two-pass or two-pointer.',
+    difficulty: 'hard',
+    method_name: 'trap_rain_water',
+    sample_test_cases: '[[0,1,0,2,1,0,1,3,2,1,2,1]]|[[4,2,0,3,2,5]]|[[]]',
+    sample_test_results: '6|9|0',
+    hidden_test_cases: '[[0,1,0,2,1,0,1,3,2,1,2,1]]|[[4,2,0,3,2,5]]|[[]]|[[0]]|[[1,2,3]]|[[3,2,1]]|[[0,1,0,1,0,1]]|[[3,0,2,0,4]]',
+    hidden_test_results: '6|9|0|0|0|0|2|7',
+    boilerplate_python: 'def trap_rain_water(heights: list[int]) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long trap_rain_water(int[] heights) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long trap_rain_water(vector<int> heights) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["int[]"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Edit Distance',
+    description:
+      'Given two strings `word1` and `word2`, return the minimum number of operations (insert, delete, replace) to convert `word1` into `word2`.\n\n' +
+      'DP: `dp[i][j]` = minimum edits to transform `word1[0:i]` into `word2[0:j]`.',
+    difficulty: 'hard',
+    method_name: 'edit_distance',
+    sample_test_cases: '["horse","ros"]|["intention","execution"]|["",""]',
+    sample_test_results: '3|5|0',
+    hidden_test_cases: '["horse","ros"]|["intention","execution"]|["",""]|["a",""]|["","a"]|["abc","abc"]|["ab","a"]|["ca","abc"]',
+    hidden_test_results: '3|5|0|1|1|0|1|3',
+    boilerplate_python: 'def edit_distance(word1: str, word2: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long edit_distance(String word1, String word2) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long edit_distance(string word1, string word2) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string","string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Longest Palindromic Substring Length',
+    description:
+      'Given a string `s`, return the **length** of the longest palindromic substring.\n\n' +
+      'Example: `"babad" → 3` (bab or aba), `"cbbd" → 2` (bb). Expand-around-center or DP.',
+    difficulty: 'hard',
+    method_name: 'longest_palindromic_length',
+    sample_test_cases: '"babad"|"cbbd"|"a"',
+    sample_test_results: '3|2|1',
+    hidden_test_cases: '"babad"|"cbbd"|"a"|""|"ab"|"abcdefg"|"aba"|"abaXXXXXXXXXba"',
+    hidden_test_results: '3|2|1|0|1|1|3|12',
+    boilerplate_python: 'def longest_palindromic_length(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long longest_palindromic_length(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long longest_palindromic_length(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Longest Valid Parentheses',
+    description:
+      'Given a string containing only characters ( and ), return the length of the longest valid (well-formed) parentheses substring.\n\n' +
+      'Example: `")()())" → 4` (()()).  DP: `dp[i]` = longest valid ending at i.',
+    difficulty: 'hard',
+    method_name: 'longest_valid_parens',
+    sample_test_cases: '"(()"|")()())"|""|"()"',
+    sample_test_results: '2|4|0|2',
+    hidden_test_cases: '"(()"|")()())"|""|"()"|"()(()"|"(("|"(()()"|"(()())"|"()(()"',
+    hidden_test_results: '2|4|0|2|2|0|4|6|4',
+    boilerplate_python: 'def longest_valid_parens(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long longest_valid_parens(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long longest_valid_parens(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Sliding Window Maximum',
+    description:
+      'Given an array `nums` and a sliding window of size `k`, return an array of the maximum value in each window as the window slides from left to right.\n\n' +
+      'Example: `nums=[1,3,-1,-3,5,3,6,7], k=3 → [3,3,5,5,6,7]`.  Use deque for O(n).',
+    difficulty: 'hard',
+    method_name: 'sliding_window_max',
+    sample_test_cases: '[[1,3,-1,-3,5,3,6,7],3]|[[1],1]|[[1,-1],1]',
+    sample_test_results: '[3,3,5,5,6,7]|[1]|[1,-1]',
+    hidden_test_cases: '[[1,3,-1,-3,5,3,6,7],3]|[[1],1]|[[1,-1],1]|[[9,11],2]|[[9,10,9,-7,-4,-8,2,-6],5]|[[1,3,1,2,0,5],3]',
+    hidden_test_results: '[3,3,5,5,6,7]|[1]|[1,-1]|[11]|[10,10,9,5]|[3,3,2,5]',
+    boilerplate_python: 'def sliding_window_max(nums: list[int], k: int) -> list[int]:\n    # Your code here\n    pass',
+    boilerplate_java: 'public int[] sliding_window_max(int[] nums, int k) {\n    // Your code here\n    return new int[]{};\n}',
+    boilerplate_cpp: 'vector<int> sliding_window_max(vector<int> nums, int k) {\n    // Your code here\n    return {};\n}',
+    param_types: '["int[]","int"]',
+    return_type: 'int[]',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Partition Equal Subset Sum',
+    description:
+      'Given an integer array `nums`, return `true` if you can partition it into two subsets such that the sum of both subsets is equal. Return `false` otherwise.\n\n' +
+      'DP: classic subset-sum problem. target = total_sum / 2.',
+    difficulty: 'hard',
+    method_name: 'partition_equal_subset',
+    sample_test_cases: '[[1,5,11,5]]|[[1,2,5]]|[[1]]',
+    sample_test_results: 'true|false|false',
+    hidden_test_cases: '[[1,5,11,5]]|[[1,2,5]]|[[1]]|[[1,1]]|[[2,2,1,1]]|[[100]]|[[1,2,3,5]]|[[1,2,3,5,10]]',
+    hidden_test_results: 'true|false|false|true|true|false|true|true',
+    boilerplate_python: 'def partition_equal_subset(nums: list[int]) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java: 'public boolean partition_equal_subset(int[] nums) {\n    // Your code here\n    return false;\n}',
+    boilerplate_cpp: 'bool partition_equal_subset(vector<int> nums) {\n    // Your code here\n    return false;\n}',
+    param_types: '["int[]"]',
+    return_type: 'bool',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Decode Ways',
+    description:
+      'A message can be encoded as numbers (1→A, 2→B, ..., 26→Z). Given a string of digits, return the number of ways to decode it.\n\n' +
+      'Example: `"226" → 3` (2-2-6, 22-6, 2-26).  DP: handle leading zeros, and validate 10-26.',
+    difficulty: 'hard',
+    method_name: 'decode_ways',
+    sample_test_cases: '"12"|"226"|"0"|"06"',
+    sample_test_results: '2|3|0|0',
+    hidden_test_cases: '"12"|"226"|"0"|"06"|"1"|"27"|"111"|"101"|"2101"',
+    hidden_test_results: '2|3|0|0|1|0|3|1|0',
+    boilerplate_python: 'def decode_ways(s: str) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public long decode_ways(String s) {\n    // Your code here\n    return 0L;\n}',
+    boilerplate_cpp: 'long long decode_ways(string s) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["string"]',
+    return_type: 'long',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Regular Expression Match',
+    description:
+      'Implement regex matching with support for "." (any one character) and "*" (0 or more of the preceding element).\n\n' +
+      'Example: `"aa", "a" → false`, `"aa", "a*" → true`, `"ab", ".*" → true`.',
+    difficulty: 'hard',
+    method_name: 'regex_match',
+    sample_test_cases: '["aa","a"]|["aa","a*"]|["ab",".*"]',
+    sample_test_results: 'false|true|true',
+    hidden_test_cases: '["aa","a"]|["aa","a*"]|["ab",".*"]|["",""]|["a","."]|["aab","c*a*b"]|["mississippi","mis*is*p*."]|["ab",".*c"]',
+    hidden_test_results: 'false|true|true|true|true|true|false|false',
+    boilerplate_python: 'def regex_match(s: str, p: str) -> bool:\n    # Your code here\n    pass',
+    boilerplate_java: 'public boolean regex_match(String s, String p) {\n    // Your code here\n    return false;\n}',
+    boilerplate_cpp: 'bool regex_match(string s, string p) {\n    // Your code here\n    return false;\n}',
+    param_types: '["string","string"]',
+    return_type: 'bool',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
+  {
+    title: 'Kth Smallest in Matrix',
+    description:
+      'Given an `m × n` matrix where each row and column is sorted in ascending order, return the k-th smallest element in the matrix (1-indexed).\n\n' +
+      'Min-heap or binary search.',
+    difficulty: 'hard',
+    method_name: 'kth_smallest_matrix',
+    sample_test_cases: '[[[1,2],[1,4]],1]|[[[1,2],[1,4]],4]|[[[1,2],[1,4]],3]',
+    sample_test_results: '1|4|1',
+    hidden_test_cases: '[[[1,2],[1,4]],1]|[[[1,2],[1,4]],4]|[[[1,2],[1,4]],3]|[[[1,2],[3,4],[5,6]],4]|[[[1,5,9],[10,11,13],[12,13,15]],8]',
+    hidden_test_results: '1|4|1|5|13',
+    boilerplate_python: 'def kth_smallest_matrix(matrix: list[list[int]], k: int) -> int:\n    # Your code here\n    pass',
+    boilerplate_java: 'public int kth_smallest_matrix(int[][] matrix, int k) {\n    // Your code here\n    return 0;\n}',
+    boilerplate_cpp: 'int kth_smallest_matrix(vector<vector<int>> matrix, int k) {\n    // Your code here\n    return 0;\n}',
+    param_types: '["int[][]","int"]',
+    return_type: 'int',
+    method_signatures: '',
+    problem_kind: 'algorithm',
+  },
+
 ];

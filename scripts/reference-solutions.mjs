@@ -1835,4 +1835,1085 @@ export const solutions = {
 }`,
   },
 
+  'Max Subarray Sum': {
+    python: `def max_subarray(nums):
+    best = nums[0]
+    current = nums[0]
+    for i in range(1, len(nums)):
+        current = max(nums[i], current + nums[i])
+        best = max(best, current)
+    return best`,
+    java: `public long max_subarray(int[] nums) {
+    long best = nums[0], current = nums[0];
+    for (int i = 1; i < nums.length; i++) {
+        current = Math.max(nums[i], current + nums[i]);
+        best = Math.max(best, current);
+    }
+    return best;
+}`,
+    cpp: `long long max_subarray(vector<int> nums) {
+    long long best = nums[0], current = nums[0];
+    for (int i = 1; i < nums.size(); i++) {
+        current = max((long long)nums[i], current + nums[i]);
+        best = max(best, current);
+    }
+    return best;
+}`,
+  },
+
+  'Product Except Self': {
+    python: `def product_except_self(nums):
+    n = len(nums)
+    out = [1] * n
+    prefix = 1
+    for i in range(n):
+        out[i] = prefix
+        prefix *= nums[i]
+    suffix = 1
+    for i in range(n - 1, -1, -1):
+        out[i] *= suffix
+        suffix *= nums[i]
+    return out`,
+    java: `public int[] product_except_self(int[] nums) {
+    int n = nums.length;
+    int[] out = new int[n];
+    out[0] = 1;
+    for (int i = 1; i < n; i++)
+        out[i] = out[i-1] * nums[i-1];
+    int suffix = 1;
+    for (int i = n - 1; i >= 0; i--) {
+        out[i] *= suffix;
+        suffix *= nums[i];
+    }
+    return out;
+}`,
+    cpp: `vector<int> product_except_self(vector<int> nums) {
+    int n = nums.size();
+    vector<int> out(n, 1);
+    for (int i = 1; i < n; i++)
+        out[i] = out[i-1] * nums[i-1];
+    int suffix = 1;
+    for (int i = n - 1; i >= 0; i--) {
+        out[i] *= suffix;
+        suffix *= nums[i];
+    }
+    return out;
+}`,
+  },
+
+  'Move Zeros': {
+    python: `def move_zeros(nums):
+    out = []
+    zeros = 0
+    for x in nums:
+        if x == 0:
+            zeros += 1
+        else:
+            out.append(x)
+    out.extend([0] * zeros)
+    return out`,
+    java: `public int[] move_zeros(int[] nums) {
+    int[] out = new int[nums.length];
+    int idx = 0;
+    for (int x : nums) {
+        if (x != 0) out[idx++] = x;
+    }
+    return out;
+}`,
+    cpp: `vector<int> move_zeros(vector<int> nums) {
+    vector<int> out;
+    for (int x : nums)
+        if (x != 0) out.push_back(x);
+    while (out.size() < nums.size())
+        out.push_back(0);
+    return out;
+}`,
+  },
+
+  'Plus One': {
+    python: `def plus_one(digits):
+    n = len(digits)
+    for i in range(n - 1, -1, -1):
+        if digits[i] < 9:
+            digits[i] += 1
+            return digits
+        digits[i] = 0
+    return [1] + digits`,
+    java: `public int[] plus_one(int[] digits) {
+    int n = digits.length;
+    for (int i = n - 1; i >= 0; i--) {
+        if (digits[i] < 9) {
+            digits[i]++;
+            return digits;
+        }
+        digits[i] = 0;
+    }
+    int[] out = new int[n + 1];
+    out[0] = 1;
+    return out;
+}`,
+    cpp: `vector<int> plus_one(vector<int> digits) {
+    int n = digits.size();
+    for (int i = n - 1; i >= 0; i--) {
+        if (digits[i] < 9) {
+            digits[i]++;
+            return digits;
+        }
+        digits[i] = 0;
+    }
+    vector<int> out(n + 1, 0);
+    out[0] = 1;
+    return out;
+}`,
+  },
+
+  'Rotate Array': {
+    python: `def rotate_array(nums, k):
+    k = k % len(nums) if nums else 0
+    return nums[-k:] + nums[:-k] if k else nums`,
+    java: `public int[] rotate_array(int[] nums, int k) {
+    if (nums.length == 0) return nums;
+    k = k % nums.length;
+    int[] out = new int[nums.length];
+    for (int i = 0; i < nums.length; i++)
+        out[i] = nums[(nums.length - k + i) % nums.length];
+    return out;
+}`,
+    cpp: `vector<int> rotate_array(vector<int> nums, int k) {
+    if (nums.empty()) return nums;
+    k = k % nums.size();
+    vector<int> out(nums.size());
+    for (int i = 0; i < nums.size(); i++)
+        out[i] = nums[(nums.size() - k + i) % nums.size()];
+    return out;
+}`,
+  },
+
+  'Sliding Window Max Sum': {
+    python: `def window_max_sum(nums, k):
+    if not nums or k > len(nums):
+        return 0
+    window_sum = sum(nums[:k])
+    max_sum = window_sum
+    for i in range(k, len(nums)):
+        window_sum = window_sum - nums[i - k] + nums[i]
+        max_sum = max(max_sum, window_sum)
+    return max_sum`,
+    java: `public int window_max_sum(int[] nums, int k) {
+    if (nums.length == 0 || k > nums.length) return 0;
+    int sum = 0;
+    for (int i = 0; i < k; i++) sum += nums[i];
+    int max_sum = sum;
+    for (int i = k; i < nums.length; i++) {
+        sum = sum - nums[i - k] + nums[i];
+        max_sum = Math.max(max_sum, sum);
+    }
+    return max_sum;
+}`,
+    cpp: `int window_max_sum(vector<int> nums, int k) {
+    if (nums.empty() || k > nums.size()) return 0;
+    int sum = 0;
+    for (int i = 0; i < k; i++) sum += nums[i];
+    int max_sum = sum;
+    for (int i = k; i < nums.size(); i++) {
+        sum = sum - nums[i - k] + nums[i];
+        max_sum = max(max_sum, sum);
+    }
+    return max_sum;
+}`,
+  },
+
+  'Jump Game': {
+    python: `def jump_game(nums):
+    farthest = 0
+    for i in range(len(nums)):
+        if i > farthest:
+            return False
+        farthest = max(farthest, i + nums[i])
+    return True`,
+    java: `public boolean jump_game(int[] nums) {
+    int farthest = 0;
+    for (int i = 0; i < nums.length; i++) {
+        if (i > farthest) return false;
+        farthest = Math.max(farthest, i + nums[i]);
+    }
+    return true;
+}`,
+    cpp: `bool jump_game(vector<int> nums) {
+    int farthest = 0;
+    for (int i = 0; i < nums.size(); i++) {
+        if (i > farthest) return false;
+        farthest = max(farthest, i + nums[i]);
+    }
+    return true;
+}`,
+  },
+
+  'Valid Mountain Array': {
+    python: `def valid_mountain(nums):
+    n = len(nums)
+    if n < 3:
+        return False
+    i = 0
+    while i + 1 < n and nums[i] < nums[i + 1]:
+        i += 1
+    if i == 0 or i == n - 1:
+        return False
+    while i + 1 < n and nums[i] > nums[i + 1]:
+        i += 1
+    return i == n - 1`,
+    java: `public boolean valid_mountain(int[] nums) {
+    int n = nums.length;
+    if (n < 3) return false;
+    int i = 0;
+    while (i + 1 < n && nums[i] < nums[i + 1]) i++;
+    if (i == 0 || i == n - 1) return false;
+    while (i + 1 < n && nums[i] > nums[i + 1]) i++;
+    return i == n - 1;
+}`,
+    cpp: `bool valid_mountain(vector<int> nums) {
+    int n = nums.size();
+    if (n < 3) return false;
+    int i = 0;
+    while (i + 1 < n && nums[i] < nums[i + 1]) i++;
+    if (i == 0 || i == n - 1) return false;
+    while (i + 1 < n && nums[i] > nums[i + 1]) i++;
+    return i == n - 1;
+}`,
+  },
+
+  'Kth Largest Element': {
+    python: `def kth_largest(nums, k):
+    nums.sort(reverse=True)
+    return nums[k - 1]`,
+    java: `public int kth_largest(int[] nums, int k) {
+    int[] a = nums.clone();
+    java.util.Arrays.sort(a);
+    return a[a.length - k];
+}`,
+    cpp: `int kth_largest(vector<int> nums, int k) {
+    sort(nums.begin(), nums.end(), greater<int>());
+    return nums[k - 1];
+}`,
+  },
+
+  'Two Sum Sorted': {
+    python: `def two_sum_sorted(nums, target):
+    left, right = 0, len(nums) - 1
+    while left < right:
+        s = nums[left] + nums[right]
+        if s == target:
+            return [left + 1, right + 1]
+        elif s < target:
+            left += 1
+        else:
+            right -= 1
+    return []`,
+    java: `public int[] two_sum_sorted(int[] nums, int target) {
+    int left = 0, right = nums.length - 1;
+    while (left < right) {
+        int sum = nums[left] + nums[right];
+        if (sum == target) return new int[]{left + 1, right + 1};
+        else if (sum < target) left++;
+        else right--;
+    }
+    return new int[]{};
+}`,
+    cpp: `vector<int> two_sum_sorted(vector<int> nums, int target) {
+    int left = 0, right = nums.size() - 1;
+    while (left < right) {
+        int sum = nums[left] + nums[right];
+        if (sum == target) return {left + 1, right + 1};
+        else if (sum < target) left++;
+        else right--;
+    }
+    return {};
+}`,
+  },
+
+  'Longest Common Prefix': {
+    python: `def longest_common_prefix(strs):
+    if not strs:
+        return ""
+    for i in range(len(strs[0])):
+        c = strs[0][i]
+        for j in range(1, len(strs)):
+            if i >= len(strs[j]) or strs[j][i] != c:
+                return strs[0][:i]
+    return strs[0]`,
+    java: `public String longest_common_prefix(String[] strs) {
+    if (strs.length == 0) return "";
+    for (int i = 0; i < strs[0].length(); i++) {
+        char c = strs[0].charAt(i);
+        for (int j = 1; j < strs.length; j++) {
+            if (i >= strs[j].length() || strs[j].charAt(i) != c)
+                return strs[0].substring(0, i);
+        }
+    }
+    return strs[0];
+}`,
+    cpp: `string longest_common_prefix(vector<string> strs) {
+    if (strs.empty()) return "";
+    for (int i = 0; i < strs[0].size(); i++) {
+        char c = strs[0][i];
+        for (int j = 1; j < strs.size(); j++) {
+            if (i >= strs[j].size() || strs[j][i] != c)
+                return strs[0].substr(0, i);
+        }
+    }
+    return strs[0];
+}`,
+  },
+
+  'Longest Substring Without Repeat': {
+    python: `def longest_substring_no_repeat(s):
+    char_idx = {}
+    max_len = 0
+    start = 0
+    for i, c in enumerate(s):
+        if c in char_idx and char_idx[c] >= start:
+            start = char_idx[c] + 1
+        char_idx[c] = i
+        max_len = max(max_len, i - start + 1)
+    return max_len`,
+    java: `public long longest_substring_no_repeat(String s) {
+    java.util.Map<Character, Integer> map = new java.util.HashMap<>();
+    long max_len = 0;
+    int start = 0;
+    for (int i = 0; i < s.length(); i++) {
+        char c = s.charAt(i);
+        if (map.containsKey(c) && map.get(c) >= start)
+            start = map.get(c) + 1;
+        map.put(c, i);
+        max_len = Math.max(max_len, i - start + 1);
+    }
+    return max_len;
+}`,
+    cpp: `long long longest_substring_no_repeat(string s) {
+    unordered_map<char, int> mp;
+    long long max_len = 0;
+    int start = 0;
+    for (int i = 0; i < s.size(); i++) {
+        if (mp.find(s[i]) != mp.end() && mp[s[i]] >= start)
+            start = mp[s[i]] + 1;
+        mp[s[i]] = i;
+        max_len = max(max_len, (long long)(i - start + 1));
+    }
+    return max_len;
+}`,
+  },
+
+  'String Compression': {
+    python: `def compress_string(s):
+    if not s:
+        return ""
+    out = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        count = 0
+        while i < len(s) and s[i] == c:
+            count += 1
+            i += 1
+        out.append(c)
+        if count > 1:
+            out.append(str(count))
+    return "".join(out)`,
+    java: `public String compress_string(String s) {
+    if (s.isEmpty()) return "";
+    StringBuilder out = new StringBuilder();
+    int i = 0;
+    while (i < s.length()) {
+        char c = s.charAt(i);
+        int count = 0;
+        while (i < s.length() && s.charAt(i) == c) {
+            count++;
+            i++;
+        }
+        out.append(c);
+        if (count > 1) out.append(count);
+    }
+    return out.toString();
+}`,
+    cpp: `string compress_string(string s) {
+    if (s.empty()) return "";
+    string out = "";
+    int i = 0;
+    while (i < s.size()) {
+        char c = s[i];
+        int count = 0;
+        while (i < s.size() && s[i] == c) {
+            count++;
+            i++;
+        }
+        out += c;
+        if (count > 1) out += to_string(count);
+    }
+    return out;
+}`,
+  },
+
+  'Isomorphic Strings': {
+    python: `def isomorphic_strings(s, t):
+    if len(s) != len(t):
+        return False
+    s_to_t = {}
+    t_to_s = {}
+    for c1, c2 in zip(s, t):
+        if c1 in s_to_t:
+            if s_to_t[c1] != c2:
+                return False
+        else:
+            s_to_t[c1] = c2
+        if c2 in t_to_s:
+            if t_to_s[c2] != c1:
+                return False
+        else:
+            t_to_s[c2] = c1
+    return True`,
+    java: `public boolean isomorphic_strings(String s, String t) {
+    if (s.length() != t.length()) return false;
+    java.util.Map<Character, Character> st = new java.util.HashMap<>();
+    java.util.Map<Character, Character> ts = new java.util.HashMap<>();
+    for (int i = 0; i < s.length(); i++) {
+        char c1 = s.charAt(i), c2 = t.charAt(i);
+        if (st.containsKey(c1) && st.get(c1) != c2) return false;
+        if (ts.containsKey(c2) && ts.get(c2) != c1) return false;
+        st.put(c1, c2);
+        ts.put(c2, c1);
+    }
+    return true;
+}`,
+    cpp: `bool isomorphic_strings(string s, string t) {
+    if (s.size() != t.size()) return false;
+    unordered_map<char, char> st, ts;
+    for (int i = 0; i < s.size(); i++) {
+        if (st.count(s[i]) && st[s[i]] != t[i]) return false;
+        if (ts.count(t[i]) && ts[t[i]] != s[i]) return false;
+        st[s[i]] = t[i];
+        ts[t[i]] = s[i];
+    }
+    return true;
+}`,
+  },
+
+  'Word Pattern': {
+    python: `def word_pattern(pattern, words):
+    if len(pattern) != len(words):
+        return False
+    p_to_w = {}
+    w_to_p = {}
+    for p, w in zip(pattern, words):
+        if p in p_to_w:
+            if p_to_w[p] != w:
+                return False
+        else:
+            p_to_w[p] = w
+        if w in w_to_p:
+            if w_to_p[w] != p:
+                return False
+        else:
+            w_to_p[w] = p
+    return True`,
+    java: `public boolean word_pattern(String pattern, String[] words) {
+    if (pattern.length() != words.length) return false;
+    java.util.Map<Character, String> pw = new java.util.HashMap<>();
+    java.util.Map<String, Character> wp = new java.util.HashMap<>();
+    for (int i = 0; i < pattern.length(); i++) {
+        char p = pattern.charAt(i);
+        String w = words[i];
+        if (pw.containsKey(p) && !pw.get(p).equals(w)) return false;
+        if (wp.containsKey(w) && wp.get(w) != p) return false;
+        pw.put(p, w);
+        wp.put(w, p);
+    }
+    return true;
+}`,
+    cpp: `bool word_pattern(string pattern, vector<string> words) {
+    if (pattern.size() != words.size()) return false;
+    unordered_map<char, string> pw;
+    unordered_map<string, char> wp;
+    for (int i = 0; i < pattern.size(); i++) {
+        char p = pattern[i];
+        string w = words[i];
+        if (pw.count(p) && pw[p] != w) return false;
+        if (wp.count(w) && wp[w] != p) return false;
+        pw[p] = w;
+        wp[w] = p;
+    }
+    return true;
+}`,
+  },
+
+  'Rotate String': {
+    python: `def rotate_string(s, goal):
+    return len(s) == len(goal) and goal in (s + s)`,
+    java: `public boolean rotate_string(String s, String goal) {
+    return s.length() == goal.length() && (s + s).contains(goal);
+}`,
+    cpp: `bool rotate_string(string s, string goal) {
+    return s.size() == goal.size() && (s + s).find(goal) != string::npos;
+}`,
+  },
+
+  'String to Integer': {
+    python: `def atoi(s):
+    s = s.lstrip()
+    if not s:
+        return 0
+    sign = 1
+    idx = 0
+    if s[0] in ('+', '-'):
+        if s[0] == '-':
+            sign = -1
+        idx = 1
+    num = 0
+    while idx < len(s) and s[idx].isdigit():
+        num = num * 10 + int(s[idx])
+        idx += 1
+    num *= sign
+    return max(-2147483648, min(2147483647, num))`,
+    java: `public long atoi(String s) {
+    s = s.replaceFirst("^\\\\s+", "");
+    if (s.isEmpty()) return 0;
+    int sign = 1, idx = 0;
+    if (s.charAt(0) == '-' || s.charAt(0) == '+') {
+        if (s.charAt(0) == '-') sign = -1;
+        idx = 1;
+    }
+    long num = 0;
+    while (idx < s.length() && Character.isDigit(s.charAt(idx))) {
+        num = num * 10 + (s.charAt(idx) - '0');
+        idx++;
+    }
+    num *= sign;
+    return Math.max(-2147483648L, Math.min(2147483647L, num));
+}`,
+    cpp: `long long atoi(string s) {
+    int i = 0;
+    while (i < s.size() && s[i] == ' ') i++;
+    if (i == s.size()) return 0;
+    int sign = 1;
+    if (s[i] == '-' || s[i] == '+') {
+        if (s[i] == '-') sign = -1;
+        i++;
+    }
+    long long num = 0;
+    while (i < s.size() && isdigit(s[i])) {
+        num = num * 10 + (s[i] - '0');
+        i++;
+    }
+    num *= sign;
+    return max(-2147483648LL, min(2147483647LL, num));
+}`,
+  },
+
+  'First Unique Character': {
+    python: `def first_unique_char(s):
+    from collections import Counter
+    counts = Counter(s)
+    for i, c in enumerate(s):
+        if counts[c] == 1:
+            return i
+    return -1`,
+    java: `public long first_unique_char(String s) {
+    java.util.Map<Character, Integer> map = new java.util.HashMap<>();
+    for (char c : s.toCharArray())
+        map.put(c, map.getOrDefault(c, 0) + 1);
+    for (int i = 0; i < s.length(); i++)
+        if (map.get(s.charAt(i)) == 1) return i;
+    return -1;
+}`,
+    cpp: `long long first_unique_char(string s) {
+    unordered_map<char, int> mp;
+    for (char c : s) mp[c]++;
+    for (int i = 0; i < s.size(); i++)
+        if (mp[s[i]] == 1) return i;
+    return -1;
+}`,
+  },
+
+  'Group Anagrams Count': {
+    python: `def group_anagrams_count(strs):
+    from collections import defaultdict
+    groups = defaultdict(set)
+    for w in strs:
+        key = "".join(sorted(w))
+        groups[key].add(w)
+    return len(groups)`,
+    java: `public long group_anagrams_count(String[] strs) {
+    java.util.Map<String, Integer> map = new java.util.HashMap<>();
+    for (String w : strs) {
+        char[] ch = w.toCharArray();
+        java.util.Arrays.sort(ch);
+        String key = new String(ch);
+        map.put(key, map.getOrDefault(key, 0) + 1);
+    }
+    return map.size();
+}`,
+    cpp: `long long group_anagrams_count(vector<string> strs) {
+    unordered_map<string, int> mp;
+    for (string w : strs) {
+        sort(w.begin(), w.end());
+        mp[w]++;
+    }
+    return mp.size();
+}`,
+  },
+
+  'Unique Paths': {
+    python: `def unique_paths(m, n):
+    dp = [[1] * n for _ in range(m)]
+    for i in range(1, m):
+        for j in range(1, n):
+            dp[i][j] = dp[i - 1][j] + dp[i][j - 1]
+    return dp[m - 1][n - 1]`,
+    java: `public long unique_paths(long m, long n) {
+    long[][] dp = new long[(int)m][(int)n];
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i == 0 || j == 0) dp[i][j] = 1;
+            else dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+        }
+    }
+    return dp[(int)m - 1][(int)n - 1];
+}`,
+    cpp: `long long unique_paths(long long m, long long n) {
+    vector<vector<long long>> dp(m, vector<long long>(n, 1));
+    for (int i = 1; i < m; i++) {
+        for (int j = 1; j < n; j++) {
+            dp[i][j] = dp[i - 1][j] + dp[i][j - 1];
+        }
+    }
+    return dp[m - 1][n - 1];
+}`,
+  },
+
+  'Trapping Rain Water': {
+    python: `def trap_rain_water(heights):
+    if not heights:
+        return 0
+    n = len(heights)
+    left_max = [0] * n
+    right_max = [0] * n
+    left_max[0] = heights[0]
+    for i in range(1, n):
+        left_max[i] = max(left_max[i - 1], heights[i])
+    right_max[n - 1] = heights[n - 1]
+    for i in range(n - 2, -1, -1):
+        right_max[i] = max(right_max[i + 1], heights[i])
+    water = 0
+    for i in range(n):
+        water += min(left_max[i], right_max[i]) - heights[i]
+    return water`,
+    java: `public long trap_rain_water(int[] heights) {
+    if (heights.length == 0) return 0;
+    int n = heights.length;
+    int[] left_max = new int[n], right_max = new int[n];
+    left_max[0] = heights[0];
+    for (int i = 1; i < n; i++)
+        left_max[i] = Math.max(left_max[i - 1], heights[i]);
+    right_max[n - 1] = heights[n - 1];
+    for (int i = n - 2; i >= 0; i--)
+        right_max[i] = Math.max(right_max[i + 1], heights[i]);
+    long water = 0;
+    for (int i = 0; i < n; i++)
+        water += Math.min(left_max[i], right_max[i]) - heights[i];
+    return water;
+}`,
+    cpp: `long long trap_rain_water(vector<int> heights) {
+    if (heights.empty()) return 0;
+    int n = heights.size();
+    vector<int> left_max(n), right_max(n);
+    left_max[0] = heights[0];
+    for (int i = 1; i < n; i++)
+        left_max[i] = max(left_max[i - 1], heights[i]);
+    right_max[n - 1] = heights[n - 1];
+    for (int i = n - 2; i >= 0; i--)
+        right_max[i] = max(right_max[i + 1], heights[i]);
+    long long water = 0;
+    for (int i = 0; i < n; i++)
+        water += min(left_max[i], right_max[i]) - heights[i];
+    return water;
+}`,
+  },
+
+  'Edit Distance': {
+    python: `def edit_distance(word1, word2):
+    m, n = len(word1), len(word2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if word1[i - 1] == word2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    return dp[m][n]`,
+    java: `public long edit_distance(String word1, String word2) {
+    int m = word1.length(), n = word2.length();
+    int[][] dp = new int[m + 1][n + 1];
+    for (int i = 0; i <= m; i++) dp[i][0] = i;
+    for (int j = 0; j <= n; j++) dp[0][j] = j;
+    for (int i = 1; i <= m; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (word1.charAt(i - 1) == word2.charAt(j - 1))
+                dp[i][j] = dp[i - 1][j - 1];
+            else
+                dp[i][j] = 1 + Math.min(dp[i - 1][j], Math.min(dp[i][j - 1], dp[i - 1][j - 1]));
+        }
+    }
+    return dp[m][n];
+}`,
+    cpp: `long long edit_distance(string word1, string word2) {
+    int m = word1.size(), n = word2.size();
+    vector<vector<int>> dp(m + 1, vector<int>(n + 1, 0));
+    for (int i = 0; i <= m; i++) dp[i][0] = i;
+    for (int j = 0; j <= n; j++) dp[0][j] = j;
+    for (int i = 1; i <= m; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (word1[i - 1] == word2[j - 1])
+                dp[i][j] = dp[i - 1][j - 1];
+            else
+                dp[i][j] = 1 + min({dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]});
+        }
+    }
+    return dp[m][n];
+}`,
+  },
+
+  'Longest Palindromic Substring Length': {
+    python: `def longest_palindromic_length(s):
+    if not s:
+        return 0
+    def expand(l, r):
+        while l >= 0 and r < len(s) and s[l] == s[r]:
+            l -= 1
+            r += 1
+        return r - l - 1
+    max_len = 0
+    for i in range(len(s)):
+        len1 = expand(i, i)
+        len2 = expand(i, i + 1)
+        max_len = max(max_len, len1, len2)
+    return max_len`,
+    java: `public long longest_palindromic_length(String s) {
+    if (s.isEmpty()) return 0;
+    int max_len = 0;
+    for (int i = 0; i < s.length(); i++) {
+        int len1 = expand(s, i, i);
+        int len2 = expand(s, i, i + 1);
+        max_len = Math.max(max_len, Math.max(len1, len2));
+    }
+    return max_len;
+}
+private int expand(String s, int l, int r) {
+    while (l >= 0 && r < s.length() && s.charAt(l) == s.charAt(r)) {
+        l--;
+        r++;
+    }
+    return r - l - 1;
+}`,
+    cpp: `long long longest_palindromic_length(string s) {
+    if (s.empty()) return 0;
+    auto expand = [&](int l, int r) {
+        while (l >= 0 && r < s.size() && s[l] == s[r]) {
+            l--;
+            r++;
+        }
+        return r - l - 1;
+    };
+    int max_len = 0;
+    for (int i = 0; i < s.size(); i++) {
+        max_len = max({max_len, expand(i, i), expand(i, i + 1)});
+    }
+    return max_len;
+}`,
+  },
+
+  'Longest Valid Parentheses': {
+    python: `def longest_valid_parens(s):
+    dp = [0] * len(s)
+    max_len = 0
+    for i in range(1, len(s)):
+        if s[i] == ')':
+            if s[i - 1] == '(':
+                dp[i] = (dp[i - 2] if i >= 2 else 0) + 2
+            elif dp[i - 1] > 0:
+                if i - dp[i - 1] - 1 >= 0 and s[i - dp[i - 1] - 1] == '(':
+                    dp[i] = dp[i - 1] + 2 + (dp[i - dp[i - 1] - 2] if i - dp[i - 1] - 2 >= 0 else 0)
+            max_len = max(max_len, dp[i])
+    return max_len`,
+    java: `public long longest_valid_parens(String s) {
+    int[] dp = new int[s.length()];
+    long max_len = 0;
+    for (int i = 1; i < s.length(); i++) {
+        if (s.charAt(i) == ')') {
+            if (s.charAt(i - 1) == '(') {
+                dp[i] = (i >= 2 ? dp[i - 2] : 0) + 2;
+            } else if (dp[i - 1] > 0) {
+                int left = i - dp[i - 1] - 1;
+                if (left >= 0 && s.charAt(left) == '(') {
+                    dp[i] = dp[i - 1] + 2 + (left > 0 ? dp[left - 1] : 0);
+                }
+            }
+            max_len = Math.max(max_len, dp[i]);
+        }
+    }
+    return max_len;
+}`,
+    cpp: `long long longest_valid_parens(string s) {
+    vector<int> dp(s.size(), 0);
+    long long max_len = 0;
+    for (int i = 1; i < s.size(); i++) {
+        if (s[i] == ')') {
+            if (s[i - 1] == '(') {
+                dp[i] = (i >= 2 ? dp[i - 2] : 0) + 2;
+            } else if (dp[i - 1] > 0) {
+                int left = i - dp[i - 1] - 1;
+                if (left >= 0 && s[left] == '(') {
+                    dp[i] = dp[i - 1] + 2 + (left > 0 ? dp[left - 1] : 0);
+                }
+            }
+            max_len = max(max_len, (long long)dp[i]);
+        }
+    }
+    return max_len;
+}`,
+  },
+
+  'Sliding Window Maximum': {
+    python: `def sliding_window_max(nums, k):
+    from collections import deque
+    dq = deque()
+    out = []
+    for i, x in enumerate(nums):
+        while dq and dq[0][1] < i - k + 1:
+            dq.popleft()
+        while dq and dq[-1][0] <= x:
+            dq.pop()
+        dq.append((x, i))
+        if i >= k - 1:
+            out.append(dq[0][0])
+    return out`,
+    java: `public int[] sliding_window_max(int[] nums, int k) {
+    java.util.Deque<Integer> dq = new java.util.LinkedList<>();
+    int[] out = new int[nums.length - k + 1];
+    int idx = 0;
+    for (int i = 0; i < nums.length; i++) {
+        while (!dq.isEmpty() && dq.peekFirst() < i - k + 1)
+            dq.pollFirst();
+        while (!dq.isEmpty() && nums[dq.peekLast()] <= nums[i])
+            dq.pollLast();
+        dq.offerLast(i);
+        if (i >= k - 1)
+            out[idx++] = nums[dq.peekFirst()];
+    }
+    return out;
+}`,
+    cpp: `vector<int> sliding_window_max(vector<int> nums, int k) {
+    deque<int> dq;
+    vector<int> out;
+    for (int i = 0; i < nums.size(); i++) {
+        while (!dq.empty() && dq.front() < i - k + 1)
+            dq.pop_front();
+        while (!dq.empty() && nums[dq.back()] <= nums[i])
+            dq.pop_back();
+        dq.push_back(i);
+        if (i >= k - 1)
+            out.push_back(nums[dq.front()]);
+    }
+    return out;
+}`,
+  },
+
+  'Partition Equal Subset Sum': {
+    python: `def partition_equal_subset(nums):
+    total = sum(nums)
+    if total % 2:
+        return False
+    target = total // 2
+    dp = [False] * (target + 1)
+    dp[0] = True
+    for num in nums:
+        for j in range(target, num - 1, -1):
+            dp[j] = dp[j] or dp[j - num]
+    return dp[target]`,
+    java: `public boolean partition_equal_subset(int[] nums) {
+    int total = 0;
+    for (int x : nums) total += x;
+    if (total % 2 == 1) return false;
+    int target = total / 2;
+    boolean[] dp = new boolean[target + 1];
+    dp[0] = true;
+    for (int num : nums) {
+        for (int j = target; j >= num; j--)
+            dp[j] = dp[j] || dp[j - num];
+    }
+    return dp[target];
+}`,
+    cpp: `bool partition_equal_subset(vector<int> nums) {
+    int total = 0;
+    for (int x : nums) total += x;
+    if (total % 2) return false;
+    int target = total / 2;
+    vector<bool> dp(target + 1, false);
+    dp[0] = true;
+    for (int num : nums) {
+        for (int j = target; j >= num; j--)
+            dp[j] = dp[j] || dp[j - num];
+    }
+    return dp[target];
+}`,
+  },
+
+  'Decode Ways': {
+    python: `def decode_ways(s):
+    if not s or s[0] == '0':
+        return 0
+    dp = [0] * len(s)
+    dp[0] = 1
+    for i in range(1, len(s)):
+        if s[i] != '0':
+            dp[i] = dp[i - 1]
+        if i > 0 and 10 <= int(s[i - 1:i + 1]) <= 26:
+            dp[i] += dp[i - 2] if i >= 2 else 1
+    return dp[-1]`,
+    java: `public long decode_ways(String s) {
+    if (s.isEmpty() || s.charAt(0) == '0') return 0;
+    long[] dp = new long[s.length()];
+    dp[0] = 1;
+    for (int i = 1; i < s.length(); i++) {
+        if (s.charAt(i) != '0')
+            dp[i] = dp[i - 1];
+        int two = Integer.parseInt(s.substring(i - 1, i + 1));
+        if (10 <= two && two <= 26)
+            dp[i] += i >= 2 ? dp[i - 2] : 1;
+    }
+    return dp[s.length() - 1];
+}`,
+    cpp: `long long decode_ways(string s) {
+    if (s.empty() || s[0] == '0') return 0;
+    vector<long long> dp(s.size(), 0);
+    dp[0] = 1;
+    for (int i = 1; i < s.size(); i++) {
+        if (s[i] != '0')
+            dp[i] = dp[i - 1];
+        int two = stoi(s.substr(i - 1, 2));
+        if (10 <= two && two <= 26)
+            dp[i] += i >= 2 ? dp[i - 2] : 1;
+    }
+    return dp[s.size() - 1];
+}`,
+  },
+
+  'Regular Expression Match': {
+    python: `def regex_match(s, p):
+    memo = {}
+    def dp(i, j):
+        if (i, j) in memo:
+            return memo[(i, j)]
+        if j == len(p):
+            return i == len(s)
+        first = i < len(s) and (s[i] == p[j] or p[j] == '.')
+        if j + 1 < len(p) and p[j + 1] == '*':
+            res = (first and dp(i + 1, j)) or dp(i, j + 2)
+        else:
+            res = first and dp(i + 1, j + 1)
+        memo[(i, j)] = res
+        return res
+    return dp(0, 0)`,
+    java: `public boolean regex_match(String s, String p) {
+    return dp(s, p, 0, 0, new java.util.HashMap<>());
+}
+private boolean dp(String s, String p, int i, int j, java.util.Map<String, Boolean> memo) {
+    String key = i + "," + j;
+    if (memo.containsKey(key)) return memo.get(key);
+    if (j == p.length()) return i == s.length();
+    boolean first = i < s.length() && (s.charAt(i) == p.charAt(j) || p.charAt(j) == '.');
+    boolean result;
+    if (j + 1 < p.length() && p.charAt(j + 1) == '*') {
+        result = (first && dp(s, p, i + 1, j, memo)) || dp(s, p, i, j + 2, memo);
+    } else {
+        result = first && dp(s, p, i + 1, j + 1, memo);
+    }
+    memo.put(key, result);
+    return result;
+}`,
+    cpp: `bool regex_match(string s, string p) {
+    unordered_map<string, bool> memo;
+    function<bool(int, int)> dp = [&](int i, int j) {
+        string key = to_string(i) + "," + to_string(j);
+        if (memo.count(key)) return memo[key];
+        if (j == p.size()) return i == s.size();
+        bool first = i < s.size() && (s[i] == p[j] || p[j] == '.');
+        bool result;
+        if (j + 1 < p.size() && p[j + 1] == '*') {
+            result = (first && dp(i + 1, j)) || dp(i, j + 2);
+        } else {
+            result = first && dp(i + 1, j + 1);
+        }
+        return memo[key] = result;
+    };
+    return dp(0, 0);
+}`,
+  },
+
+  'Kth Smallest in Matrix': {
+    python: `def kth_smallest_matrix(matrix, k):
+    import heapq
+    heap = [(matrix[0][0], 0, 0)]
+    visited = {(0, 0)}
+    while k > 1:
+        _, i, j = heapq.heappop(heap)
+        for di, dj in [(0, 1), (1, 0)]:
+            ni, nj = i + di, j + dj
+            if ni < len(matrix) and nj < len(matrix[0]) and (ni, nj) not in visited:
+                heapq.heappush(heap, (matrix[ni][nj], ni, nj))
+                visited.add((ni, nj))
+        k -= 1
+    return heap[0][0]`,
+    java: `public int kth_smallest_matrix(int[][] matrix, int k) {
+    java.util.PriorityQueue<int[]> heap = new java.util.PriorityQueue<>((a, b) -> Integer.compare(a[0], b[0]));
+    java.util.Set<String> visited = new java.util.HashSet<>();
+    heap.offer(new int[]{matrix[0][0], 0, 0});
+    visited.add("0,0");
+    while (k > 1) {
+        int[] cur = heap.poll();
+        int i = cur[1], j = cur[2];
+        for (int[] d : new int[][]{{0, 1}, {1, 0}}) {
+            int ni = i + d[0], nj = j + d[1];
+            if (ni < matrix.length && nj < matrix[0].length && !visited.contains(ni + "," + nj)) {
+                heap.offer(new int[]{matrix[ni][nj], ni, nj});
+                visited.add(ni + "," + nj);
+            }
+        }
+        k--;
+    }
+    return heap.peek()[0];
+}`,
+    cpp: `int kth_smallest_matrix(vector<vector<int>> matrix, int k) {
+    priority_queue<tuple<int,int,int>, vector<tuple<int,int,int>>, greater<tuple<int,int,int>>> heap;
+    set<pair<int,int>> visited;
+    heap.push({matrix[0][0], 0, 0});
+    visited.insert({0, 0});
+    while (k > 1) {
+        auto [val, i, j] = heap.top();
+        heap.pop();
+        for (auto [di, dj] : vector<pair<int,int>>{{0, 1}, {1, 0}}) {
+            int ni = i + di, nj = j + dj;
+            if (ni < matrix.size() && nj < matrix[0].size() && !visited.count({ni, nj})) {
+                heap.push({matrix[ni][nj], ni, nj});
+                visited.insert({ni, nj});
+            }
+        }
+        k--;
+    }
+    return get<0>(heap.top());
+}`,
+  },
+
 };
