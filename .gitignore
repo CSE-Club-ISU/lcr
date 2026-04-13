@@ -44,6 +44,10 @@ bun-debug.log*
 /tmp/
 auth/token-store.json
 
+# Deploy state (per-machine; written by deploy/start scripts)
+deploy/.lcr-state
+deploy/*.pem
+
 # BeatCode reference repos
 beatcode_client/
 beatcode_server/
