@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSpacetimeDB } from 'spacetimedb/react';
+import { Play, RotateCcw } from 'lucide-react';
 import CodeEditor from '../problem/CodeEditor';
 import { type Language, loadSavedLang, saveLang } from '../../utils/languages';
 import type { SandboxResponse } from '../../utils/executor-types';
@@ -107,7 +108,9 @@ export default function SandboxTab() {
       </div>
 
       {/* Output */}
-      <StatusBox entries={status.entries} />
+      <div style={{ border: '1px solid var(--color-hairline)' }} className="rounded-md overflow-hidden">
+        <StatusBox entries={status.entries} />
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2.5 shrink-0">
@@ -117,22 +120,23 @@ export default function SandboxTab() {
             setResetCount(c => c + 1);
             status.clear();
           }}
-          className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface"
+          className="btn-ghost"
         >
-          ↺ Reset
+          <RotateCcw size={13} /> Reset
         </button>
         <button
           onClick={runCode}
           disabled={running}
-          className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
+          className="btn-editorial flex-1 justify-center"
+          style={{ opacity: running ? 0.5 : 1 }}
         >
-          {running ? 'Running…' : '▷ Run'}
+          <Play size={13} /> {running ? 'Running…' : 'Run'}
         </button>
       </div>
 
       <p className="text-[11px] text-text-faint shrink-0">
         stdin is not available — programs run to completion with no input.
-        {lang === 'java' && <> Java class must be named <code className="font-mono">Main</code>.</>}
+        {lang === 'java' && <> Java class must be named <code style={{ fontFamily: 'var(--font-mono)' }}>Main</code>.</>}
       </p>
     </div>
   );

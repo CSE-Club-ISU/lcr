@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSpacetimeDB } from 'spacetimedb/react';
+import { ChevronDown, Play, RotateCcw, Search } from 'lucide-react';
 import { tables } from '../module_bindings';
 import type { Problem } from '../module_bindings/types';
 import { useTypedTable } from '../utils/useTypedTable';
@@ -63,37 +64,40 @@ function ProblemPicker({ problems, selected, onSelect }: ProblemPickerProps) {
     setQuery('');
   }
 
+  const diffDot = (d: string) =>
+    d === 'easy' ? 'var(--color-green)' : d === 'hard' ? 'var(--color-accent)' : 'var(--color-gold-bright)';
+
   return (
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 border border-border bg-surface rounded-lg px-3 py-1.5 text-[13px] text-text cursor-pointer hover:bg-surface-alt max-w-56 min-w-40"
+        className="flex items-center gap-2.5 px-3 py-1.5 text-[13px] text-text cursor-pointer max-w-64 min-w-44 rounded-md transition-colors"
+        style={{ border: '1px solid var(--color-hairline-strong)', background: 'transparent' }}
       >
         {selected ? (
           <>
-            <span className={`text-[11px] font-semibold shrink-0 ${
-              selected.difficulty === 'easy' ? 'text-green' :
-              selected.difficulty === 'hard' ? 'text-red' : 'text-yellow'
-            }`}>
-              {selected.difficulty[0].toUpperCase()}
-            </span>
-            <span className="truncate">{selected.title}</span>
+            <span className="block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: diffDot(selected.difficulty) }} />
+            <span className="truncate" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>{selected.title}</span>
           </>
         ) : (
           <span className="text-text-muted">Select problem…</span>
         )}
-        <span className="ml-auto text-text-faint text-[10px] shrink-0">▾</span>
+        <ChevronDown size={12} className="ml-auto text-text-faint shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 w-80 bg-surface border border-border rounded-xl shadow-lg flex flex-col overflow-hidden">
-          <div className="px-3 pt-3 pb-2 border-b border-border">
+        <div
+          className="absolute left-0 top-full mt-2 z-50 w-80 flex flex-col overflow-hidden rounded-md"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-hairline-strong)', boxShadow: 'var(--shadow-md)' }}
+        >
+          <div className="px-3 pt-3 pb-2 flex items-center gap-2" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+            <Search size={13} className="text-text-faint" />
             <input
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search problems…"
-              className="w-full bg-surface-alt border border-border rounded-lg px-3 py-1.5 text-[13px] text-text placeholder:text-text-faint outline-none focus:border-border-strong"
+              className="w-full bg-transparent text-[13px] text-text placeholder:text-text-faint outline-none border-0"
             />
           </div>
           <div className="overflow-y-auto max-h-64">
@@ -104,18 +108,13 @@ function ProblemPicker({ problems, selected, onSelect }: ProblemPickerProps) {
                 <button
                   key={String(p.id)}
                   onClick={() => handleSelect(p)}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] border-none cursor-pointer transition-colors ${
-                    p.id === selected?.id
-                      ? 'bg-accent-soft text-text'
-                      : 'bg-transparent text-text hover:bg-surface-alt'
-                  }`}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] border-none cursor-pointer transition-colors"
+                  style={{
+                    background: p.id === selected?.id ? 'rgba(192, 39, 45, 0.06)' : 'transparent',
+                    color: 'var(--color-text)',
+                  }}
                 >
-                  <span className={`text-[10px] font-bold w-5 shrink-0 ${
-                    p.difficulty === 'easy' ? 'text-green' :
-                    p.difficulty === 'hard' ? 'text-red' : 'text-yellow'
-                  }`}>
-                    {p.difficulty[0].toUpperCase()}
-                  </span>
+                  <span className="block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: diffDot(p.difficulty) }} />
                   <span className="truncate">{p.title}</span>
                 </button>
               ))
@@ -286,35 +285,54 @@ export default function PracticeScreen() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-0 h-[calc(100vh-120px)]">
-      {/* Tab bar */}
-      <div className="flex gap-1 mb-3 border-b border-border shrink-0">
-        {(Object.keys(TAB_LABELS) as PracticeTab[]).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={[
-              'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 -mb-px transition-colors cursor-pointer',
-              activeTab === tab
-                ? 'border-accent text-accent bg-accent-soft'
-                : 'border-transparent text-text-muted hover:text-text hover:bg-surface',
-            ].join(' ')}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
+    <div className="enter-fade flex flex-col gap-0 h-[calc(100vh-120px)]">
+      {/* Editorial tab strip */}
+      <div className="flex items-center gap-6 mb-5 shrink-0" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+        {(Object.keys(TAB_LABELS) as PracticeTab[]).map(tab => {
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="px-1 pb-3 -mb-px text-[13px] cursor-pointer transition-colors"
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontStyle: active ? 'italic' : 'normal',
+                fontWeight: active ? 500 : 400,
+                color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
+                borderBottom: active ? '1px solid var(--color-gold-bright)' : '1px solid transparent',
+              }}
+            >
+              {TAB_LABELS[tab]}
+            </button>
+          );
+        })}
       </div>
 
       {/* Coding tab */}
       {activeTab === 'coding' && (
         <>
           {/* Top bar */}
-          <div className="card px-5 py-3 mb-3 flex items-center justify-between gap-4">
+          <div
+            className="px-5 py-3 mb-4 flex items-center justify-between gap-4 rounded-md"
+            style={{ border: '1px solid var(--color-hairline)' }}
+          >
             <div className="flex items-center gap-3 min-w-0">
               {problem && (
                 <>
-                  <Pill label={problem.difficulty} color={difficultyColor(problem.difficulty)} />
-                  <span className="font-bold text-[15px] text-text truncate">{problem.title}</span>
+                  <Pill label={problem.difficulty} color={difficultyColor(problem.difficulty)} variant="hairline" />
+                  <span
+                    className="truncate"
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontStyle: 'italic',
+                      fontSize: 17,
+                      color: 'var(--color-text)',
+                      fontVariationSettings: '"opsz" 144',
+                    }}
+                  >
+                    {problem.title}
+                  </span>
                 </>
               )}
               {!problem && <span className="text-text-muted text-sm">Loading…</span>}
@@ -326,20 +344,22 @@ export default function PracticeScreen() {
               onSelect={selectProblem}
             />
 
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="text-center">
-                <div className="text-[11px] text-text-muted">TIME</div>
-                <div className="font-extrabold text-lg tracking-tight text-text font-mono">{timeStr}</div>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="flex flex-col items-end leading-none">
+                <span className="label-eyebrow" style={{ fontSize: 9 }}>Time</span>
+                <span className="mono-tabular tracking-tight" style={{ fontSize: 18 }}>{timeStr}</span>
               </div>
               <button
                 onClick={toggleTimer}
-                className="text-[12px] text-text border border-border bg-surface rounded-lg px-3 py-1 cursor-pointer hover:bg-surface-alt w-16"
+                className="text-[12px] text-text px-3 py-1 cursor-pointer rounded-sm transition-colors"
+                style={{ border: '1px solid var(--color-hairline-strong)', background: 'transparent', minWidth: 60 }}
               >
                 {isRunning ? 'Pause' : 'Start'}
               </button>
               <button
                 onClick={resetTimer}
-                className="text-[12px] text-text-faint border border-border bg-transparent rounded-lg px-3 py-1 cursor-pointer hover:text-text"
+                className="text-[12px] text-text-faint px-3 py-1 cursor-pointer rounded-sm hover:text-text transition-colors"
+                style={{ background: 'transparent', border: 'none' }}
               >
                 Reset
               </button>
@@ -347,7 +367,7 @@ export default function PracticeScreen() {
           </div>
 
           {/* Main split */}
-          <div className="flex gap-3 flex-1 min-h-0">
+          <div className="flex gap-4 flex-1 min-h-0">
             <ProblemPanel problem={problem} />
             <div className="flex-1 flex flex-col gap-3 min-h-0">
               {problem && (
@@ -365,22 +385,26 @@ export default function PracticeScreen() {
                 />
               )}
 
-              <StatusBox entries={status.entries} />
+              <div style={{ border: '1px solid var(--color-hairline)' }} className="rounded-md overflow-hidden">
+                <StatusBox entries={status.entries} />
+              </div>
 
               <div className="flex gap-2.5 shrink-0">
                 <button
                   onClick={resetCode}
                   disabled={!problem}
-                  className="py-[11px] px-5 rounded-[10px] border border-border bg-transparent text-text-muted font-bold text-sm cursor-pointer hover:text-text hover:bg-surface disabled:opacity-50"
+                  className="btn-ghost"
+                  style={{ opacity: !problem ? 0.4 : 1 }}
                 >
-                  ↺ Reset
+                  <RotateCcw size={13} /> Reset
                 </button>
                 <button
                   onClick={runTests}
                   disabled={!problem || running}
-                  className="flex-1 py-[11px] rounded-[10px] border border-border bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-alt disabled:opacity-50"
+                  className="btn-editorial flex-1 justify-center"
+                  style={{ opacity: !problem || running ? 0.5 : 1 }}
                 >
-                  {running ? 'Running…' : '▷ Run Tests'}
+                  <Play size={13} /> {running ? 'Running…' : 'Run tests'}
                 </button>
               </div>
             </div>
@@ -393,7 +417,7 @@ export default function PracticeScreen() {
 
       {/* Quiz tab */}
       {activeTab === 'quiz' && (
-        <div className="card flex-1 min-h-0 overflow-hidden p-6">
+        <div className="flex-1 min-h-0 overflow-hidden p-6 rounded-md" style={{ border: '1px solid var(--color-hairline)' }}>
           <QuizModeTab />
         </div>
       )}

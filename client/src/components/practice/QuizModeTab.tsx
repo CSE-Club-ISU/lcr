@@ -102,19 +102,21 @@ export default function QuizModeTab() {
     <div className="flex h-full gap-0 min-h-0">
 
       {/* ── Sidebar ── */}
-      <div className="flex flex-col w-56 shrink-0 border-r border-border pr-4 mr-4 min-h-0">
+      <div className="flex flex-col w-60 shrink-0 pr-5 mr-5 min-h-0" style={{ borderRight: '1px solid var(--color-hairline)' }}>
         {/* Search */}
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search questions…"
-          className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[13px] text-text placeholder:text-text-faint outline-none focus:border-border-strong mb-2 shrink-0"
+          placeholder="Search…"
+          className="w-full bg-transparent rounded-md px-3 py-1.5 text-[13px] text-text placeholder:text-text-faint outline-none mb-2 shrink-0"
+          style={{ border: '1px solid var(--color-hairline-strong)' }}
         />
         {/* Type filter */}
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
-          className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-[13px] text-text outline-none focus:border-border-strong mb-3 shrink-0 cursor-pointer"
+          className="w-full bg-transparent rounded-md px-2 py-1.5 text-[13px] text-text outline-none mb-4 shrink-0 cursor-pointer"
+          style={{ border: '1px solid var(--color-hairline-strong)' }}
         >
           {TYPE_FILTER_OPTIONS.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -122,27 +124,35 @@ export default function QuizModeTab() {
         </select>
 
         {/* Question list */}
-        <div className="overflow-y-auto flex-1 flex flex-col gap-0.5">
+        <div className="overflow-y-auto flex-1 flex flex-col">
           {filtered.length === 0 ? (
             <div className="text-[12px] text-text-faint px-1 py-2">No matches.</div>
-          ) : filtered.map(question => (
-            <button
-              key={String(question.id)}
-              onClick={() => setSelectedId(question.id)}
-              className={[
-                'text-left px-2 py-2 rounded-lg text-[12px] leading-snug transition-colors cursor-pointer w-full',
-                question.id === selectedId
-                  ? 'bg-accent-soft text-accent font-semibold'
-                  : 'text-text-muted hover:bg-surface hover:text-text',
-              ].join(' ')}
-            >
-              <div className="truncate">{question.prompt}</div>
-              <div className="text-[10px] text-text-faint mt-0.5">{TYPE_LABEL[question.questionType] ?? question.questionType}</div>
-            </button>
-          ))}
+          ) : filtered.map(question => {
+            const active = question.id === selectedId;
+            return (
+              <button
+                key={String(question.id)}
+                onClick={() => setSelectedId(question.id)}
+                className="text-left px-3 py-2.5 text-[12.5px] leading-snug transition-colors cursor-pointer w-full"
+                style={{
+                  background: active ? 'rgba(245, 197, 24, 0.04)' : 'transparent',
+                  borderLeft: active ? '1px solid var(--color-gold-bright)' : '1px solid transparent',
+                  color: active ? 'var(--color-text)' : 'var(--color-text-muted)',
+                }}
+              >
+                <div className="truncate" style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontStyle: active ? 'italic' : 'normal',
+                }}>
+                  {question.prompt}
+                </div>
+                <div className="label-eyebrow mt-1" style={{ fontSize: 9 }}>{TYPE_LABEL[question.questionType] ?? question.questionType}</div>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="text-[11px] text-text-faint mt-2 shrink-0">{filtered.length} / {sorted.length} questions</div>
+        <div className="label-eyebrow mt-3 shrink-0">{filtered.length} / {sorted.length} questions</div>
       </div>
 
       {/* ── Question panel ── */}
@@ -152,13 +162,13 @@ export default function QuizModeTab() {
         </div>
       ) : (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          {/* Type badge */}
-          <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-4 shrink-0">
+          {/* Type eyebrow */}
+          <div className="label-eyebrow mb-4 shrink-0">
             {TYPE_LABEL[q.questionType] ?? q.questionType}
           </div>
 
           {/* Prompt */}
-          <div className="text-sm text-text leading-[1.7] mb-5 shrink-0 font-mono whitespace-pre-wrap">
+          <div className="text-[14px] text-text leading-[1.7] mb-6 shrink-0 mono-tabular whitespace-pre-wrap">
             {q.prompt}
           </div>
 
@@ -168,18 +178,27 @@ export default function QuizModeTab() {
               {opts.map(opt => {
                 const wasSelected = answered && submittedAnswer === opt;
                 const isRight = opt.trim().toLowerCase() === q.answer.trim().toLowerCase();
-                let cls = 'px-4 py-2.5 rounded-lg text-left text-sm font-medium border transition-colors ';
+                let bg = 'transparent';
+                let border = 'var(--color-hairline-strong)';
+                let color = 'var(--color-text)';
                 if (!answered) {
-                  cls += selected === opt
-                    ? 'bg-accent-soft border-accent text-text cursor-pointer'
-                    : 'bg-surface border-border text-text hover:bg-surface-alt cursor-pointer';
+                  if (selected === opt) {
+                    bg = 'rgba(192, 39, 45, 0.06)';
+                    border = 'var(--color-hairline-cardinal)';
+                  }
                 } else {
-                  if (isRight) cls += 'bg-green/10 border-green/40 text-green cursor-default';
-                  else if (wasSelected) cls += 'bg-red/10 border-red/40 text-red cursor-default';
-                  else cls += 'bg-surface border-border text-text-faint cursor-default opacity-60';
+                  if (isRight) { color = 'var(--color-green)'; border = 'rgba(34, 197, 94, 0.4)'; bg = 'rgba(34, 197, 94, 0.04)'; }
+                  else if (wasSelected) { color = 'var(--color-accent)'; border = 'var(--color-hairline-cardinal)'; bg = 'rgba(192, 39, 45, 0.04)'; }
+                  else { color = 'var(--color-text-faint)'; }
                 }
                 return (
-                  <button key={opt} disabled={answered} onClick={() => { setSelected(opt); submit(opt); }} className={cls}>
+                  <button
+                    key={opt}
+                    disabled={answered}
+                    onClick={() => { setSelected(opt); submit(opt); }}
+                    className="px-4 py-2.5 rounded-md text-left text-[13px] transition-colors"
+                    style={{ background: bg, border: `1px solid ${border}`, color, cursor: answered ? 'default' : 'pointer' }}
+                  >
                     {opt}
                   </button>
                 );
@@ -193,12 +212,14 @@ export default function QuizModeTab() {
                 disabled={answered}
                 maxLength={MAX_ANSWER_LEN}
                 placeholder="Type your answer…"
-                className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-faint outline-none focus:border-border-strong disabled:opacity-50 font-mono"
+                className="flex-1 bg-transparent rounded-md px-3 py-2 text-[13px] text-text placeholder:text-text-faint outline-none disabled:opacity-50 mono-tabular"
+                style={{ border: '1px solid var(--color-hairline-strong)' }}
               />
               <button
                 type="submit"
                 disabled={answered || !typed.trim()}
-                className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-editorial"
+                style={{ opacity: answered || !typed.trim() ? 0.4 : 1 }}
               >
                 Submit
               </button>
@@ -207,9 +228,20 @@ export default function QuizModeTab() {
 
           {/* Feedback */}
           {answered && (
-            <div className={`rounded-xl border p-4 mb-5 shrink-0 text-sm ${isCorrect ? 'bg-green/8 border-green/30' : 'bg-red/8 border-red/30'}`}>
-              <div className={`font-bold mb-1 ${isCorrect ? 'text-green' : 'text-red'}`}>
-                {isCorrect ? 'Correct!' : `Incorrect — the answer is "${q.answer}"`}
+            <div
+              className="rounded-md p-4 mb-5 shrink-0 text-[13px]"
+              style={{
+                background: isCorrect ? 'rgba(34, 197, 94, 0.04)' : 'rgba(192, 39, 45, 0.04)',
+                border: `1px solid ${isCorrect ? 'rgba(34, 197, 94, 0.3)' : 'var(--color-hairline-cardinal)'}`,
+              }}
+            >
+              <div className="mb-1" style={{
+                fontFamily: 'var(--font-serif)',
+                fontStyle: 'italic',
+                fontSize: 16,
+                color: isCorrect ? 'var(--color-green)' : 'var(--color-accent)',
+              }}>
+                {isCorrect ? 'Correct.' : `Incorrect — the answer is "${q.answer}"`}
               </div>
               {q.explanation && (
                 <div className="text-text-muted leading-[1.6]">{q.explanation}</div>
@@ -221,9 +253,9 @@ export default function QuizModeTab() {
           {answered && !isCorrect && (
             <button
               onClick={() => { setAnswered(false); setSelected(''); setTyped(''); setSubmitted(''); }}
-              className="self-start px-4 py-2 rounded-lg border border-border bg-surface text-text text-sm font-medium cursor-pointer hover:bg-surface-alt shrink-0"
+              className="btn-ghost self-start"
             >
-              Try Again
+              Try again
             </button>
           )}
         </div>
