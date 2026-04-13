@@ -1,12 +1,16 @@
 import type { ExecuteRequest, ExecuteResult, SandboxRequest, SandboxResult } from './types.js';
 import { generateTestFile, getFileExtension, getDockerImage, getTimeLimitMs } from './generators/index.js';
 
-const CPU_LIMIT = process.env.DOCKER_CPU_LIMIT ?? '0.5';
+// 0.5 vCPU was too tight: javac and g++ (compiling nlohmann/json) burned the
+// entire time budget on compilation alone, even for trivial solutions.
+const CPU_LIMIT = process.env.DOCKER_CPU_LIMIT ?? '1.0';
 
+// C++ at 128m OOM-killed cc1plus while compiling nlohmann/json. Bumping all
+// limits to give compilers headroom while staying well below host capacity.
 const memoryLimit: Record<string, string> = {
-  python: process.env.DOCKER_PYTHON_MEMORY ?? '128m',
-  java:   process.env.DOCKER_JAVA_MEMORY   ?? '256m',
-  cpp:    process.env.DOCKER_CPP_MEMORY    ?? '128m',
+  python: process.env.DOCKER_PYTHON_MEMORY ?? '256m',
+  java:   process.env.DOCKER_JAVA_MEMORY   ?? '512m',
+  cpp:    process.env.DOCKER_CPP_MEMORY    ?? '512m',
 };
 
 export interface ProblemData {
