@@ -17,8 +17,13 @@ build-client:
 check:
   cd client && tsc -b
 
+# Build the cpp-runner image used by the executor sandbox.
+# Lives behind a profile in docker-compose so it doesn't get started as a service.
+build-cpp-runner:
+  docker compose --profile build build cpp-runner
+
 # Start development servers (SpacetimeDB, executor, client)
-dev:
+dev: build-cpp-runner
   docker compose up -d spacetimedb auth executor client
   @echo "Services started. Open http://localhost in your browser."
 
@@ -31,7 +36,7 @@ logs:
   docker compose logs -f spacetimedb
 
 # Fresh build: clean volumes, rebuild all services, init DB
-fresh:
+fresh: build-cpp-runner
   @echo "🗑️  Removing old volumes..."
   docker compose down
   docker volume rm lcr_spacetimedb_data lcr_spacetime_config 2>/dev/null || true
@@ -41,7 +46,7 @@ fresh:
   @echo "   Open http://localhost in your browser to test the PR"
 
 # Production deployment: start backend services only (no client)
-prod:
+prod: build-cpp-runner
   docker compose up -d spacetimedb auth executor
   @echo "✓ Backend services started (spacetimedb, auth, executor)"
 
