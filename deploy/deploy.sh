@@ -5,7 +5,7 @@ set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"
-INSTANCE_TYPE="t3.large"
+INSTANCE_TYPE="t4g.large"
 AMI_ID=""          # auto-detected below
 KEY_NAME=""        # required — set via --key-name or KEY_NAME env var
 SG_NAME="lcr-sg"
@@ -44,7 +44,7 @@ AMI_ID=$(aws ec2 describe-images \
   --region "$REGION" \
   --owners 099720109477 \
   --filters \
-    "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" \
+    "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*" \
     "Name=state,Values=available" \
   --query "sort_by(Images, &CreationDate)[-1].ImageId" \
   --output text)
