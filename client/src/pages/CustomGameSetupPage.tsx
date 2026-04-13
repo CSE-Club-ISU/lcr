@@ -9,8 +9,16 @@ import {
 } from "../types/roomSettings";
 import CustomGameSettingsForm from "../components/CustomGameSettingsForm";
 
+// `crypto.randomUUID` only exists in secure contexts (HTTPS or localhost); the
+// club deploy is plain HTTP on a public IP, so it's unavailable there. A join
+// code just needs to be a short random alphanumeric string — Math.random is fine.
 function randomCode(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  }
+  return out;
 }
 
 export default function CustomGameSetupPage() {

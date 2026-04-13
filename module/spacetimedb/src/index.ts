@@ -729,6 +729,83 @@ export const seed_quiz_questions = spacetimedb.reducer({}, (ctx) => {
   }
 });
 
+const QUIZ_QUESTION_ARGS = {
+  question_type: t.string(),   // "mcq" | "tf" | "code_fill"
+  prompt:        t.string(),
+  options:       t.string(),   // JSON array string; "[]" for non-MCQ
+  answer:        t.string(),
+  explanation:   t.string(),
+};
+
+const MAX_QUIZ_PROMPT_BYTES      = 1000;
+const MAX_QUIZ_OPTIONS_BYTES     = 1000;
+const MAX_QUIZ_ANSWER_FIELD_BYTES = 500;
+const MAX_QUIZ_EXPLANATION_BYTES = 1500;
+
+function validateQuizQuestion(args: {
+  question_type: string; prompt: string; options: string; answer: string; explanation: string;
+}) {
+  if (args.question_type !== 'mcq' && args.question_type !== 'tf' && args.question_type !== 'code_fill') {
+    throw new SenderError('question_type must be "mcq", "tf", or "code_fill"');
+  }
+  if (!args.prompt.trim())  throw new SenderError('prompt is required');
+  if (!args.answer.trim())  throw new SenderError('answer is required');
+  if (args.prompt.length      > MAX_QUIZ_PROMPT_BYTES)       throw new SenderError('prompt too long');
+  if (args.options.length     > MAX_QUIZ_OPTIONS_BYTES)      throw new SenderError('options too long');
+  if (args.answer.length      > MAX_QUIZ_ANSWER_FIELD_BYTES) throw new SenderError('answer too long');
+  if (args.explanation.length > MAX_QUIZ_EXPLANATION_BYTES)  throw new SenderError('explanation too long');
+  if (args.question_type === 'mcq') {
+    try {
+      const opts = JSON.parse(args.options);
+      if (!Array.isArray(opts) || opts.length < 2) throw new Error('need array of ≥2 options');
+      if (!opts.includes(args.answer)) throw new SenderError('answer must be one of the options');
+    } catch (e) {
+      if (e instanceof SenderError) throw e;
+      throw new SenderError('options must be a JSON array of strings for MCQ');
+    }
+  }
+}
+
+// Create a new quiz question — admin only.
+export const insert_quiz_question = spacetimedb.reducer(QUIZ_QUESTION_ARGS, (ctx, args) => {
+  const caller = ctx.db.user.identity.find(ctx.sender);
+  if (!caller?.is_admin) throw new SenderError('Unauthorized');
+  validateQuizQuestion(args);
+  ctx.db.quiz_question.insert({
+    id:            0n,
+    question_type: args.question_type,
+    prompt:        args.prompt,
+    options:       args.options,
+    answer:        args.answer,
+    explanation:   args.explanation,
+  });
+});
+
+// Update an existing quiz question — admin only.
+export const update_quiz_question = spacetimedb.reducer(
+  { id: t.u64(), ...QUIZ_QUESTION_ARGS },
+  (ctx, { id, ...args }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const q = ctx.db.quiz_question.id.find(id);
+    if (!q) throw new SenderError('Question not found');
+    validateQuizQuestion(args);
+    ctx.db.quiz_question.id.update({ ...q, ...args });
+  }
+);
+
+// Delete a quiz question — admin only.
+export const delete_quiz_question = spacetimedb.reducer(
+  { id: t.u64() },
+  (ctx, { id }) => {
+    const caller = ctx.db.user.identity.find(ctx.sender);
+    if (!caller?.is_admin) throw new SenderError('Unauthorized');
+    const q = ctx.db.quiz_question.id.find(id);
+    if (!q) throw new SenderError('Question not found');
+    ctx.db.quiz_question.id.delete(id);
+  }
+);
+
 // ---------------------------------------------------------------------------
 // Quiz mini-game
 // ---------------------------------------------------------------------------

@@ -41,9 +41,11 @@ import ClaimFirstAdminReducer from "./claim_first_admin_reducer";
 import ClearSabotageEventReducer from "./clear_sabotage_event_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import DeleteProblemReducer from "./delete_problem_reducer";
+import DeleteQuizQuestionReducer from "./delete_quiz_question_reducer";
 import ExpireGameReducer from "./expire_game_reducer";
 import ForfeitReducer from "./forfeit_reducer";
 import InsertProblemReducer from "./insert_problem_reducer";
+import InsertQuizQuestionReducer from "./insert_quiz_question_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
 import JoinRoomReducer from "./join_room_reducer";
 import LeaveQueueReducer from "./leave_queue_reducer";
@@ -61,6 +63,7 @@ import SetReadyReducer from "./set_ready_reducer";
 import StartGameReducer from "./start_game_reducer";
 import SubmitResultReducer from "./submit_result_reducer";
 import UpdateProblemReducer from "./update_problem_reducer";
+import UpdateQuizQuestionReducer from "./update_quiz_question_reducer";
 import UpdateRoomSettingsReducer from "./update_room_settings_reducer";
 import UseAbilityReducer from "./use_ability_reducer";
 import UsePowerupReducer from "./use_powerup_reducer";
@@ -258,9 +261,11 @@ const reducersSchema = __reducers(
   __reducerSchema("clear_sabotage_event", ClearSabotageEventReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("delete_problem", DeleteProblemReducer),
+  __reducerSchema("delete_quiz_question", DeleteQuizQuestionReducer),
   __reducerSchema("expire_game", ExpireGameReducer),
   __reducerSchema("forfeit", ForfeitReducer),
   __reducerSchema("insert_problem", InsertProblemReducer),
+  __reducerSchema("insert_quiz_question", InsertQuizQuestionReducer),
   __reducerSchema("join_queue", JoinQueueReducer),
   __reducerSchema("join_room", JoinRoomReducer),
   __reducerSchema("leave_queue", LeaveQueueReducer),
@@ -278,6 +283,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_game", StartGameReducer),
   __reducerSchema("submit_result", SubmitResultReducer),
   __reducerSchema("update_problem", UpdateProblemReducer),
+  __reducerSchema("update_quiz_question", UpdateQuizQuestionReducer),
   __reducerSchema("update_room_settings", UpdateRoomSettingsReducer),
   __reducerSchema("use_ability", UseAbilityReducer),
   __reducerSchema("use_powerup", UsePowerupReducer),
