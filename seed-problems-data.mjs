@@ -2253,7 +2253,7 @@ export const problems = [
     sample_test_cases: '["egg","add"]|["badc","baba"]|["a","b"]',
     sample_test_results: 'true|false|true',
     hidden_test_cases: '["egg","add"]|["badc","baba"]|["a","b"]|["aa","ab"]|["ab","aa"]|["",""]|["abb","cdc"]|["bcgb","bdeg"]',
-    hidden_test_results: 'true|false|true|false|false|true|true|false',
+    hidden_test_results: 'true|false|true|false|false|true|false|false',
     boilerplate_python: 'def isomorphic_strings(s: str, t: str) -> bool:\n    # Your code here\n    pass',
     boilerplate_java: 'public boolean isomorphic_strings(String s, String t) {\n    // Your code here\n    return false;\n}',
     boilerplate_cpp: 'bool isomorphic_strings(string s, string t) {\n    // Your code here\n    return false;\n}',
