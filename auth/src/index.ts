@@ -25,7 +25,7 @@ function requireEnv(name: string): string {
 
 const GITHUB_CLIENT_ID     = requireEnv('GITHUB_CLIENT_ID');
 const GITHUB_CLIENT_SECRET = requireEnv('GITHUB_CLIENT_SECRET');
-const AUTH_SERVER_URL      = process.env.AUTH_SERVER_URL   ?? 'http://localhost:4000';
+const AUTH_CALLBACK_URL    = process.env.AUTH_REDIRECT_URI ? new URL(process.env.AUTH_REDIRECT_URI).origin + '/callback' : 'http://localhost:4000/callback';
 const CLIENT_CALLBACK_URL  = process.env.AUTH_REDIRECT_URI ?? 'http://localhost:5173/auth/callback';
 const SPACETIMEDB_URL      = process.env.SPACETIMEDB_URL   ?? 'http://spacetimedb:3000';
 
@@ -44,7 +44,7 @@ app.get('/authorize', (c) => {
 
   const params = new URLSearchParams({
     client_id:     GITHUB_CLIENT_ID,
-    redirect_uri:  `${AUTH_SERVER_URL}/callback`,
+    redirect_uri:  AUTH_CALLBACK_URL,
     scope:         'read:user user:email',
     response_type: 'code',
   });
@@ -73,7 +73,7 @@ app.get('/callback', async (c) => {
       client_id:     GITHUB_CLIENT_ID,
       client_secret: GITHUB_CLIENT_SECRET,
       code,
-      redirect_uri:  `${AUTH_SERVER_URL}/callback`,
+      redirect_uri:  AUTH_CALLBACK_URL,
     }),
   });
 
@@ -195,7 +195,8 @@ app.post('/guest', async (c) => {
 const port = parseInt(process.env.PORT ?? '4000');
 console.log(`Auth server listening on port ${port}`);
 console.log(`  SpacetimeDB: ${SPACETIMEDB_URL}`);
-console.log(`  Client callback: ${CLIENT_CALLBACK_URL}`);
+console.log(`  Auth callback (GitHub → auth): ${AUTH_CALLBACK_URL}`);
+console.log(`  Client callback (auth → client): ${CLIENT_CALLBACK_URL}`);
 
 export default {
   port,
